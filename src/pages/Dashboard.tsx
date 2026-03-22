@@ -2,12 +2,11 @@ import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTrian
 import { useDashboard } from '@/hooks/useDashboard'
 import { useOffers } from '@/hooks/useOffers'
 import { useCreatives } from '@/hooks/useCreatives'
+import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { formatCurrency, formatROAS, getDaysSince } from '@/lib/formatters'
 import { COUNTRIES } from '@/lib/constants'
-
-const MONTHLY_TARGET = 5000
 
 function Mono({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return <span style={{ fontFamily: 'JetBrains Mono, monospace', ...style }} className={className}>{children}</span>
@@ -48,6 +47,7 @@ export default function Dashboard() {
   const { metrics, isLoading } = useDashboard()
   const { offers } = useOffers()
   const { creatives } = useCreatives()
+  const { monthlyTarget } = useSettings()
   const { profile, user } = useAuth()
 
   const greeting = () => {
@@ -61,7 +61,7 @@ export default function Dashboard() {
 
   const activeOffers = offers.filter(o => o.status === 'active')
   const activeCreatives = creatives.filter(c => c.status === 'active')
-  const targetPct = Math.min((metrics.revenueMtd / MONTHLY_TARGET) * 100, 100)
+  const targetPct = Math.min((metrics.revenueMtd / monthlyTarget) * 100, 100)
 
   // Group WA accounts by BM
   const bmGroups: Record<string, typeof metrics.waAccounts.list> = {}
@@ -221,7 +221,7 @@ export default function Dashboard() {
           {/* Big number */}
           <div>
             <Mono className="text-3xl font-bold" style={{ color: '#22C55E' }}>
-              {formatCurrency(MONTHLY_TARGET)}
+              {formatCurrency(monthlyTarget)}
             </Mono>
             <p className="text-[10px] text-slate-400 uppercase tracking-wider">Objetivo mensual</p>
           </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package } from 'lucide-react'
+import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -138,6 +138,125 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
   )
 }
 
+function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  onUpdate: ReturnType<typeof useOffers>['update']
+  offer: Offer
+}) {
+  const [form, setForm] = useState({
+    name: offer.name,
+    country: offer.country,
+    channel: offer.channel,
+    start_date: offer.start_date,
+    status: offer.status,
+    target_roas: offer.target_roas != null ? String(offer.target_roas) : '',
+    target_cpl: offer.target_cpl != null ? String(offer.target_cpl) : '',
+    current_roas: offer.current_roas != null ? String(offer.current_roas) : '',
+    current_cpl: offer.current_cpl != null ? String(offer.current_cpl) : '',
+  })
+  const [isLoading, setIsLoading] = useState(false)
+
+  function set(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setIsLoading(true)
+    const { error } = await onUpdate(offer.id, {
+      name: form.name,
+      country: form.country,
+      channel: form.channel as Offer['channel'],
+      start_date: form.start_date,
+      status: form.status as Offer['status'],
+      target_roas: form.target_roas ? Number(form.target_roas) : null,
+      target_cpl: form.target_cpl ? Number(form.target_cpl) : null,
+      current_roas: form.current_roas ? Number(form.current_roas) : null,
+      current_cpl: form.current_cpl ? Number(form.current_cpl) : null,
+    })
+    setIsLoading(false)
+    if (error) { toast.error(error); return }
+    toast.success('Oferta actualizada')
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Editar oferta</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Nombre *</Label>
+            <Input value={form.name} onChange={e => set('name', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>País</Label>
+              <Select value={form.country} onValueChange={v => set('country', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Canal</Label>
+              <Select value={form.channel} onValueChange={v => set('channel', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Fecha de inicio</Label>
+              <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Estado</Label>
+              <Select value={form.status} onValueChange={v => set('status', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Activa</SelectItem>
+                  <SelectItem value="paused">Pausada</SelectItem>
+                  <SelectItem value="archived">Archivada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>ROAS objetivo</Label>
+              <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ROAS actual</Label>
+              <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>CPL objetivo (USD)</Label>
+              <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>CPL actual (USD)</Label>
+              <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isLoading}>
+              {isLoading ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -222,11 +341,12 @@ function AssetIcon({ type }: { type: string | null }) {
 }
 
 export default function Pipeline() {
-  const { offers, isLoading: loadingOffers, create: createOffer, archive } = useOffers()
+  const { offers, isLoading: loadingOffers, create: createOffer, update: updateOffer, archive } = useOffers()
   const { creatives, isLoading: loadingCreatives, create: createCreative, retire } = useCreatives()
   const { profile } = useAuth()
   const [addOfferOpen, setAddOfferOpen] = useState(false)
   const [addCreativeOpen, setAddCreativeOpen] = useState(false)
+  const [editingOffer, setEditingOffer] = useState<Offer | null>(null)
   const [statusFilter, setStatusFilter] = useState<'active' | 'paused' | 'archived' | 'all'>('active')
 
   const canWrite = profile?.role === 'admin' || profile?.role === 'tech'
@@ -353,6 +473,9 @@ export default function Pipeline() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setEditingOffer(offer)}>
+                                  <Pencil size={13} className="mr-2" /> Editar
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-amber-700"
                                   onClick={async () => {
@@ -441,6 +564,14 @@ export default function Pipeline() {
 
       <AddOfferDialog open={addOfferOpen} onOpenChange={setAddOfferOpen} onCreate={createOffer} />
       <AddCreativeDialog open={addCreativeOpen} onOpenChange={setAddCreativeOpen} onCreate={createCreative} offers={offers} />
+      {editingOffer && (
+        <EditOfferDialog
+          open={!!editingOffer}
+          onOpenChange={v => { if (!v) setEditingOffer(null) }}
+          onUpdate={updateOffer}
+          offer={editingOffer}
+        />
+      )}
     </div>
   )
 }

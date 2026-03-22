@@ -8,6 +8,7 @@ import MetaAssets from '@/pages/MetaAssets'
 import Financial from '@/pages/Financial'
 import Pipeline from '@/pages/Pipeline'
 import Team from '@/pages/Team'
+import Settings from '@/pages/Settings'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useAuth()
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/financial" element={<Financial />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

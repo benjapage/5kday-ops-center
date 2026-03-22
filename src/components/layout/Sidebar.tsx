@@ -4,6 +4,7 @@ import {
   DollarSign,
   TrendingUp,
   Users,
+  Settings2,
   LogOut,
 } from 'lucide-react'
 import { Logo } from './Logo'
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/financial', label: 'Financiero', Icon: DollarSign },
   { to: '/pipeline', label: 'Pipeline', Icon: TrendingUp },
   { to: '/team', label: 'Equipo', Icon: Users },
+  { to: '/settings', label: 'Configuración', Icon: Settings2 },
 ]
 
 export function Sidebar() {
