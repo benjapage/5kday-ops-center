@@ -26,7 +26,28 @@
       "Bash(cd:*)",
       "Bash(gh auth:*)",
       "Bash(vercel login:*)",
-      "Bash(vercel --prod --yes)"
+      "Bash(vercel --prod --yes)",
+      "Bash(winget install:*)",
+      "Bash(powershell -c \"Invoke-WebRequest -Uri 'https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_windows_amd64.msi' -OutFile 'C:/Users/Usuario/AppData/Local/Temp/gh.msi'; Start-Process msiexec -ArgumentList '/i C:/Users/Usuario/AppData/Local/Temp/gh.msi /quiet /norestart' -Wait; Write-Host 'done'\" 2>&1)",
+      "Bash(powershell -c \"& 'C:/Program Files/GitHub CLI/gh.exe' --version\" 2>&1)",
+      "Bash(powershell -c \"Get-ChildItem ''C:/Program Files/'' | Where-Object { $_.Name -like ''*GitHub*'' }\")",
+      "Bash(powershell -c \"Get-ChildItem ''C:/Program Files \\(x86\\)/'' | Where-Object { $_.Name -like ''*GitHub*'' }\")",
+      "Bash(powershell -c \"Get-ChildItem -Path 'C:/Users/Usuario/AppData/Local/' | Where-Object { \\\\$_.Name -like '*GitHub*' }\" 2>&1)",
+      "Bash(powershell -c \"\n\\\\$url = 'https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_windows_amd64.zip'\n\\\\$zip = 'C:/Users/Usuario/AppData/Local/Temp/gh.zip'\n\\\\$out = 'C:/Users/Usuario/AppData/Local/gh-cli'\nInvoke-WebRequest -Uri \\\\$url -OutFile \\\\$zip\nExpand-Archive -Path \\\\$zip -DestinationPath \\\\$out -Force\nGet-ChildItem \\\\$out -Recurse -Filter 'gh.exe' | Select-Object FullName\n\" 2>&1)",
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\")",
+      "Bash(\"$GH\" --version)",
+      "Bash(\"$GH\" auth:*)",
+      "Bash(vercel git:*)",
+      "Bash(\"$GH\" repo:*)",
+      "Bash(printf 'y\\\\n')",
+      "Bash(powershell -c \"Get-Content \\(Join-Path $env:APPDATA ''com.vercel.cli/auth.json''\\)\")",
+      "Bash(powershell -c \"Get-ChildItem -Path $env:APPDATA -Recurse -Filter ''auth.json'' -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like ''*vercel*'' } | Select-Object FullName\")",
+      "Bash(powershell -c \"Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter ''auth.json'' -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like ''*vercel*'' } | Select-Object FullName\")",
+      "Bash(powershell -c \"vercel whoami\")",
+      "Bash(vercel whoami:*)",
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" TOKEN=\"vca_6HVCLFIAmBVViwQrA9e3iGL81XzVZR9QGobVheSR4yRE0y8Cgb3UdvtZ\" ORG_ID=\"team_cxEF79qjMZ7AXMaeIfaov4y7\" PROJECT_ID=\"prj_BzBbUo2It5GQIDVXhA2BM6eRvb2C\" __NEW_LINE_39a6b0fe5b04d0e6__ echo \"$TOKEN\")",
+      "Bash(\"$GH\" secret:*)",
+      "Bash(1 echo:*)"
     ]
   }
 }
