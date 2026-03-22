@@ -23,7 +23,10 @@
       "Bash(python3:*)",
       "Bash(grep -r \"sb_secret\\\\|service_role\\\\|SERVICE_ROLE\\\\|SUPABASE_SERVICE\" C:/Users/Usuario/Desktop/5kday-ops-center/ --include=*.env* --include=*.json --include=*.ts --include=*.js --exclude-dir=node_modules)",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(gh auth:*)",
+      "Bash(vercel login:*)",
+      "Bash(vercel --prod --yes)"
     ]
   }
 }

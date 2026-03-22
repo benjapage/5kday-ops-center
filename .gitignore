@@ -30,3 +30,5 @@ pw_*.cjs
 pw_*.js
 *.png
 *.db
+
+.vercel
