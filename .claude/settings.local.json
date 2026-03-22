@@ -47,7 +47,9 @@
       "Bash(vercel whoami:*)",
       "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" TOKEN=\"vca_6HVCLFIAmBVViwQrA9e3iGL81XzVZR9QGobVheSR4yRE0y8Cgb3UdvtZ\" ORG_ID=\"team_cxEF79qjMZ7AXMaeIfaov4y7\" PROJECT_ID=\"prj_BzBbUo2It5GQIDVXhA2BM6eRvb2C\" __NEW_LINE_39a6b0fe5b04d0e6__ echo \"$TOKEN\")",
       "Bash(\"$GH\" secret:*)",
-      "Bash(1 echo:*)"
+      "Bash(1 echo:*)",
+      "Bash(\"$GH\" run:*)",
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23409867401 --log-failed --repo benjapage/5kday-ops-center)"
     ]
   }
 }
