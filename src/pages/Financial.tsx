@@ -207,8 +207,9 @@ export default function Financial() {
                               size="icon"
                               className="h-7 w-7 text-slate-400 hover:text-red-500"
                               onClick={() => handleDeleteExpense(expense.id)}
+                              aria-label={`Eliminar gasto del ${formatDate(expense.expense_date)}`}
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={13} aria-hidden="true" />
                             </Button>
                           </TableCell>
                         )}

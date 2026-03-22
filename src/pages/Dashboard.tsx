@@ -9,7 +9,7 @@ import { formatCurrency, formatROAS, getDaysSince } from '@/lib/formatters'
 import { COUNTRIES } from '@/lib/constants'
 
 function Mono({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
-  return <span style={{ fontFamily: 'JetBrains Mono, monospace', ...style }} className={className}>{children}</span>
+  return <span style={style} className={`font-mono ${className}`}>{children}</span>
 }
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -38,7 +38,7 @@ function WarmingBar({ startDate, status }: { startDate: string; status: string }
       <div className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: '#F59E0B' }} />
       </div>
-      <span className="text-[10px]" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#F59E0B' }}>{days}/7d</span>
+      <span className="text-[10px] font-mono" style={{ color: '#F59E0B' }}>{days}/7d</span>
     </div>
   )
 }

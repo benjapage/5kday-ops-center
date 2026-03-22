@@ -50,7 +50,7 @@ export default function Login() {
             <h1 className="text-xl font-semibold text-center">Iniciar sesión</h1>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" aria-label="Formulario de inicio de sesión">
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -61,6 +61,7 @@ export default function Login() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
+                  aria-describedby={error ? 'login-error' : undefined}
                 />
               </div>
 
@@ -74,11 +75,12 @@ export default function Login() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
+                  aria-describedby={error ? 'login-error' : undefined}
                 />
               </div>
 
               {error && (
-                <p className="text-sm text-red-500 text-center">{error}</p>
+                <p id="login-error" role="alert" className="text-sm text-red-500 text-center">{error}</p>
               )}
 
               <Button

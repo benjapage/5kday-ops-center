@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw } from 'lucide-react'
+import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -7,6 +7,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { StatusIndicator } from '@/components/shared/StatusIndicator'
 import { WarmingProgress } from './WarmingProgress'
@@ -18,7 +19,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { COUNTRIES } from '@/lib/constants'
 import { formatDate } from '@/lib/formatters'
 import { toast } from 'sonner'
-import { Smartphone } from 'lucide-react'
 import type { Database } from '@/types/database.types'
 
 type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
@@ -41,10 +41,16 @@ export function WaAccountTable() {
     return COUNTRIES.find(c => c.code === code)?.flag ?? '🌍'
   }
 
+  const STATUS_LABELS: Record<string, string> = {
+    warming: 'calentando',
+    active: 'activo',
+    banned: 'baneado',
+  }
+
   async function handleStatusChange(account: WaAccount, newStatus: 'warming' | 'active' | 'banned') {
     const { error } = await setStatus(account.id, newStatus)
     if (error) toast.error(error)
-    else toast.success(`Estado actualizado a "${newStatus}"`)
+    else toast.success(`Estado actualizado a "${STATUS_LABELS[newStatus] ?? newStatus}"`)
   }
 
   async function handleDelete(account: WaAccount) {
@@ -65,11 +71,12 @@ export function WaAccountTable() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="group" aria-label="Filtrar por estado">
           {filters.map(f => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
+              aria-pressed={filter === f.value}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 filter === f.value
                   ? 'text-white'
@@ -243,28 +250,28 @@ export function WaAccountTable() {
       )}
 
       {/* Confirm delete */}
-      {confirmDelete && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
-            <h3 className="font-semibold text-slate-800 mb-2">¿Eliminar cuenta?</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Vas a eliminar <strong>{confirmDelete.phone_number}</strong>. Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                className="bg-red-500 hover:bg-red-600 text-white"
-                onClick={() => handleDelete(confirmDelete)}
-              >
-                Eliminar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Eliminar cuenta?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500">
+            Vas a eliminar <strong>{confirmDelete?.phone_number}</strong>. Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => confirmDelete && handleDelete(confirmDelete)}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

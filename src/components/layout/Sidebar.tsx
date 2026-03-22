@@ -33,6 +33,7 @@ export function Sidebar() {
     <aside
       className="fixed left-0 top-0 h-screen w-64 flex flex-col z-40"
       style={{ backgroundColor: '#0B1A2E' }}
+      aria-label="Barra lateral"
     >
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
@@ -41,7 +42,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 space-y-1">
+      <nav className="flex-1 py-4 space-y-1" aria-label="Navegación principal">
         {NAV_ITEMS.map(item => (
           <NavItem key={item.to} {...item} />
         ))}
@@ -67,9 +68,10 @@ export function Sidebar() {
         </div>
         <button
           onClick={signOut}
+          aria-label="Cerrar sesión"
           className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors w-full"
         >
-          <LogOut size={14} />
+          <LogOut size={14} aria-hidden="true" />
           <span>Cerrar sesión</span>
         </button>
       </div>

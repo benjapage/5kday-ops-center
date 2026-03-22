@@ -21,10 +21,9 @@ export function useTeam() {
   const { logAction } = useActivityLog()
   const { profile } = useAuth()
 
-  const today = new Date().toISOString().split('T')[0]
-
   async function fetchAll() {
     setIsLoading(true)
+    const today = new Date().toISOString().split('T')[0]
 
     const [membersRes, checklistsRes, itemsRes, completionsRes, driveRes] = await Promise.all([
       supabase.from('profiles').select('*').order('role').order('full_name'),
@@ -50,9 +49,9 @@ export function useTeam() {
         .map(item => ({ ...item, completedToday: completedItemIds.has(item.id) })),
     }))
 
-    setMembers(membersRes.data ?? [])
+    if (!membersRes.error) setMembers(membersRes.data ?? [])
     setChecklists(checklistsWithItems)
-    setDriveLinks(driveRes.data ?? [])
+    if (!driveRes.error) setDriveLinks(driveRes.data ?? [])
     setIsLoading(false)
   }
 
@@ -69,6 +68,7 @@ export function useTeam() {
 
   async function toggleChecklistItem(itemId: string, currentlyCompleted: boolean): Promise<void> {
     if (!profile) return
+    const today = new Date().toISOString().split('T')[0]
     if (currentlyCompleted) {
       await supabase
         .from('checklist_completions')

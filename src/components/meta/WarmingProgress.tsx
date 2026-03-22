@@ -28,8 +28,11 @@ export function WarmingProgress({ startDate, status }: WarmingProgressProps) {
   return (
     <div className="flex items-center gap-2 min-w-[120px]">
       <Progress value={progress} className="h-1.5 flex-1" />
-      <span className={`text-xs font-medium whitespace-nowrap ${isReady ? 'text-green-600' : 'text-amber-600'}`}>
-        {isReady ? '✓ Listo' : `Día ${Math.min(days, WA_WARMING_DAYS)}/${WA_WARMING_DAYS}`}
+      <span
+        className={`text-xs font-medium whitespace-nowrap font-mono ${isReady ? 'text-green-600' : 'text-amber-600'}`}
+        aria-label={isReady ? 'Calentamiento completo' : `Día ${Math.min(days, WA_WARMING_DAYS)} de ${WA_WARMING_DAYS}`}
+      >
+        {isReady ? 'Listo' : `${Math.min(days, WA_WARMING_DAYS)}/${WA_WARMING_DAYS}d`}
       </span>
     </div>
   )

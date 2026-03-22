@@ -6,7 +6,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F8FAFC' }}>
       <Sidebar />
-      <main className="ml-64 min-h-screen">
+      <main className="ml-64 min-h-screen" role="main" aria-label="Contenido principal">
         <div className="p-6">
           <Outlet />
         </div>

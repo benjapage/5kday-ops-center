@@ -39,17 +39,17 @@ export function ActivityFeed({ limit = 10 }: ActivityFeedProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetch() {
-      const { data } = await supabase
+    async function fetchEntries() {
+      const { data, error } = await supabase
         .from('activity_log')
         .select('*, profiles(full_name, role)')
         .order('created_at', { ascending: false })
         .limit(limit)
 
-      setEntries((data as ActivityEntry[]) ?? [])
+      if (!error) setEntries((data as ActivityEntry[]) ?? [])
       setIsLoading(false)
     }
-    fetch()
+    fetchEntries()
   }, [limit])
 
   if (isLoading) return <LoadingSpinner />

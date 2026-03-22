@@ -15,11 +15,11 @@ export function useCreatives() {
 
   async function fetchAll() {
     setIsLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('creatives')
       .select('*')
       .order('created_at', { ascending: false })
-    setCreatives(data ?? [])
+    if (!error) setCreatives(data ?? [])
     setIsLoading(false)
   }
 

@@ -12,13 +12,17 @@ export function useActivityLog() {
   ) {
     if (!profile) return
 
-    await supabase.from('activity_log').insert({
-      user_id: profile.id,
-      action,
-      entity_type: entityType,
-      entity_id: entityId ?? null,
-      metadata: metadata ?? null,
-    })
+    try {
+      await supabase.from('activity_log').insert({
+        user_id: profile.id,
+        action,
+        entity_type: entityType,
+        entity_id: entityId ?? null,
+        metadata: metadata ?? null,
+      })
+    } catch {
+      // Activity logging is non-critical — fail silently
+    }
   }
 
   return { logAction }

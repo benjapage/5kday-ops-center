@@ -37,23 +37,23 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
   const fetchAll = useCallback(async () => {
     setIsLoading(true)
 
-    const pnlQuery = supabase.from('daily_pnl').select('*').order('date', { ascending: false })
-    if (dateFrom) pnlQuery.gte('date', dateFrom)
-    if (dateTo) pnlQuery.lte('date', dateTo)
+    let pnlQuery = supabase.from('daily_pnl').select('*').order('date', { ascending: false })
+    if (dateFrom) pnlQuery = pnlQuery.gte('date', dateFrom)
+    if (dateTo) pnlQuery = pnlQuery.lte('date', dateTo)
 
-    const expQuery = supabase.from('expenses').select('*').order('expense_date', { ascending: false })
-    if (dateFrom) expQuery.gte('expense_date', dateFrom)
-    if (dateTo) expQuery.lte('expense_date', dateTo)
+    let expQuery = supabase.from('expenses').select('*').order('expense_date', { ascending: false })
+    if (dateFrom) expQuery = expQuery.gte('expense_date', dateFrom)
+    if (dateTo) expQuery = expQuery.lte('expense_date', dateTo)
 
-    const revQuery = supabase.from('revenue_entries').select('*').order('revenue_date', { ascending: false })
-    if (dateFrom) revQuery.gte('revenue_date', dateFrom)
-    if (dateTo) revQuery.lte('revenue_date', dateTo)
+    let revQuery = supabase.from('revenue_entries').select('*').order('revenue_date', { ascending: false })
+    if (dateFrom) revQuery = revQuery.gte('revenue_date', dateFrom)
+    if (dateTo) revQuery = revQuery.lte('revenue_date', dateTo)
 
     const [pnlRes, expRes, revRes] = await Promise.all([pnlQuery, expQuery, revQuery])
 
-    setDailyPnl(pnlRes.data ?? [])
-    setExpenses(expRes.data ?? [])
-    setRevenues(revRes.data ?? [])
+    if (!pnlRes.error) setDailyPnl(pnlRes.data ?? [])
+    if (!expRes.error) setExpenses(expRes.data ?? [])
+    if (!revRes.error) setRevenues(revRes.data ?? [])
     setIsLoading(false)
   }, [dateFrom, dateTo])
 

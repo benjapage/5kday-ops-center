@@ -36,14 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Profile not found — auto-create for first-time setup
     if (error?.code === 'PGRST116') {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const { data: authData } = await supabase.auth.getUser()
+      const authUser = authData?.user
+      if (authUser) {
         const { data: newProfile } = await supabase
           .from('profiles')
           .upsert({
             id: userId,
-            email: user.email ?? '',
-            full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? '',
+            email: authUser.email ?? '',
+            full_name: authUser.user_metadata?.full_name ?? authUser.email?.split('@')[0] ?? '',
             role: 'admin',
           }, { onConflict: 'id' })
           .select()

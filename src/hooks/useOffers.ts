@@ -16,12 +16,12 @@ export function useOffers() {
 
   async function fetchAll() {
     setIsLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('offers')
       .select('*')
       .order('status')
       .order('start_date', { ascending: false })
-    setOffers(data ?? [])
+    if (!error) setOffers(data ?? [])
     setIsLoading(false)
   }
 

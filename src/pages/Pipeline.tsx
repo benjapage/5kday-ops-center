@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -156,6 +156,21 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
     current_cpl: offer.current_cpl != null ? String(offer.current_cpl) : '',
   })
   const [isLoading, setIsLoading] = useState(false)
+
+  // Reset form when a different offer is opened
+  useEffect(() => {
+    setForm({
+      name: offer.name,
+      country: offer.country,
+      channel: offer.channel,
+      start_date: offer.start_date,
+      status: offer.status,
+      target_roas: offer.target_roas != null ? String(offer.target_roas) : '',
+      target_cpl: offer.target_cpl != null ? String(offer.target_cpl) : '',
+      current_roas: offer.current_roas != null ? String(offer.current_roas) : '',
+      current_cpl: offer.current_cpl != null ? String(offer.current_cpl) : '',
+    })
+  }, [offer])
 
   function set(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
 
@@ -398,17 +413,21 @@ export default function Pipeline() {
 
         <TabsContent value="offers">
           {/* Filter */}
-          <div className="flex gap-1 mb-4">
-            {(['active', 'paused', 'archived', 'all'] as const).map(f => (
+          <div className="flex gap-1 mb-4" role="group" aria-label="Filtrar por estado">
+            {(['active', 'paused', 'archived', 'all'] as const).map(f => {
+              const label = f === 'active' ? 'Activas' : f === 'paused' ? 'Pausadas' : f === 'archived' ? 'Archivadas' : 'Todas'
+              return (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
+                aria-pressed={statusFilter === f}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${statusFilter === f ? 'text-white' : 'text-slate-600 bg-white border border-slate-200 hover:bg-slate-50'}`}
                 style={statusFilter === f ? { backgroundColor: '#0B1A2E' } : {}}
               >
-                {f === 'active' ? 'Activas' : f === 'paused' ? 'Pausadas' : f === 'archived' ? 'Archivadas' : 'Todas'}
+                {label}
               </button>
-            ))}
+              )
+            })}
           </div>
 
           <Card className="shadow-sm border-slate-200">

@@ -327,8 +327,11 @@ export default function Team() {
                             <input
                               type="checkbox"
                               checked={item.completedToday}
-                              onChange={() => toggleChecklistItem(item.id, item.completedToday)}
+                              onChange={async () => {
+                                await toggleChecklistItem(item.id, item.completedToday)
+                              }}
                               className="h-4 w-4 rounded border-slate-300 accent-emerald-500"
+                              aria-label={item.label}
                             />
                             <span className={`text-sm ${item.completedToday ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                               {item.label}
@@ -373,13 +376,14 @@ export default function Team() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-slate-300 hover:text-red-500 flex-shrink-0"
+                          aria-label={`Eliminar link ${link.title}`}
                           onClick={async () => {
                             const { error } = await deleteDriveLink(link.id)
                             if (error) toast.error(error)
                             else toast.success('Link eliminado')
                           }}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={12} aria-hidden="true" />
                         </Button>
                       )}
                     </div>
