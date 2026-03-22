@@ -1,0 +1,187 @@
+import { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { COUNTRIES } from '@/lib/constants'
+import { toast } from 'sonner'
+import type { useWaAccounts } from '@/hooks/useWaAccounts'
+
+interface AddWaAccountDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreate: ReturnType<typeof useWaAccounts>['create']
+}
+
+export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccountDialogProps) {
+  const today = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({
+    phone_number: '',
+    country: '',
+    start_date: today,
+    bm_id: '',
+    bm_link_url: '',
+    manychat_name: '',
+    manychat_url: '',
+    notes: '',
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  function set(key: string, value: string) {
+    setForm(prev => ({ ...prev, [key]: value }))
+    if (errors[key]) setErrors(prev => ({ ...prev, [key]: '' }))
+  }
+
+  function validate() {
+    const e: Record<string, string> = {}
+    if (!form.phone_number.trim()) e.phone_number = 'Requerido'
+    if (!form.country) e.country = 'Requerido'
+    if (!form.start_date) e.start_date = 'Requerido'
+    return e
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const errs = validate()
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+
+    setIsLoading(true)
+    const { error } = await onCreate({
+      phone_number: form.phone_number.trim(),
+      country: form.country,
+      start_date: form.start_date,
+      status: 'warming',
+      bm_id: form.bm_id || null,
+      bm_link_url: form.bm_link_url || null,
+      manychat_name: form.manychat_name || null,
+      manychat_url: form.manychat_url || null,
+      notes: form.notes || null,
+    })
+
+    setIsLoading(false)
+    if (error) {
+      toast.error(error.includes('unique') ? 'Ese número ya existe' : error)
+      return
+    }
+
+    toast.success('Cuenta WA agregada')
+    setForm({ phone_number: '', country: '', start_date: today, bm_id: '', bm_link_url: '', manychat_name: '', manychat_url: '', notes: '' })
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Agregar cuenta WhatsApp</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Número de teléfono *</Label>
+              <Input
+                placeholder="+54 9 11 1234-5678"
+                value={form.phone_number}
+                onChange={e => set('phone_number', e.target.value)}
+              />
+              {errors.phone_number && <p className="text-xs text-red-500">{errors.phone_number}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>País *</Label>
+              <Select value={form.country} onValueChange={v => set('country', v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(c => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.flag} {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.country && <p className="text-xs text-red-500">{errors.country}</p>}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Fecha de inicio de calentamiento *</Label>
+            <Input
+              type="date"
+              value={form.start_date}
+              onChange={e => set('start_date', e.target.value)}
+            />
+            {errors.start_date && <p className="text-xs text-red-500">{errors.start_date}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>BM ID</Label>
+              <Input
+                placeholder="ID del Business Manager"
+                value={form.bm_id}
+                onChange={e => set('bm_id', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>BM Link URL</Label>
+              <Input
+                placeholder="https://..."
+                value={form.bm_link_url}
+                onChange={e => set('bm_link_url', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>ManyChat (nombre)</Label>
+              <Input
+                placeholder="Nombre de la cuenta"
+                value={form.manychat_name}
+                onChange={e => set('manychat_name', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ManyChat (URL)</Label>
+              <Input
+                placeholder="https://manychat.com/..."
+                value={form.manychat_url}
+                onChange={e => set('manychat_url', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Notas</Label>
+            <Textarea
+              placeholder="Observaciones adicionales..."
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              rows={2}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="text-white"
+              style={{ backgroundColor: '#10B981' }}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Guardando...' : 'Agregar cuenta'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

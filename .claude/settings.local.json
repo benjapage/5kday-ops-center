@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d[''''version'''']\\)\")",
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run:*)",
+      "Bash(/c/Users/Usuario/Desktop/5kday-ops-center/postcss.config.js:*)",
+      "Bash(cp:*)",
+      "Bash(node -e \":*)",
+      "Bash(curl:*)",
+      "Bash(find C:/Users/Usuario/Desktop/5kday-ops-center -name *.env -o -name .env*)",
+      "Bash(ls:*)",
+      "Bash(tasklist /FI \"IMAGENAME eq chrome.exe\")",
+      "Bash(tasklist)",
+      "Bash(supabase --version)",
+      "Read(//c/Users/Usuario/.config/**)",
+      "Read(//c/Users/Usuario/AppData/Roaming/**)",
+      "Read(//c/Users/Usuario/**)",
+      "Bash(sqlite3:*)",
+      "Bash(python3:*)",
+      "Bash(grep -r \"sb_secret\\\\|service_role\\\\|SERVICE_ROLE\\\\|SUPABASE_SERVICE\" C:/Users/Usuario/Desktop/5kday-ops-center/ --include=*.env* --include=*.json --include=*.ts --include=*.js --exclude-dir=node_modules)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(cd:*)"
+    ]
+  }
+}
