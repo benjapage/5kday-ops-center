@@ -5,6 +5,7 @@ import {
   TrendingUp,
   Users,
   Settings2,
+  Plug,
   LogOut,
 } from 'lucide-react'
 import { Logo } from './Logo'
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/financial', label: 'Financiero', Icon: DollarSign },
   { to: '/pipeline', label: 'Pipeline', Icon: TrendingUp },
   { to: '/team', label: 'Equipo', Icon: Users },
+  { to: '/integrations', label: 'Integraciones', Icon: Plug },
   { to: '/settings', label: 'Configuración', Icon: Settings2 },
 ]
 

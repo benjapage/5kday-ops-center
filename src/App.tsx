@@ -9,6 +9,7 @@ import Financial from '@/pages/Financial'
 import Pipeline from '@/pages/Pipeline'
 import Team from '@/pages/Team'
 import Settings from '@/pages/Settings'
+import Integrations from '@/pages/Integrations'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useAuth()
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/team" element={<Team />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/integrations" element={<Integrations />} />
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
