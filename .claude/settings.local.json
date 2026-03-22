@@ -50,7 +50,8 @@
       "Bash(1 echo:*)",
       "Bash(\"$GH\" run:*)",
       "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23409867401 --log-failed --repo benjapage/5kday-ops-center)",
-      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23409912986 --log-failed --repo benjapage/5kday-ops-center)"
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23409912986 --log-failed --repo benjapage/5kday-ops-center)",
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23410024191 --log-failed --repo benjapage/5kday-ops-center)"
     ]
   }
 }
