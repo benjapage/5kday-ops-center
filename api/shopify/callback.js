@@ -3,46 +3,80 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
+// Normalize shop domain
+function normalizeShop(raw) {
+  if (!raw) return ''
+  let s = raw.trim().toLowerCase()
+  s = s.replace(/^https?:\/\//, '')
+  s = s.replace(/\/+$/, '')
+  s = s.split('/')[0]
+  return s
+}
+
+function getApps() {
+  return {
+    'las-recetas-de-ana.myshopify.com': {
+      clientId: (process.env.SHOPIFY_CLIENT_ID_LASRECETAS || '').trim(),
+      clientSecret: (process.env.SHOPIFY_CLIENT_SECRET_LASRECETAS || '').trim(),
+      displayName: 'Las Recetas de Ana',
+      customDomain: 'lasrecetasdeana.com',
+      slug: 'lasrecetasdeana',
+    },
+    'panaderia-con-ana-internacional.myshopify.com': {
+      clientId: (process.env.SHOPIFY_CLIENT_ID_INSTANTHANDBOOK || '').trim(),
+      clientSecret: (process.env.SHOPIFY_CLIENT_SECRET_INSTANTHANDBOOK || '').trim(),
+      displayName: 'Instant Handbook',
+      customDomain: 'instanthandbook.com',
+      slug: 'instanthandbook',
+    },
+  }
+}
+
 module.exports = async function handler(req, res) {
   try {
-    const { shop, code, state } = req.query
+    const rawShop = req.query.shop
+    const code = req.query.code
+    const state = req.query.state
+    const error = req.query.error
+    const errorDescription = req.query.error_description
 
-    if (!shop || !code) {
-      return res.status(400).json({ error: 'Faltan parámetros', query: req.query })
+    console.log('[shopify/callback] Query params:', { shop: rawShop, code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error, errorDescription })
+
+    // Handle Shopify error response (e.g. merchant denied access)
+    if (error) {
+      console.error('[shopify/callback] Shopify returned error:', error, errorDescription)
+      const appUrl = (process.env.VITE_APP_URL || 'https://5kday-ops-center.vercel.app').trim()
+      return res.redirect(302, `${appUrl}/integrations?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`)
     }
 
-    const APPS = {
-      'las-recetas-de-ana.myshopify.com': {
-        clientId: (process.env.SHOPIFY_CLIENT_ID_LASRECETAS || '').trim(),
-        clientSecret: (process.env.SHOPIFY_CLIENT_SECRET_LASRECETAS || '').trim(),
-        displayName: 'Las Recetas de Ana',
-        customDomain: 'lasrecetasdeana.com',
-        slug: 'lasrecetasdeana',
-      },
-      'panaderia-con-ana-internacional.myshopify.com': {
-        clientId: (process.env.SHOPIFY_CLIENT_ID_INSTANTHANDBOOK || '').trim(),
-        clientSecret: (process.env.SHOPIFY_CLIENT_SECRET_INSTANTHANDBOOK || '').trim(),
-        displayName: 'Instant Handbook',
-        customDomain: 'instanthandbook.com',
-        slug: 'instanthandbook',
-      },
+    if (!rawShop || !code) {
+      return res.status(400).json({ error: 'Faltan parámetros', query: { shop: rawShop, code: !!code } })
     }
 
+    const shop = normalizeShop(rawShop)
+    console.log('[shopify/callback] shop normalizado:', shop, '(raw:', rawShop, ')')
+
+    const APPS = getApps()
     const APP_URL = (process.env.VITE_APP_URL || 'https://5kday-ops-center.vercel.app').trim()
 
     const appConfig = APPS[shop]
     if (!appConfig) {
-      return res.status(400).json({ error: 'Tienda desconocida', shop })
+      console.error('[shopify/callback] Tienda desconocida:', shop, 'Configuradas:', Object.keys(APPS))
+      return res.status(400).json({
+        error: 'Tienda desconocida',
+        shop,
+        configured: Object.keys(APPS),
+      })
     }
 
     if (!appConfig.clientId || !appConfig.clientSecret) {
-      console.error('[shopify/callback] Credenciales faltantes para', shop)
-      return res.status(500).json({ error: 'Credenciales de app no configuradas' })
+      console.error('[shopify/callback] Credenciales faltantes para', shop, 'clientId:', !!appConfig.clientId, 'clientSecret:', !!appConfig.clientSecret)
+      return res.status(500).json({ error: 'Credenciales de app no configuradas en env vars' })
     }
 
     // 1. Intercambiar code por access_token
     const tokenUrl = `https://${shop}/admin/oauth/access_token`
-    console.log('[shopify/callback] Exchanging code for token:', tokenUrl)
+    console.log('[shopify/callback] Exchanging code for token at:', tokenUrl)
 
     const tokenRes = await fetch(tokenUrl, {
       method: 'POST',
@@ -68,8 +102,8 @@ module.exports = async function handler(req, res) {
     const { access_token, scope } = tokenData
 
     if (!access_token) {
-      console.error('[shopify/callback] No access_token in response:', tokenData)
-      return res.status(502).json({ error: 'Respuesta de Shopify sin access_token', data: tokenData })
+      console.error('[shopify/callback] No access_token in response:', JSON.stringify(tokenData))
+      return res.status(502).json({ error: 'Respuesta de Shopify sin access_token' })
     }
 
     console.log('[shopify/callback] Token OK, scope:', scope)
@@ -107,8 +141,9 @@ module.exports = async function handler(req, res) {
     console.log('[shopify/callback] Token guardado en Supabase para', shop)
 
     // 3. Registrar webhook orders/paid
-    // Apunta al handler en /api/shopify-webhook (archivo flat, no subdirectorio)
     const WEBHOOK_URL = `${APP_URL}/api/shopify-webhook`
+    console.log('[shopify/callback] Registrando webhook en:', WEBHOOK_URL)
+
     const webhookRes = await fetch(`https://${shop}/admin/api/2024-10/webhooks.json`, {
       method: 'POST',
       headers: {
@@ -131,7 +166,6 @@ module.exports = async function handler(req, res) {
     } else {
       const wErr = await webhookRes.text()
       console.warn('[shopify/callback] Webhook registration failed:', wErr)
-      // No es fatal — el token ya está guardado
     }
 
     // 4. Redirigir al panel de integraciones

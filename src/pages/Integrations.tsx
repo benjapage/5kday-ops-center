@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug } from 'lucide-react'
+import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, Key, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,9 @@ export default function Integrations() {
   const { profile } = useAuth()
   const [searchParams] = useSearchParams()
   const isAdmin = profile?.role === 'admin'
+  const [manualShop, setManualShop] = useState<string | null>(null)
+  const [manualToken, setManualToken] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('connected') === '1') {
@@ -33,17 +36,48 @@ export default function Integrations() {
       toast.success(`Tienda ${shop} conectada exitosamente`)
       refresh()
     }
+    if (searchParams.get('error')) {
+      toast.error(`Error de Shopify: ${searchParams.get('error_description') || searchParams.get('error')}`)
+    }
   }, [searchParams])
 
-  function connectShop(shop: string) {
+  function connectShopOAuth(shop: string) {
     window.location.href = `/api/shopify-auth?shop=${encodeURIComponent(shop)}`
+  }
+
+  async function connectShopManual(shop: string) {
+    if (!manualToken.trim()) {
+      toast.error('Ingresá el Access Token')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/shopify-manual-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop, accessToken: manualToken.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Error al conectar')
+        return
+      }
+      toast.success(`${data.displayName} conectada exitosamente${data.webhookRegistered ? ' con webhook' : ''}`)
+      setManualShop(null)
+      setManualToken('')
+      refresh()
+    } catch (err: any) {
+      toast.error(err.message || 'Error de red')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Integraciones</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Conectá tus tiendas y servicios externos</p>
+        <p className="text-sm text-slate-500 mt-0.5">Conecta tus tiendas y servicios externos</p>
       </div>
 
       {/* Shopify section */}
@@ -59,6 +93,7 @@ export default function Integrations() {
         <div className="space-y-3">
           {CONFIGURED_SHOPS.map(cfg => {
             const connected = stores.find(s => s.shop === cfg.shop && s.is_active)
+            const isManualOpen = manualShop === cfg.shop
             return (
               <Card key={cfg.shop} className="shadow-sm border-slate-200">
                 <CardContent className="p-4">
@@ -73,7 +108,7 @@ export default function Integrations() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {connected ? (
                         <>
                           <div className="flex items-center gap-1.5 text-green-600">
@@ -90,14 +125,24 @@ export default function Integrations() {
                             </Badge>
                           )}
                           {isAdmin && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7"
-                              onClick={() => connectShop(cfg.shop)}
-                            >
-                              <RefreshCw size={11} className="mr-1" /> Reconectar
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => connectShopOAuth(cfg.shop)}
+                              >
+                                <RefreshCw size={11} className="mr-1" /> OAuth
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => setManualShop(isManualOpen ? null : cfg.shop)}
+                              >
+                                <Key size={11} className="mr-1" /> Token
+                              </Button>
+                            </>
                           )}
                         </>
                       ) : (
@@ -107,19 +152,57 @@ export default function Integrations() {
                             <span className="text-xs font-medium">No conectada</span>
                           </div>
                           {isAdmin && (
-                            <Button
-                              size="sm"
-                              className="text-white text-xs h-7"
-                              style={{ backgroundColor: '#96bf48' }}
-                              onClick={() => connectShop(cfg.shop)}
-                            >
-                              <Plug size={11} className="mr-1" /> Conectar
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => connectShopOAuth(cfg.shop)}
+                              >
+                                <Plug size={11} className="mr-1" /> OAuth
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="text-white text-xs h-7"
+                                style={{ backgroundColor: '#96bf48' }}
+                                onClick={() => setManualShop(isManualOpen ? null : cfg.shop)}
+                              >
+                                <Key size={11} className="mr-1" /> Token manual
+                              </Button>
+                            </>
                           )}
                         </>
                       )}
                     </div>
                   </div>
+
+                  {/* Manual token entry */}
+                  {isManualOpen && isAdmin && (
+                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                      <p className="text-xs text-slate-500">
+                        En Shopify Admin &gt; Settings &gt; Apps &gt; Develop apps &gt; tu app &gt; API credentials &gt; Admin API access token
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          placeholder="shpat_... (Admin API access token)"
+                          value={manualToken}
+                          onChange={e => setManualToken(e.target.value)}
+                          className="flex-1 text-xs px-3 py-1.5 border border-slate-200 rounded-md font-mono focus:outline-none focus:ring-2 focus:ring-[#96bf48]/50"
+                        />
+                        <Button
+                          size="sm"
+                          className="text-white text-xs h-8"
+                          style={{ backgroundColor: '#96bf48' }}
+                          disabled={saving || !manualToken.trim()}
+                          onClick={() => connectShopManual(cfg.shop)}
+                        >
+                          {saving ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Key size={11} className="mr-1" />}
+                          Guardar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {connected && (
                     <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
@@ -147,10 +230,11 @@ export default function Integrations() {
 
         <Card className="shadow-sm border-slate-100 bg-slate-50">
           <CardContent className="p-4">
-            <p className="text-xs font-medium text-slate-600 mb-1">Cómo funciona</p>
+            <p className="text-xs font-medium text-slate-600 mb-1">Como conectar</p>
             <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
-              <li>Al conectar una tienda, se instala un webhook automáticamente en Shopify</li>
-              <li>Cada orden pagada se refleja en tiempo real en la sección Financiero</li>
+              <li><strong>OAuth</strong>: redirige a Shopify para autorizar (requiere app en Shopify Partners con redirect URL configurada)</li>
+              <li><strong>Token manual</strong>: para Custom Apps creadas en el admin de la tienda (Settings &gt; Apps &gt; Develop apps)</li>
+              <li>Cada orden pagada se refleja en tiempo real en la seccion Financiero</li>
               <li>Los ingresos Shopify aparecen con badge verde para distinguirlos de los manuales</li>
             </ul>
           </CardContent>
