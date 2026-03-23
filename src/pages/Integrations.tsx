@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2 } from 'lucide-react'
+import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ export default function Integrations() {
   const [searchParams] = useSearchParams()
   const isAdmin = profile?.role === 'admin'
   const [syncing, setSyncing] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('connected') === '1') {
@@ -73,6 +74,26 @@ export default function Integrations() {
       toast.error(err.message || 'Error de red')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function importShopifyOrders() {
+    setImporting(true)
+    try {
+      const res = await fetch('/api/shopify-import?days=30')
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Error al importar')
+        return
+      }
+      const shopSummaries = data.shops
+        .map((s: any) => `${s.shop}: ${s.synced} nuevas, ${s.skipped} omitidas`)
+        .join(' | ')
+      toast.success(`Importado: ${shopSummaries}`)
+    } catch (err: any) {
+      toast.error(err.message || 'Error de red')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -227,12 +248,26 @@ export default function Integrations() {
 
       {/* Shopify section */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <ShoppingBag size={16} className="text-[#96bf48]" />
-          <h2 className="text-sm font-semibold text-slate-700">Shopify</h2>
-          <Badge variant="outline" className="text-xs text-slate-400">
-            {isLoading ? '...' : `${stores.filter(s => s.is_active).length} conectada${stores.filter(s => s.is_active).length !== 1 ? 's' : ''}`}
-          </Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingBag size={16} className="text-[#96bf48]" />
+            <h2 className="text-sm font-semibold text-slate-700">Shopify</h2>
+            <Badge variant="outline" className="text-xs text-slate-400">
+              {isLoading ? '...' : `${stores.filter(s => s.is_active).length} conectada${stores.filter(s => s.is_active).length !== 1 ? 's' : ''}`}
+            </Badge>
+          </div>
+          {isAdmin && stores.some(s => s.is_active) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs h-8 gap-1.5"
+              disabled={importing}
+              onClick={importShopifyOrders}
+            >
+              {importing ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+              {importing ? 'Importando...' : 'Importar ultimos 30 dias'}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3">

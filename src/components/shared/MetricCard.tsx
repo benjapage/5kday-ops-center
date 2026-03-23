@@ -31,15 +31,12 @@ export function MetricCard({
   }
 
   return (
-    <Card className="shadow-sm border border-slate-200">
+    <Card className="shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{title}</p>
-            <p
-              className="mt-2 text-2xl font-semibold tracking-tight"
-              style={{ fontFamily: 'JetBrains Mono, monospace' }}
-            >
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight font-mono tabular-nums text-slate-800">
               {formatValue(value)}
             </p>
             {subtitle && (
@@ -56,10 +53,10 @@ export function MetricCard({
             )}
           </div>
           <div
-            className="rounded-lg p-2.5"
-            style={{ backgroundColor: `${iconColor}18` }}
+            className="rounded-xl p-2.5 flex-shrink-0"
+            style={{ backgroundColor: `${iconColor}12` }}
           >
-            <Icon size={20} style={{ color: iconColor }} />
+            <Icon size={18} style={{ color: iconColor }} strokeWidth={2} />
           </div>
         </div>
       </CardContent>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, Link, CheckSquare, Plus, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
+import { Users, Link, CheckSquare, Plus, Trash2, ExternalLink, ChevronDown, ListChecks, Link2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -58,54 +58,68 @@ function AddChecklistDialog({ open, onOpenChange, onAdd }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Nuevo checklist</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Título *</Label>
-            <Input placeholder="Ej: Tareas diarias de marketing" value={title} onChange={e => setTitle(e.target.value)} />
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <ListChecks size={16} className="text-blue-600" />
+            </div>
+            Nuevo checklist
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="form-section">
+            <p className="form-section-title">Configuracion</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Titulo *</Label>
+              <Input placeholder="Ej: Tareas diarias de marketing" value={title} onChange={e => setTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Asignado a</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger className="max-w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="tech">Tech</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Asignado a</Label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="tech">Tech</SelectItem>
-                <SelectItem value="editor">Editor</SelectItem>
-              </SelectContent>
-            </Select>
+
+          <div className="form-section">
+            <p className="form-section-title">Items del checklist</p>
+            <div className="space-y-2">
+              {items.map((item, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input
+                    placeholder={`Item ${i + 1}`}
+                    value={item}
+                    onChange={e => {
+                      const next = [...items]; next[i] = e.target.value; setItems(next)
+                    }}
+                  />
+                  {items.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-slate-400 hover:text-red-500 flex-shrink-0"
+                      onClick={() => setItems(items.filter((_, idx) => idx !== i))}
+                    >
+                      <Trash2 size={13} />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={() => setItems([...items, ''])} className="gap-1">
+                <Plus size={13} /> Agregar item
+              </Button>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Ítems</Label>
-            {items.map((item, i) => (
-              <div key={i} className="flex gap-2">
-                <Input
-                  placeholder={`Ítem ${i + 1}`}
-                  value={item}
-                  onChange={e => {
-                    const next = [...items]; next[i] = e.target.value; setItems(next)
-                  }}
-                />
-                {items.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 text-slate-400 hover:text-red-500"
-                    onClick={() => setItems(items.filter((_, idx) => idx !== i))}
-                  >
-                    <Trash2 size={13} />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setItems([...items, ''])}>
-              <Plus size={13} className="mr-1" /> Agregar ítem
-            </Button>
-          </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isLoading}>
               {isLoading ? 'Guardando...' : 'Crear checklist'}
@@ -140,24 +154,35 @@ function AddDriveLinkDialog({ open, onOpenChange, onAdd }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Agregar link</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Título *</Label>
-            <Input placeholder="Ej: SOPs de onboarding" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Link2 size={16} className="text-blue-600" />
+            </div>
+            Agregar recurso
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="form-section">
+            <p className="form-section-title">Detalle del recurso</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Titulo *</Label>
+              <Input placeholder="Ej: SOPs de onboarding" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">URL *</Label>
+              <Input placeholder="https://drive.google.com/..." value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Categoria</Label>
+              <Input placeholder="Ej: SOPs, Creativos, Reportes..." value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>URL *</Label>
-            <Input placeholder="https://drive.google.com/..." value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Categoría</Label>
-            <Input placeholder="Ej: SOPs, Creativos, Reportes..." value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} />
-          </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isLoading}>
-              {isLoading ? 'Guardando...' : 'Agregar link'}
+              {isLoading ? 'Guardando...' : 'Agregar recurso'}
             </Button>
           </DialogFooter>
         </form>

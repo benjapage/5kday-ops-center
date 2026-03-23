@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { COUNTRIES } from '@/lib/constants'
+import { Smartphone, Building2, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { useWaAccounts } from '@/hooks/useWaAccounts'
 
@@ -63,7 +64,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
 
     setIsLoading(false)
     if (error) {
-      toast.error(error.includes('unique') ? 'Ese número ya existe' : error)
+      toast.error(error.includes('unique') ? 'Ese numero ya existe' : error)
       return
     }
 
@@ -76,98 +77,126 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Agregar cuenta WhatsApp</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Smartphone size={16} className="text-emerald-600" />
+            </div>
+            Agregar cuenta WhatsApp
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-400">
+            La cuenta entrara en calentamiento por 7 dias antes de estar lista.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Número de teléfono *</Label>
-              <Input
-                placeholder="+54 9 11 1234-5678"
-                value={form.phone_number}
-                onChange={e => set('phone_number', e.target.value)}
-              />
-              {errors.phone_number && <p className="text-xs text-red-500">{errors.phone_number}</p>}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Section: Datos principales */}
+          <div className="form-section">
+            <p className="form-section-title">Datos de la cuenta</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Numero de telefono *</Label>
+                <Input
+                  placeholder="+54 9 11 1234-5678"
+                  value={form.phone_number}
+                  onChange={e => set('phone_number', e.target.value)}
+                  className={errors.phone_number ? 'border-red-300 focus-visible:ring-red-400' : ''}
+                />
+                {errors.phone_number && <p className="text-xs text-red-500" role="alert">{errors.phone_number}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Pais *</Label>
+                <Select value={form.country} onValueChange={v => set('country', v)}>
+                  <SelectTrigger className={errors.country ? 'border-red-300' : ''}>
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map(c => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.flag} {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.country && <p className="text-xs text-red-500" role="alert">{errors.country}</p>}
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>País *</Label>
-              <Select value={form.country} onValueChange={v => set('country', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.flag} {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.country && <p className="text-xs text-red-500">{errors.country}</p>}
+              <Label className="text-xs font-medium text-slate-600">Inicio de calentamiento *</Label>
+              <Input
+                type="date"
+                value={form.start_date}
+                onChange={e => set('start_date', e.target.value)}
+                className="max-w-[200px]"
+              />
+              {errors.start_date && <p className="text-xs text-red-500" role="alert">{errors.start_date}</p>}
             </div>
           </div>
 
+          {/* Section: Business Manager */}
+          <div className="form-section">
+            <p className="form-section-title flex items-center gap-1.5">
+              <Building2 size={12} /> Business Manager
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">BM ID</Label>
+                <Input
+                  placeholder="123456789"
+                  value={form.bm_id}
+                  onChange={e => set('bm_id', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">BM Link</Label>
+                <Input
+                  placeholder="https://business.facebook.com/..."
+                  value={form.bm_link_url}
+                  onChange={e => set('bm_link_url', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section: ManyChat */}
+          <div className="form-section">
+            <p className="form-section-title flex items-center gap-1.5">
+              <MessageCircle size={12} /> ManyChat
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Nombre de cuenta</Label>
+                <Input
+                  placeholder="Mi Bot Principal"
+                  value={form.manychat_name}
+                  onChange={e => set('manychat_name', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">URL</Label>
+                <Input
+                  placeholder="https://manychat.com/..."
+                  value={form.manychat_url}
+                  onChange={e => set('manychat_url', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
           <div className="space-y-1.5">
-            <Label>Fecha de inicio de calentamiento *</Label>
-            <Input
-              type="date"
-              value={form.start_date}
-              onChange={e => set('start_date', e.target.value)}
-            />
-            {errors.start_date && <p className="text-xs text-red-500">{errors.start_date}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>BM ID</Label>
-              <Input
-                placeholder="ID del Business Manager"
-                value={form.bm_id}
-                onChange={e => set('bm_id', e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>BM Link URL</Label>
-              <Input
-                placeholder="https://..."
-                value={form.bm_link_url}
-                onChange={e => set('bm_link_url', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>ManyChat (nombre)</Label>
-              <Input
-                placeholder="Nombre de la cuenta"
-                value={form.manychat_name}
-                onChange={e => set('manychat_name', e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>ManyChat (URL)</Label>
-              <Input
-                placeholder="https://manychat.com/..."
-                value={form.manychat_url}
-                onChange={e => set('manychat_url', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Notas</Label>
+            <Label className="text-xs font-medium text-slate-600">Notas</Label>
             <Textarea
               placeholder="Observaciones adicionales..."
               value={form.notes}
               onChange={e => set('notes', e.target.value)}
               rows={2}
+              className="resize-none"
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>

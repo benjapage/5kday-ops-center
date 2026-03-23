@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil } from 'lucide-react'
+import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -72,61 +72,76 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Nueva oferta</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Nombre *</Label>
-            <Input placeholder="Ej: Curso Avanzado Argentina" value={form.name} onChange={e => set('name', e.target.value)} />
-            {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>País *</Label>
-              <Select value={form.country} onValueChange={v => set('country', v)}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {errors.country && <p className="text-xs text-red-500">{errors.country}</p>}
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Target size={16} className="text-emerald-600" />
             </div>
+            Nueva oferta
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="form-section">
+            <p className="form-section-title">Informacion basica</p>
             <div className="space-y-1.5">
-              <Label>Canal *</Label>
-              <Select value={form.channel} onValueChange={v => set('channel', v)}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  {CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {errors.channel && <p className="text-xs text-red-500">{errors.channel}</p>}
+              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Input placeholder="Ej: Curso Avanzado Argentina" value={form.name} onChange={e => set('name', e.target.value)} className={errors.name ? 'border-red-300' : ''} />
+              {errors.name && <p className="text-xs text-red-500" role="alert">{errors.name}</p>}
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Fecha de inicio</Label>
-            <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>ROAS objetivo</Label>
-              <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>ROAS actual</Label>
-              <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>CPL objetivo (USD)</Label>
-              <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>CPL actual (USD)</Label>
-              <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Pais *</Label>
+                <Select value={form.country} onValueChange={v => set('country', v)}>
+                  <SelectTrigger className={errors.country ? 'border-red-300' : ''}><SelectValue placeholder="Pais..." /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {errors.country && <p className="text-xs text-red-500" role="alert">{errors.country}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Canal *</Label>
+                <Select value={form.channel} onValueChange={v => set('channel', v)}>
+                  <SelectTrigger className={errors.channel ? 'border-red-300' : ''}><SelectValue placeholder="Canal..." /></SelectTrigger>
+                  <SelectContent>
+                    {CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {errors.channel && <p className="text-xs text-red-500" role="alert">{errors.channel}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Inicio</Label>
+                <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+
+          <div className="form-section">
+            <p className="form-section-title">Metricas</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">ROAS objetivo</Label>
+                <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">ROAS actual</Label>
+                <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">CPL objetivo (USD)</Label>
+                <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">CPL actual (USD)</Label>
+                <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isLoading}>
               {isLoading ? 'Guardando...' : 'Crear oferta'}
@@ -196,71 +211,84 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Editar oferta</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Nombre *</Label>
-            <Input value={form.name} onChange={e => set('name', e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Pencil size={14} className="text-blue-600" />
+            </div>
+            Editar oferta
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="form-section">
+            <p className="form-section-title">Informacion basica</p>
             <div className="space-y-1.5">
-              <Label>País</Label>
-              <Select value={form.country} onValueChange={v => set('country', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Input value={form.name} onChange={e => set('name', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Pais</Label>
+                <Select value={form.country} onValueChange={v => set('country', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Canal</Label>
+                <Select value={form.channel} onValueChange={v => set('channel', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Estado</Label>
+                <Select value={form.status} onValueChange={v => set('status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Activa</SelectItem>
+                    <SelectItem value="paused">Pausada</SelectItem>
+                    <SelectItem value="archived">Archivada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Canal</Label>
-              <Select value={form.channel} onValueChange={v => set('channel', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Fecha de inicio</Label>
-              <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select value={form.status} onValueChange={v => set('status', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Activa</SelectItem>
-                  <SelectItem value="paused">Pausada</SelectItem>
-                  <SelectItem value="archived">Archivada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>ROAS objetivo</Label>
-              <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>ROAS actual</Label>
-              <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
+              <Label className="text-xs font-medium text-slate-600">Fecha de inicio</Label>
+              <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className="max-w-[200px]" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>CPL objetivo (USD)</Label>
-              <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
+
+          <div className="form-section">
+            <p className="form-section-title">Metricas</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">ROAS objetivo</Label>
+                <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">ROAS actual</Label>
+                <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>CPL actual (USD)</Label>
-              <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">CPL objetivo (USD)</Label>
+                <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">CPL actual (USD)</Label>
+                <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isLoading}>
               {isLoading ? 'Guardando...' : 'Guardar cambios'}
@@ -304,42 +332,53 @@ function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Agregar creativo</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Nombre *</Label>
-            <Input placeholder="Ej: Video testimonial v3" value={form.name} onChange={e => set('name', e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Palette size={16} className="text-purple-600" />
+            </div>
+            Agregar creativo
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="form-section">
+            <p className="form-section-title">Detalle del asset</p>
             <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select value={form.asset_type} onValueChange={v => set('asset_type', v)}>
-                <SelectTrigger><SelectValue placeholder="Tipo..." /></SelectTrigger>
-                <SelectContent>
-                  {ASSET_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Input placeholder="Ej: Video testimonial v3" value={form.name} onChange={e => set('name', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Tipo</Label>
+                <Select value={form.asset_type} onValueChange={v => set('asset_type', v)}>
+                  <SelectTrigger><SelectValue placeholder="Tipo..." /></SelectTrigger>
+                  <SelectContent>
+                    {ASSET_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Oferta vinculada</Label>
+                <Select value={form.offer_id} onValueChange={v => set('offer_id', v)}>
+                  <SelectTrigger><SelectValue placeholder="Vincular..." /></SelectTrigger>
+                  <SelectContent>
+                    {offers.filter(o => o.status === 'active').map(o => (
+                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Oferta</Label>
-              <Select value={form.offer_id} onValueChange={v => set('offer_id', v)}>
-                <SelectTrigger><SelectValue placeholder="Vincular..." /></SelectTrigger>
-                <SelectContent>
-                  {offers.filter(o => o.status === 'active').map(o => (
-                    <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-medium text-slate-600">URL del asset</Label>
+              <Input placeholder="https://drive.google.com/..." value={form.asset_url} onChange={e => set('asset_url', e.target.value)} />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>URL del asset</Label>
-            <Input placeholder="https://drive.google.com/..." value={form.asset_url} onChange={e => set('asset_url', e.target.value)} />
-          </div>
-          <DialogFooter>
+
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isLoading}>
-              {isLoading ? 'Guardando...' : 'Agregar'}
+              {isLoading ? 'Guardando...' : 'Agregar creativo'}
             </Button>
           </DialogFooter>
         </form>
