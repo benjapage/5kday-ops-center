@@ -22,7 +22,7 @@ import { toast } from 'sonner'
 import type { Database } from '@/types/database.types'
 
 type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
-type Status = 'all' | 'warming' | 'active' | 'banned'
+type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
 
 export function WaAccountTable() {
   const { accounts, isLoading, create, update, setStatus, remove } = useWaAccounts()
@@ -42,12 +42,14 @@ export function WaAccountTable() {
   }
 
   const STATUS_LABELS: Record<string, string> = {
+    cold: 'frío',
     warming: 'calentando',
+    ready: 'listo',
     active: 'activo',
     banned: 'baneado',
   }
 
-  async function handleStatusChange(account: WaAccount, newStatus: 'warming' | 'active' | 'banned') {
+  async function handleStatusChange(account: WaAccount, newStatus: 'cold' | 'warming' | 'ready' | 'banned') {
     const { error } = await setStatus(account.id, newStatus)
     if (error) toast.error(error)
     else toast.success(`Estado actualizado a "${STATUS_LABELS[newStatus] ?? newStatus}"`)
@@ -62,8 +64,9 @@ export function WaAccountTable() {
 
   const filters: { label: string; value: Status }[] = [
     { label: 'Todas', value: 'all' },
+    { label: 'Frías', value: 'cold' },
     { label: 'Calentando', value: 'warming' },
-    { label: 'Activas', value: 'active' },
+    { label: 'Listas', value: 'ready' },
     { label: 'Baneadas', value: 'banned' },
   ]
 
@@ -196,11 +199,11 @@ export function WaAccountTable() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => handleStatusChange(account, 'active')}
-                            disabled={account.status === 'active'}
-                            className="text-green-700"
+                            onClick={() => handleStatusChange(account, 'cold')}
+                            disabled={account.status === 'cold'}
+                            className="text-slate-700"
                           >
-                            <RefreshCw size={13} className="mr-2" /> Marcar activo
+                            <RefreshCw size={13} className="mr-2" /> Marcar frío
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleStatusChange(account, 'warming')}
@@ -208,6 +211,13 @@ export function WaAccountTable() {
                             className="text-amber-700"
                           >
                             <RefreshCw size={13} className="mr-2" /> Marcar calentando
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleStatusChange(account, 'ready')}
+                            disabled={account.status === 'ready'}
+                            className="text-green-700"
+                          >
+                            <RefreshCw size={13} className="mr-2" /> Marcar listo
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleStatusChange(account, 'banned')}

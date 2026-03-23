@@ -59,13 +59,13 @@ export function useWaAccounts() {
 
   async function setStatus(
     id: string,
-    status: 'warming' | 'active' | 'banned'
+    status: 'cold' | 'warming' | 'ready' | 'banned'
   ): Promise<{ error: string | null }> {
     const account = accounts.find(a => a.id === id)
     if (!account) return { error: 'Cuenta no encontrada' }
 
-    // Guard de 7 días para activación
-    if (status === 'active') {
+    // Guard de 7 días para marcar listo
+    if (status === 'ready') {
       const startDate = new Date(account.start_date + 'T00:00:00')
       const readyDate = new Date(startDate.getTime() + WA_WARMING_DAYS * 86400000)
       if (new Date() < readyDate) {

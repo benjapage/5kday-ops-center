@@ -1,10 +1,12 @@
 import { STATUS_COLORS } from '@/lib/constants'
 
-type Status = 'active' | 'warming' | 'banned'
+type Status = 'cold' | 'warming' | 'ready' | 'active' | 'banned'
 
 const LABELS: Record<Status, string> = {
-  active: 'Activo',
+  cold: 'Frío',
   warming: 'Calentando',
+  ready: 'Listo',
+  active: 'Activo',
   banned: 'Baneado',
 }
 
@@ -21,11 +23,11 @@ export function StatusIndicator({ status, showLabel = true, size = 'sm' }: Statu
     <span className="flex items-center gap-1.5">
       <span
         className={`${dotSize} rounded-full flex-shrink-0 ${status === 'warming' ? 'animate-pulse' : ''}`}
-        style={{ backgroundColor: STATUS_COLORS[status] }}
+        style={{ backgroundColor: STATUS_COLORS[status] || '#94A3B8' }}
       />
       {showLabel && (
-        <span className="text-xs font-medium" style={{ color: STATUS_COLORS[status] }}>
-          {LABELS[status]}
+        <span className="text-xs font-medium" style={{ color: STATUS_COLORS[status] || '#94A3B8' }}>
+          {LABELS[status] || status}
         </span>
       )}
     </span>

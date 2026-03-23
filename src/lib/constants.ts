@@ -1,6 +1,8 @@
 export const STATUS_COLORS = {
-  active: '#22C55E',
+  cold: '#94A3B8',
   warming: '#F59E0B',
+  ready: '#22C55E',
+  active: '#22C55E',
   banned: '#EF4444',
 } as const
 

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 export interface WaAccountSummary {
   id: string
   phone_number: string
-  status: 'warming' | 'active' | 'banned'
+  status: 'cold' | 'warming' | 'ready' | 'banned'
   start_date: string
   bm_id: string | null
   manychat_name: string | null
@@ -112,7 +112,7 @@ export function useDashboard() {
         const waList = (waRes.data ?? []) as WaAccountSummary[]
         const waAccounts = {
           total: waList.length,
-          active: waList.filter(w => w.status === 'active').length,
+          active: waList.filter(w => w.status === 'ready').length,
           warming: waList.filter(w => w.status === 'warming').length,
           banned: waList.filter(w => w.status === 'banned').length,
           list: waList,

@@ -25,9 +25,9 @@ function WarmingBar({ startDate, status }: { startDate: string; status: string }
     return (
       <div className="flex items-center gap-1.5">
         <div className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: status === 'active' ? '#22C55E' : '#EF4444' }} />
+          <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: status === 'ready' ? '#22C55E' : status === 'banned' ? '#EF4444' : '#94A3B8' }} />
         </div>
-        <span className="text-[10px] text-slate-400">{status === 'active' ? '7/7d' : '—'}</span>
+        <span className="text-[10px] text-slate-400">{status === 'ready' ? '7/7d' : '—'}</span>
       </div>
     )
   }
@@ -405,7 +405,7 @@ export default function Dashboard() {
                   {/* Stats row */}
                   <div className="grid grid-cols-3 gap-1 text-center">
                     {[
-                      { label: 'Activas', value: accounts.filter(a => a.status === 'active').length, color: '#22C55E' },
+                      { label: 'Listas', value: accounts.filter(a => a.status === 'ready').length, color: '#22C55E' },
                       { label: 'Calentando', value: accounts.filter(a => a.status === 'warming').length, color: '#F59E0B' },
                       { label: 'Baneadas', value: accounts.filter(a => a.status === 'banned').length, color: '#EF4444' },
                     ].map(s => (
