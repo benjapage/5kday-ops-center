@@ -10,6 +10,14 @@
     {
       "path": "/api/google-drive-sync",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/manychat-check",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/meta-sync?days=1",
+      "schedule": "30 * * * *"
     }
   ]
 }

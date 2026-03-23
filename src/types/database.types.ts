@@ -46,6 +46,7 @@ export interface Database {
           bm_link_url: string | null
           manychat_name: string | null
           manychat_url: string | null
+          manychat_api_key: string | null
           notes: string | null
           created_by: string | null
           created_at: string
@@ -61,6 +62,7 @@ export interface Database {
           bm_link_url?: string | null
           manychat_name?: string | null
           manychat_url?: string | null
+          manychat_api_key?: string | null
           notes?: string | null
           created_by?: string | null
           created_at?: string
@@ -75,6 +77,7 @@ export interface Database {
           bm_link_url?: string | null
           manychat_name?: string | null
           manychat_url?: string | null
+          manychat_api_key?: string | null
           notes?: string | null
           updated_at?: string
         }

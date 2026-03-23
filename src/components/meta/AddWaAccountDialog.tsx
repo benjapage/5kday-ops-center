@@ -26,6 +26,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
     bm_link_url: '',
     manychat_name: '',
     manychat_url: '',
+    manychat_api_key: '',
     notes: '',
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -59,6 +60,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
       bm_link_url: form.bm_link_url || null,
       manychat_name: form.manychat_name || null,
       manychat_url: form.manychat_url || null,
+      manychat_api_key: form.manychat_api_key || null,
       notes: form.notes || null,
     })
 
@@ -69,7 +71,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
     }
 
     toast.success('Cuenta WA agregada')
-    setForm({ phone_number: '', country: '', start_date: today, bm_id: '', bm_link_url: '', manychat_name: '', manychat_url: '', notes: '' })
+    setForm({ phone_number: '', country: '', start_date: today, bm_id: '', bm_link_url: '', manychat_name: '', manychat_url: '', manychat_api_key: '', notes: '' })
     onOpenChange(false)
   }
 
@@ -181,6 +183,16 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
                   onChange={e => set('manychat_url', e.target.value)}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">API Key</Label>
+              <Input
+                placeholder="Configuracion > API > Tu API Key"
+                value={form.manychat_api_key}
+                onChange={e => set('manychat_api_key', e.target.value)}
+                type="password"
+              />
+              <p className="text-[10px] text-slate-400">Se usa para detectar baneos automaticamente cada hora.</p>
             </div>
           </div>
 

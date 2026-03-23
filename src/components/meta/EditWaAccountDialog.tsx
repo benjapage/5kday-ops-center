@@ -26,6 +26,7 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
     bm_link_url: account.bm_link_url ?? '',
     manychat_name: account.manychat_name ?? '',
     manychat_url: account.manychat_url ?? '',
+    manychat_api_key: account.manychat_api_key ?? '',
     country: account.country,
     notes: account.notes ?? '',
   })
@@ -37,6 +38,7 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
       bm_link_url: account.bm_link_url ?? '',
       manychat_name: account.manychat_name ?? '',
       manychat_url: account.manychat_url ?? '',
+      manychat_api_key: account.manychat_api_key ?? '',
       country: account.country,
       notes: account.notes ?? '',
     })
@@ -54,6 +56,7 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
       bm_link_url: form.bm_link_url || null,
       manychat_name: form.manychat_name || null,
       manychat_url: form.manychat_url || null,
+      manychat_api_key: form.manychat_api_key || null,
       country: form.country,
       notes: form.notes || null,
     })
@@ -126,6 +129,11 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
                 <Label className="text-xs font-medium text-slate-600">URL</Label>
                 <Input value={form.manychat_url} onChange={e => set('manychat_url', e.target.value)} placeholder="https://manychat.com/..." />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">API Key</Label>
+              <Input value={form.manychat_api_key} onChange={e => set('manychat_api_key', e.target.value)} placeholder="Tu API Key de ManyChat" type="password" />
+              <p className="text-[10px] text-slate-400">Se usa para detectar baneos automaticamente.</p>
             </div>
           </div>
 
