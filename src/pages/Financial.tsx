@@ -21,7 +21,7 @@ import { EXPENSE_CATEGORIES } from '@/lib/constants'
 import { formatCurrency, formatDate, formatROAS } from '@/lib/formatters'
 import { toast } from 'sonner'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Area,
 } from 'recharts'
 
 function roasColor(roas: number | null) {
@@ -330,23 +330,26 @@ export default function Financial() {
         <TabsContent value="chart">
           <Card className="shadow-sm border-slate-200">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-slate-700">Últimos 30 días</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700">Mes actual — Ingresos, Gastos y Profit diario</CardTitle>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (
                 <EmptyState icon={BarChart3} title="Sin datos para graficar" />
               ) : (
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
-                    <Legend />
-                    <Line type="monotone" dataKey="Ingresos" stroke="#10B981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Profit" stroke="#0B1A2E" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Gasto Ads" stroke="#F59E0B" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-                  </LineChart>
+                <ResponsiveContainer width="100%" height={360}>
+                  <ComposedChart data={chartData} barGap={0}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}
+                      formatter={(value) => formatCurrency(Number(value ?? 0))}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                    <Bar dataKey="Ingresos" fill="#10B981" radius={[3, 3, 0, 0]} opacity={0.85} />
+                    <Bar dataKey="Gasto Ads" fill="#F59E0B" radius={[3, 3, 0, 0]} opacity={0.7} />
+                    <Line type="monotone" dataKey="Profit" stroke="#0B1A2E" strokeWidth={2.5} dot={false} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
