@@ -13,11 +13,11 @@
     },
     {
       "path": "/api/manychat-check",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/meta-sync?days=1",
-      "schedule": "30 * * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }
