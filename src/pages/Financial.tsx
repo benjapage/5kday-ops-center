@@ -141,10 +141,10 @@ export default function Financial() {
   const isAdmin = profile?.role === 'admin'
 
   async function handleDeleteExpense(id: string) {
-    if (!confirm('¿Eliminar este gasto?')) return
+    if (!confirm('Eliminar esta inversion?')) return
     const { error } = await deleteExpense(id)
     if (error) toast.error(error)
-    else toast.success('Gasto eliminado')
+    else toast.success('Inversion eliminada')
   }
 
   // Chart data: last 30 days
@@ -155,7 +155,7 @@ export default function Financial() {
       date: d.date.split('-').slice(1).join('/'),
       Ingresos: d.total_revenue,
       Profit: d.profit,
-      'Gasto Ads': d.ad_spend,
+      'Inversion Ads': d.ad_spend,
     }))
 
   if (isLoading) return <LoadingSpinner />
@@ -163,15 +163,15 @@ export default function Financial() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Módulo Financiero</h1>
-        <p className="text-sm text-slate-500 mt-0.5">P&amp;L, gastos e ingresos del negocio</p>
+        <h1 className="text-2xl font-bold text-slate-800">Modulo Financiero</h1>
+        <p className="text-sm text-slate-500 mt-0.5">P&amp;L, inversiones e ingresos del negocio</p>
       </div>
 
       {/* MTD Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <MetricCard title="Ingresos MTD" value={mtd.revenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
-        <MetricCard title="Gastos MTD" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#EF4444" />
-        <MetricCard title="Ads MTD" value={mtd.adSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
+        <MetricCard title="Inversiones MTD" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#EF4444" />
+        <MetricCard title="Inversion Ads MTD" value={mtd.adSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
         <MetricCard
           title="Profit MTD"
           value={mtd.profit}
@@ -186,7 +186,7 @@ export default function Financial() {
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="daily">P&L Diario</TabsTrigger>
-            <TabsTrigger value="expenses">Gastos</TabsTrigger>
+            <TabsTrigger value="expenses">Inversiones</TabsTrigger>
             <TabsTrigger value="subscriptions">Suscripciones</TabsTrigger>
             <TabsTrigger value="chart">Grafico</TabsTrigger>
           </TabsList>
@@ -197,7 +197,7 @@ export default function Financial() {
               onClick={() => setExpenseOpen(true)}
               className="gap-1.5"
             >
-              <Plus size={14} /> Gasto
+              <Plus size={14} /> Inversion
             </Button>
             <Button
               size="sm"
@@ -219,9 +219,9 @@ export default function Financial() {
                   <TableRow className="bg-slate-50">
                     <TableHead className="text-xs">Fecha</TableHead>
                     <TableHead className="text-xs text-right">Ingresos</TableHead>
-                    <TableHead className="text-xs text-right">Gasto Ads</TableHead>
-                    <TableHead className="text-xs text-right">Otros gastos</TableHead>
-                    <TableHead className="text-xs text-right">Total gastos</TableHead>
+                    <TableHead className="text-xs text-right">Inversion Ads</TableHead>
+                    <TableHead className="text-xs text-right">Otras inversiones</TableHead>
+                    <TableHead className="text-xs text-right">Total inversiones</TableHead>
                     <TableHead className="text-xs text-right">Profit</TableHead>
                     <TableHead className="text-xs text-right">ROAS</TableHead>
                   </TableRow>
@@ -290,7 +290,7 @@ export default function Financial() {
                   {expenses.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={isAdmin ? 5 : 4}>
-                        <EmptyState icon={DollarSign} title="Sin gastos registrados" />
+                        <EmptyState icon={DollarSign} title="Sin inversiones registradas" />
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -347,7 +347,7 @@ export default function Financial() {
                     />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                     <Bar dataKey="Ingresos" fill="#10B981" radius={[3, 3, 0, 0]} opacity={0.85} />
-                    <Bar dataKey="Gasto Ads" fill="#F59E0B" radius={[3, 3, 0, 0]} opacity={0.7} />
+                    <Bar dataKey="Inversion Ads" fill="#F59E0B" radius={[3, 3, 0, 0]} opacity={0.7} />
                     <Line type="monotone" dataKey="Profit" stroke="#0B1A2E" strokeWidth={2.5} dot={false} />
                   </ComposedChart>
                 </ResponsiveContainer>

@@ -9,11 +9,11 @@ export const STATUS_COLORS = {
 export const WA_WARMING_DAYS = 7
 
 export const EXPENSE_CATEGORIES = [
-  { value: 'ad_spend', label: 'Gasto en Ads' },
+  { value: 'ad_spend', label: 'Inversion en Ads' },
   { value: 'platform_fees', label: 'Comisiones de plataforma' },
   { value: 'tools_software', label: 'Herramientas / Software' },
   { value: 'team_salaries', label: 'Sueldos del equipo' },
-  { value: 'creative_production', label: 'Producción de creativos' },
+  { value: 'creative_production', label: 'Produccion de creativos' },
   { value: 'other', label: 'Otros' },
 ] as const
 

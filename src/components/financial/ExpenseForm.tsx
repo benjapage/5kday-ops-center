@@ -60,7 +60,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
     setIsLoading(false)
 
     if (error) { toast.error(error); return }
-    toast.success('Gasto registrado')
+    toast.success('Inversion registrada')
     setForm({ amount: '', currency: 'USD', category: '', description: '', expense_date: today })
     onOpenChange(false)
   }
@@ -73,16 +73,16 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
             <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center">
               <Receipt size={16} className="text-red-500" />
             </div>
-            Registrar gasto
+            Registrar inversion
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-400">
-            Registra gastos del negocio para el calculo de P&L.
+            Registra inversiones del negocio para el calculo de P&L.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="form-section">
-            <p className="form-section-title">Detalle del gasto</p>
+            <p className="form-section-title">Detalle de la inversion</p>
             <div className="grid grid-cols-5 gap-3">
               <div className="col-span-3 space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Monto *</Label>
@@ -142,7 +142,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-slate-600">Descripcion</Label>
             <Textarea
-              placeholder="Detalle del gasto..."
+              placeholder="Detalle de la inversion..."
               value={form.description}
               onChange={e => set('description', e.target.value)}
               rows={2}
@@ -160,7 +160,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
               style={{ backgroundColor: '#EF4444' }}
               disabled={isLoading}
             >
-              {isLoading ? 'Guardando...' : 'Registrar gasto'}
+              {isLoading ? 'Guardando...' : 'Registrar inversion'}
             </Button>
           </DialogFooter>
         </form>

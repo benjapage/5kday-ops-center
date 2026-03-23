@@ -19,6 +19,7 @@ export interface Alert {
 export interface DashboardMetrics {
   // Today
   revenueToday: number
+  shopifyRevenueToday: number
   expensesToday: number
   adSpendToday: number
   profitToday: number
@@ -58,7 +59,7 @@ async function fetchDolarBlue(): Promise<number> {
       return data.venta || 1300
     }
   } catch {}
-  return 1300 // fallback
+  return 1300
 }
 
 export function useDashboard() {
@@ -76,17 +77,22 @@ export function useDashboard() {
         const readyCutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
 
         const [
-          revTodayRes, expTodayRes,
-          revMtdRes, expMtdRes,
-          rev30dRes, adSpend30dRes,
+          // Revenue from Meta (purchase_value = total revenue tracked by pixel)
+          metaTodayRes, metaMtdRes, meta30dRes,
+          // Shopify revenue (separate display)
+          shopifyTodayRes,
+          // Expenses
+          expTodayRes, expMtdRes, adSpend30dRes,
+          // WA
           waRes, bannedRes, readyRes,
           blueRate,
         ] = await Promise.all([
-          supabase.from('revenue_entries').select('amount, currency').eq('revenue_date', today),
+          supabase.from('meta_ad_stats').select('purchase_value, currency').eq('stat_date', today),
+          supabase.from('meta_ad_stats').select('purchase_value, currency').gte('stat_date', mtdFrom),
+          supabase.from('meta_ad_stats').select('purchase_value, spend, currency').gte('stat_date', since30d),
+          supabase.from('revenue_entries').select('amount, currency').eq('revenue_date', today).eq('channel', 'shopify'),
           supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
-          supabase.from('revenue_entries').select('amount, currency').gte('revenue_date', mtdFrom),
           supabase.from('expenses').select('amount, currency, category').gte('expense_date', mtdFrom),
-          supabase.from('revenue_entries').select('amount, currency').gte('revenue_date', since30d),
           supabase.from('expenses').select('amount, currency').eq('category', 'ad_spend').gte('expense_date', since30d),
           supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name').order('status').order('start_date', { ascending: false }),
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
@@ -101,13 +107,33 @@ export function useDashboard() {
             return s + (r.currency === 'ARS' ? amt / blueRate : amt)
           }, 0)
 
-        const revenueToday = sumUSD(revTodayRes.data)
+        // Sum Meta purchase_value (revenue tracked by Meta pixel)
+        const sumMetaRevenue = (rows: { purchase_value: unknown; currency?: unknown }[] | null) =>
+          (rows ?? []).reduce((s, r) => {
+            const amt = Number(r.purchase_value ?? 0)
+            return s + (r.currency === 'ARS' ? amt / blueRate : amt)
+          }, 0)
+
+        const sumMetaSpend = (rows: { spend: unknown; currency?: unknown }[] | null) =>
+          (rows ?? []).reduce((s, r) => {
+            const amt = Number(r.spend ?? 0)
+            return s + (r.currency === 'ARS' ? amt / blueRate : amt)
+          }, 0)
+
+        // Revenue from Meta
+        const revenueToday = sumMetaRevenue(metaTodayRes.data)
+        const revenueMtd = sumMetaRevenue(metaMtdRes.data)
+        const rev30d = sumMetaRevenue(meta30dRes.data)
+
+        // Shopify revenue (display only)
+        const shopifyRevenueToday = sumUSD(shopifyTodayRes.data)
+
+        // Expenses
         const expTodayAll = expTodayRes.data ?? []
         const expensesToday = sumUSD(expTodayAll)
         const adSpendToday = sumUSD(expTodayAll.filter(e => e.category === 'ad_spend'))
         const profitToday = revenueToday - expensesToday
 
-        const revenueMtd = sumUSD(revMtdRes.data)
         const expMtdAll = expMtdRes.data ?? []
         const expensesMtd = sumUSD(expMtdAll)
         const adSpendMtd = sumUSD(expMtdAll.filter(e => e.category === 'ad_spend'))
@@ -123,7 +149,6 @@ export function useDashboard() {
           other: sumUSD(expMtdAll.filter(e => e.category === 'other')),
         }
 
-        const rev30d = sumUSD(rev30dRes.data)
         const adSpend30d = sumUSD(adSpend30dRes.data)
         const roas30d = adSpend30d > 0 ? rev30d / adSpend30d : null
 
@@ -148,7 +173,7 @@ export function useDashboard() {
         }
 
         setMetrics({
-          revenueToday, expensesToday, adSpendToday, profitToday,
+          revenueToday, shopifyRevenueToday, expensesToday, adSpendToday, profitToday,
           revenueMtd, expensesMtd, adSpendMtd, profitMtd, roasMtd,
           expenseBreakdownMtd: expBreakdown,
           roas30d,

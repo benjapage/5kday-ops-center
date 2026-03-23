@@ -97,8 +97,8 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* ROW 1 — 4 metric cards */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* ROW 1 — 5 metric cards */}
+      <div className="grid grid-cols-5 gap-4">
         {[
           {
             label: 'Profit hoy',
@@ -108,11 +108,18 @@ export default function Dashboard() {
             color: metrics.profitToday >= 0 ? '#22C55E' : '#EF4444',
           },
           {
-            label: 'Facturacion hoy',
+            label: 'Facturacion total hoy',
             value: metrics.revenueToday,
             format: 'currency' as const,
             icon: DollarSign,
             color: '#10B981',
+          },
+          {
+            label: 'Revenue Shopify',
+            value: metrics.shopifyRevenueToday,
+            format: 'currency' as const,
+            icon: DollarSign,
+            color: '#96bf48',
           },
           {
             label: 'Inversion en ads',
@@ -248,7 +255,7 @@ export default function Dashboard() {
 
           <div className="space-y-1.5 pt-2 border-t border-slate-100">
             {[
-              { label: 'Inversion ads', value: metrics.expenseBreakdownMtd.ad_spend },
+              { label: 'Inversion Ads', value: metrics.expenseBreakdownMtd.ad_spend },
               { label: 'Apps / Tools', value: metrics.expenseBreakdownMtd.tools_software + metrics.expenseBreakdownMtd.platform_fees },
               { label: 'Equipo', value: metrics.expenseBreakdownMtd.team_salaries },
               { label: 'Margen neto', value: metrics.profitMtd, highlight: true },
