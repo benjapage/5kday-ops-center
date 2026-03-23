@@ -85,6 +85,38 @@ module.exports = async function handler(req, res) {
             currency,
             synced_at: new Date().toISOString(),
           }, { onConflict: 'account_id,stat_date' })
+
+          // Also insert/update as expense (ad_spend category) for Dashboard/Financial
+          if (spend > 0) {
+            const marker = `Meta Ads: ${account.name} — ${day.date_start}`
+            // Check if expense already exists for this account+date
+            const { data: existing } = await supabase
+              .from('expenses')
+              .select('id, amount')
+              .eq('description', marker)
+              .eq('expense_date', day.date_start)
+              .maybeSingle()
+
+            if (existing) {
+              // Update if amount changed
+              if (Number(existing.amount) !== spend) {
+                await supabase.from('expenses').update({
+                  amount: spend,
+                  currency,
+                  updated_at: new Date().toISOString(),
+                }).eq('id', existing.id)
+              }
+            } else {
+              await supabase.from('expenses').insert({
+                amount: spend,
+                currency,
+                category: 'ad_spend',
+                description: marker,
+                expense_date: day.date_start,
+              })
+            }
+          }
+
           results.accounts++
         }
       } catch (err) {
