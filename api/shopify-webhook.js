@@ -1,14 +1,9 @@
 // api/shopify-webhook.js — recibe eventos de Shopify y los guarda en Supabase
 // Verificación HMAC-SHA256 con el client secret de cada app
+// bodyParser deshabilitado para poder verificar el HMAC con el raw body
 
 const { createHmac, timingSafeEqual } = require('crypto')
 const { createClient } = require('@supabase/supabase-js')
-
-// Map shop domain → client secret (para verificar HMAC)
-const SHOP_SECRETS = {
-  'las-recetas-de-ana.myshopify.com': process.env.SHOPIFY_CLIENT_SECRET_LASRECETAS,
-  'panaderia-con-ana-internacional.myshopify.com': process.env.SHOPIFY_CLIENT_SECRET_INSTANTHANDBOOK,
-}
 
 const SHOP_SLUGS = {
   'las-recetas-de-ana.myshopify.com': 'lasrecetasdeana',
@@ -36,7 +31,7 @@ function verifyShopifyHmac(secret, rawBody, hmacHeader) {
   }
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' })
   }
@@ -47,6 +42,12 @@ module.exports = async function handler(req, res) {
 
   if (!shop || !hmacHeader) {
     return res.status(401).json({ error: 'Faltan headers de Shopify' })
+  }
+
+  // Leer secrets dentro del handler (no en module load time)
+  const SHOP_SECRETS = {
+    'las-recetas-de-ana.myshopify.com': (process.env.SHOPIFY_CLIENT_SECRET_LASRECETAS || '').trim(),
+    'panaderia-con-ana-internacional.myshopify.com': (process.env.SHOPIFY_CLIENT_SECRET_INSTANTHANDBOOK || '').trim(),
   }
 
   const secret = SHOP_SECRETS[shop]
@@ -80,8 +81,8 @@ module.exports = async function handler(req, res) {
   const notes = `Shopify ${slug} — Orden #${order.order_number}${items ? ` — ${items}` : ''}`
 
   const supabase = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    (process.env.VITE_SUPABASE_URL || '').trim(),
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
   )
 
   const { error } = await supabase.rpc('insert_shopify_revenue', {
@@ -100,3 +101,8 @@ module.exports = async function handler(req, res) {
   // Siempre responder 200 para evitar reintentos de Shopify
   return res.status(200).json({ ok: !error })
 }
+
+// IMPORTANTE: deshabilitar body parser de Vercel para obtener raw body y verificar HMAC
+handler.config = { api: { bodyParser: false } }
+
+module.exports = handler
