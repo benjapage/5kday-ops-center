@@ -39,3 +39,5 @@ pw_*.js
 # Supabase helper scripts
 supabase_*.cjs
 supabase_*.js
+
+.env*.local
