@@ -31,8 +31,8 @@ module.exports = function handler(req, res) {
       })
     }
 
-    const appUrl = process.env.VITE_APP_URL || 'https://5kday-ops-center.vercel.app'
-    const redirectUri = `${appUrl}/api/shopify-callback`
+    const appUrl = (process.env.VITE_APP_URL || 'https://5kday-ops-center.vercel.app').trim()
+    const redirectUri = `${appUrl}/api/shopify/callback`
 
     // Use base64 (universally supported) instead of base64url
     const state = Buffer.from(JSON.stringify({ shop, ts: Date.now() }))
