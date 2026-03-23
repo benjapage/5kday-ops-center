@@ -147,15 +147,15 @@ export default function Financial() {
     else toast.success('Gasto eliminado')
   }
 
-  // Chart data: last 30 days cumulative
+  // Chart data: last 30 days
   const chartData = [...dailyPnl]
-    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-30)
     .map(d => ({
-      date: d.date?.split('-').slice(1).join('/') ?? '',
-      Ingresos: Number(d.total_revenue ?? 0),
-      Profit: Number(d.profit ?? 0),
-      'Gasto Ads': Number(d.ad_spend ?? 0),
+      date: d.date.split('-').slice(1).join('/'),
+      Ingresos: d.total_revenue,
+      Profit: d.profit,
+      'Gasto Ads': d.ad_spend,
     }))
 
   if (isLoading) return <LoadingSpinner />
@@ -235,15 +235,15 @@ export default function Financial() {
                     </TableRow>
                   ) : (
                     dailyPnl.slice(0, 30).map(row => {
-                      const revenue = Number(row.total_revenue ?? 0)
-                      const expenses = Number(row.total_expenses ?? 0)
-                      const adSpend = Number(row.ad_spend ?? 0)
+                      const revenue = row.total_revenue
+                      const expenses = row.total_expenses
+                      const adSpend = row.ad_spend
                       const otherExpenses = expenses - adSpend
-                      const profit = Number(row.profit ?? 0)
+                      const profit = row.profit
                       const roas = adSpend > 0 ? revenue / adSpend : null
                       return (
                         <TableRow key={row.date} className="hover:bg-slate-50/50">
-                          <TableCell className="text-sm font-medium">{formatDate(row.date ?? '')}</TableCell>
+                          <TableCell className="text-sm font-medium">{formatDate(row.date)}</TableCell>
                           <TableCell className="text-right font-mono text-sm text-green-700">
                             {formatCurrency(revenue)}
                           </TableCell>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useActivityLog } from './useActivityLog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -6,7 +6,14 @@ import type { Database } from '@/types/database.types'
 
 type Expense = Database['public']['Tables']['expenses']['Row']
 type RevenueEntry = Database['public']['Tables']['revenue_entries']['Row']
-type DailyPnl = Database['public']['Views']['daily_pnl']['Row']
+
+export interface DailyPnlRow {
+  date: string
+  total_revenue: number
+  total_expenses: number
+  ad_spend: number
+  profit: number
+}
 
 interface ExpenseInsert {
   amount: number
@@ -38,7 +45,6 @@ async function fetchDolarBlue(): Promise<number> {
 }
 
 export function useFinancials(dateFrom?: string, dateTo?: string) {
-  const [dailyPnl, setDailyPnl] = useState<DailyPnl[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [revenues, setRevenues] = useState<RevenueEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -49,10 +55,6 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
   const fetchAll = useCallback(async () => {
     setIsLoading(true)
 
-    let pnlQuery = supabase.from('daily_pnl').select('*').order('date', { ascending: false })
-    if (dateFrom) pnlQuery = pnlQuery.gte('date', dateFrom)
-    if (dateTo) pnlQuery = pnlQuery.lte('date', dateTo)
-
     let expQuery = supabase.from('expenses').select('*').order('expense_date', { ascending: false })
     if (dateFrom) expQuery = expQuery.gte('expense_date', dateFrom)
     if (dateTo) expQuery = expQuery.lte('expense_date', dateTo)
@@ -61,16 +63,49 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     if (dateFrom) revQuery = revQuery.gte('revenue_date', dateFrom)
     if (dateTo) revQuery = revQuery.lte('revenue_date', dateTo)
 
-    const [pnlRes, expRes, revRes, rate] = await Promise.all([pnlQuery, expQuery, revQuery, fetchDolarBlue()])
+    const [expRes, revRes, rate] = await Promise.all([expQuery, revQuery, fetchDolarBlue()])
 
     setBlueRate(rate)
-    if (!pnlRes.error) setDailyPnl(pnlRes.data ?? [])
     if (!expRes.error) setExpenses(expRes.data ?? [])
     if (!revRes.error) setRevenues(revRes.data ?? [])
     setIsLoading(false)
   }, [dateFrom, dateTo])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Convert amount to USD
+  function toUSD(amount: number, currency: string): number {
+    return currency === 'ARS' ? amount / blueRate : amount
+  }
+
+  // Compute daily P&L from raw data with currency conversion
+  const dailyPnl: DailyPnlRow[] = useMemo(() => {
+    const byDate: Record<string, { revenue: number; expenses: number; adSpend: number }> = {}
+
+    for (const r of revenues) {
+      const d = r.revenue_date
+      if (!byDate[d]) byDate[d] = { revenue: 0, expenses: 0, adSpend: 0 }
+      byDate[d].revenue += toUSD(Number(r.amount), r.currency)
+    }
+
+    for (const e of expenses) {
+      const d = e.expense_date
+      if (!byDate[d]) byDate[d] = { revenue: 0, expenses: 0, adSpend: 0 }
+      const amt = toUSD(Number(e.amount), e.currency)
+      byDate[d].expenses += amt
+      if (e.category === 'ad_spend') byDate[d].adSpend += amt
+    }
+
+    return Object.entries(byDate)
+      .map(([date, v]) => ({
+        date,
+        total_revenue: v.revenue,
+        total_expenses: v.expenses,
+        ad_spend: v.adSpend,
+        profit: v.revenue - v.expenses,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date))
+  }, [revenues, expenses, blueRate])
 
   async function addExpense(data: ExpenseInsert): Promise<{ error: string | null }> {
     if (!data.category) return { error: 'La categoria es obligatoria' }
@@ -115,11 +150,6 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     if (error) return { error: error.message }
     await fetchAll()
     return { error: null }
-  }
-
-  // Convert amount to USD
-  function toUSD(amount: number, currency: string): number {
-    return currency === 'ARS' ? amount / blueRate : amount
   }
 
   // MTD summary with currency conversion
