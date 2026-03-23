@@ -12,12 +12,13 @@ module.exports = function handler(req, res) {
     }
 
     // Read env vars inside handler (not at module load time)
+    // .trim() removes trailing newlines added by `echo | vercel env add`
     const APPS = {
       'las-recetas-de-ana.myshopify.com': {
-        clientId: process.env.SHOPIFY_CLIENT_ID_LASRECETAS,
+        clientId: (process.env.SHOPIFY_CLIENT_ID_LASRECETAS || '').trim(),
       },
       'panaderia-con-ana-internacional.myshopify.com': {
-        clientId: process.env.SHOPIFY_CLIENT_ID_INSTANTHANDBOOK,
+        clientId: (process.env.SHOPIFY_CLIENT_ID_INSTANTHANDBOOK || '').trim(),
       },
     }
 

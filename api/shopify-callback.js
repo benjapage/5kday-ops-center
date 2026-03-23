@@ -11,18 +11,18 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Faltan parámetros' })
     }
 
-    // Read env vars inside handler (not at module load time)
+    // Read env vars inside handler — .trim() removes newlines added by `echo | vercel env add`
     const APPS = {
       'las-recetas-de-ana.myshopify.com': {
-        clientId: process.env.SHOPIFY_CLIENT_ID_LASRECETAS,
-        clientSecret: process.env.SHOPIFY_CLIENT_SECRET_LASRECETAS,
+        clientId: (process.env.SHOPIFY_CLIENT_ID_LASRECETAS || '').trim(),
+        clientSecret: (process.env.SHOPIFY_CLIENT_SECRET_LASRECETAS || '').trim(),
         displayName: 'Las Recetas de Ana',
         customDomain: 'lasrecetasdeana.com',
         slug: 'lasrecetasdeana',
       },
       'panaderia-con-ana-internacional.myshopify.com': {
-        clientId: process.env.SHOPIFY_CLIENT_ID_INSTANTHANDBOOK,
-        clientSecret: process.env.SHOPIFY_CLIENT_SECRET_INSTANTHANDBOOK,
+        clientId: (process.env.SHOPIFY_CLIENT_ID_INSTANTHANDBOOK || '').trim(),
+        clientSecret: (process.env.SHOPIFY_CLIENT_SECRET_INSTANTHANDBOOK || '').trim(),
         displayName: 'Instant Handbook',
         customDomain: 'instanthandbook.com',
         slug: 'instanthandbook',
