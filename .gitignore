@@ -32,3 +32,10 @@ pw_*.js
 *.db
 
 .vercel
+
+# Playwright browser profile
+.playwright-profile/
+
+# Supabase helper scripts
+supabase_*.cjs
+supabase_*.js

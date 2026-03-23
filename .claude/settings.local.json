@@ -51,7 +51,26 @@
       "Bash(\"$GH\" run:*)",
       "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23409867401 --log-failed --repo benjapage/5kday-ops-center)",
       "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23409912986 --log-failed --repo benjapage/5kday-ops-center)",
-      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23410024191 --log-failed --repo benjapage/5kday-ops-center)"
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23410024191 --log-failed --repo benjapage/5kday-ops-center)",
+      "Bash(GH=\"C:/Users/Usuario/AppData/Local/gh-cli/bin/gh.exe\" \"$GH\" run view 23410302675 --log-failed --repo benjapage/5kday-ops-center)",
+      "Bash(vercel tokens:*)",
+      "Bash(\"$GH\" workflow:*)",
+      "Read(//c/Program Files/Google/Chrome/Application//**)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Bash(\"C:\\\\Users\\\\Usuario\\\\Desktop\\\\5kday-ops-center\\\\.env.local\")",
+      "WebSearch",
+      "WebFetch(domain:utmify.help.center)",
+      "WebFetch(domain:www.scribd.com)",
+      "Bash(\"C:\\\\Users\\\\Usuario\\\\Desktop\\\\5kday-ops-center\\\\.env.local\":*)",
+      "Bash(# Chrome locks the DB while running. Copy it first.\ncp \"C:/Users/Usuario/AppData/Local/Google/Chrome/User Data/Default/Network/Cookies\" \"/tmp/chrome_cookies.db\" 2>&1 && \\\\\nnode -e \"\nconst Database = require\\('better-sqlite3'\\);\ntry {\n  const db = new Database\\('/tmp/chrome_cookies.db', { readonly: true }\\);\n  const rows = db.prepare\\(\\\\\"SELECT host_key, name, value FROM cookies WHERE host_key LIKE '%supabase%'\\\\\"\\).all\\(\\);\n  console.log\\('Found:', rows.length\\);\n  rows.forEach\\(r => console.log\\(r.host_key, '|', r.name, '|', \\(r.value||'[encrypted_val]'\\).slice\\(0,100\\)\\)\\);\n  db.close\\(\\);\n} catch\\(e\\) { console.error\\(e.message\\); }\n\" 2>&1)",
+      "Bash(npm list:*)",
+      "Bash(tasklist /FI 'IMAGENAME eq chrome.exe' /FO CSV)",
+      "Bash(taskkill /F /IM chrome.exe /T)",
+      "Bash(tasklist /FI 'IMAGENAME eq chrome.exe')",
+      "Bash(vercel env:*)",
+      "Bash(vercel logs:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
