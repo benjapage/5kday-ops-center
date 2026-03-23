@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -432,25 +431,17 @@ export default function Pipeline() {
         ))}
       </div>
 
-      <Tabs defaultValue="offers">
+      {/* OFERTAS */}
+      <div>
         <div className="flex items-center justify-between mb-4">
-          <TabsList>
-            <TabsTrigger value="offers">Ofertas</TabsTrigger>
-            <TabsTrigger value="creatives">Banco de creativos</TabsTrigger>
-          </TabsList>
+          <h2 className="text-sm font-semibold text-slate-700">Ofertas</h2>
           {canWrite && (
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setAddCreativeOpen(true)} className="gap-1.5">
-                <Plus size={14} /> Creativo
-              </Button>
-              <Button size="sm" className="text-white gap-1.5" style={{ backgroundColor: '#10B981' }} onClick={() => setAddOfferOpen(true)}>
-                <Plus size={14} /> Oferta
-              </Button>
-            </div>
+            <Button size="sm" className="text-white gap-1.5" style={{ backgroundColor: '#10B981' }} onClick={() => setAddOfferOpen(true)}>
+              <Plus size={14} /> Nueva oferta
+            </Button>
           )}
         </div>
 
-        <TabsContent value="offers">
           {/* Filter */}
           <div className="flex gap-1 mb-4" role="group" aria-label="Filtrar por estado">
             {(['active', 'paused', 'archived', 'all'] as const).map(f => {
@@ -555,12 +546,21 @@ export default function Pipeline() {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
+      </div>
 
-        <TabsContent value="creatives">
-          {loadingCreatives ? (
-            <LoadingSpinner />
-          ) : (
+      {/* BANCO DE CREATIVOS */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-slate-700">Banco de creativos</h2>
+          {canWrite && (
+            <Button size="sm" variant="outline" onClick={() => setAddCreativeOpen(true)} className="gap-1.5">
+              <Plus size={14} /> Agregar creativo
+            </Button>
+          )}
+        </div>
+        {loadingCreatives ? (
+          <LoadingSpinner />
+        ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {creatives.length === 0 ? (
                 <div className="col-span-full">
@@ -617,8 +617,7 @@ export default function Pipeline() {
               })}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <AddOfferDialog open={addOfferOpen} onOpenChange={setAddOfferOpen} onCreate={createOffer} />
       <AddCreativeDialog open={addCreativeOpen} onOpenChange={setAddCreativeOpen} onCreate={createCreative} offers={offers} />

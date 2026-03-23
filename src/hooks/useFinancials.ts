@@ -26,11 +26,23 @@ interface RevenueInsert {
   notes?: string
 }
 
+async function fetchDolarBlue(): Promise<number> {
+  try {
+    const res = await fetch('/api/dolar-blue')
+    if (res.ok) {
+      const data = await res.json()
+      return data.venta || 1300
+    }
+  } catch {}
+  return 1300
+}
+
 export function useFinancials(dateFrom?: string, dateTo?: string) {
   const [dailyPnl, setDailyPnl] = useState<DailyPnl[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [revenues, setRevenues] = useState<RevenueEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [blueRate, setBlueRate] = useState<number>(1300)
   const { logAction } = useActivityLog()
   const { profile } = useAuth()
 
@@ -49,8 +61,9 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     if (dateFrom) revQuery = revQuery.gte('revenue_date', dateFrom)
     if (dateTo) revQuery = revQuery.lte('revenue_date', dateTo)
 
-    const [pnlRes, expRes, revRes] = await Promise.all([pnlQuery, expQuery, revQuery])
+    const [pnlRes, expRes, revRes, rate] = await Promise.all([pnlQuery, expQuery, revQuery, fetchDolarBlue()])
 
+    setBlueRate(rate)
     if (!pnlRes.error) setDailyPnl(pnlRes.data ?? [])
     if (!expRes.error) setExpenses(expRes.data ?? [])
     if (!revRes.error) setRevenues(revRes.data ?? [])
@@ -60,7 +73,7 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   async function addExpense(data: ExpenseInsert): Promise<{ error: string | null }> {
-    if (!data.category) return { error: 'La categoría es obligatoria' }
+    if (!data.category) return { error: 'La categoria es obligatoria' }
 
     const { data: inserted, error } = await supabase
       .from('expenses')
@@ -104,13 +117,21 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     return { error: null }
   }
 
-  // MTD summary
+  // Convert amount to USD
+  function toUSD(amount: number, currency: string): number {
+    return currency === 'ARS' ? amount / blueRate : amount
+  }
+
+  // MTD summary with currency conversion
   const today = new Date()
   const mtdFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-  const mtdPnl = dailyPnl.filter(d => d.date && d.date >= mtdFrom)
-  const mtdRevenue = mtdPnl.reduce((s, d) => s + Number(d.total_revenue ?? 0), 0)
-  const mtdExpenses = mtdPnl.reduce((s, d) => s + Number(d.total_expenses ?? 0), 0)
-  const mtdAdSpend = mtdPnl.reduce((s, d) => s + Number(d.ad_spend ?? 0), 0)
+
+  const mtdRevenues = revenues.filter(r => r.revenue_date >= mtdFrom)
+  const mtdExpensesList = expenses.filter(e => e.expense_date >= mtdFrom)
+
+  const mtdRevenue = mtdRevenues.reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+  const mtdExpenses = mtdExpensesList.reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
+  const mtdAdSpend = mtdExpensesList.filter(e => e.category === 'ad_spend').reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
   const mtdProfit = mtdRevenue - mtdExpenses
   const mtdRoas = mtdAdSpend > 0 ? mtdRevenue / mtdAdSpend : null
 
@@ -123,6 +144,8 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     addRevenue,
     deleteExpense,
     refresh: fetchAll,
+    blueRate,
+    toUSD,
     mtd: { revenue: mtdRevenue, expenses: mtdExpenses, adSpend: mtdAdSpend, profit: mtdProfit, roas: mtdRoas },
   }
 }

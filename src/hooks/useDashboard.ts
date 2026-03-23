@@ -47,6 +47,18 @@ export interface DashboardMetrics {
     list: WaAccountSummary[]
   }
   alerts: Alert[]
+  dolarBlue: number | null
+}
+
+async function fetchDolarBlue(): Promise<number> {
+  try {
+    const res = await fetch('/api/dolar-blue')
+    if (res.ok) {
+      const data = await res.json()
+      return data.venta || 1300
+    }
+  } catch {}
+  return 1300 // fallback
 }
 
 export function useDashboard() {
@@ -68,45 +80,51 @@ export function useDashboard() {
           revMtdRes, expMtdRes,
           rev30dRes, adSpend30dRes,
           waRes, bannedRes, readyRes,
+          blueRate,
         ] = await Promise.all([
-          supabase.from('revenue_entries').select('amount').eq('revenue_date', today),
-          supabase.from('expenses').select('amount, category').eq('expense_date', today),
-          supabase.from('revenue_entries').select('amount').gte('revenue_date', mtdFrom),
-          supabase.from('expenses').select('amount, category').gte('expense_date', mtdFrom),
-          supabase.from('revenue_entries').select('amount').gte('revenue_date', since30d),
-          supabase.from('expenses').select('amount').eq('category', 'ad_spend').gte('expense_date', since30d),
+          supabase.from('revenue_entries').select('amount, currency').eq('revenue_date', today),
+          supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
+          supabase.from('revenue_entries').select('amount, currency').gte('revenue_date', mtdFrom),
+          supabase.from('expenses').select('amount, currency, category').gte('expense_date', mtdFrom),
+          supabase.from('revenue_entries').select('amount, currency').gte('revenue_date', since30d),
+          supabase.from('expenses').select('amount, currency').eq('category', 'ad_spend').gte('expense_date', since30d),
           supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name').order('status').order('start_date', { ascending: false }),
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
           supabase.from('wa_accounts').select('id, phone_number, start_date').eq('status', 'warming').lte('start_date', readyCutoff),
+          fetchDolarBlue(),
         ])
 
-        const sum = (rows: { amount: unknown }[] | null) =>
-          (rows ?? []).reduce((s, r) => s + Number(r.amount), 0)
+        // Sum with currency conversion: ARS → USD via blue rate
+        const sumUSD = (rows: { amount: unknown; currency?: unknown }[] | null) =>
+          (rows ?? []).reduce((s, r) => {
+            const amt = Number(r.amount)
+            return s + (r.currency === 'ARS' ? amt / blueRate : amt)
+          }, 0)
 
-        const revenueToday = sum(revTodayRes.data)
+        const revenueToday = sumUSD(revTodayRes.data)
         const expTodayAll = expTodayRes.data ?? []
-        const expensesToday = expTodayAll.reduce((s, r) => s + Number(r.amount), 0)
-        const adSpendToday = expTodayAll.filter(e => e.category === 'ad_spend').reduce((s, r) => s + Number(r.amount), 0)
+        const expensesToday = sumUSD(expTodayAll)
+        const adSpendToday = sumUSD(expTodayAll.filter(e => e.category === 'ad_spend'))
         const profitToday = revenueToday - expensesToday
 
-        const revenueMtd = sum(revMtdRes.data)
+        const revenueMtd = sumUSD(revMtdRes.data)
         const expMtdAll = expMtdRes.data ?? []
-        const expensesMtd = expMtdAll.reduce((s, r) => s + Number(r.amount), 0)
-        const adSpendMtd = expMtdAll.filter(e => e.category === 'ad_spend').reduce((s, r) => s + Number(r.amount), 0)
+        const expensesMtd = sumUSD(expMtdAll)
+        const adSpendMtd = sumUSD(expMtdAll.filter(e => e.category === 'ad_spend'))
         const profitMtd = revenueMtd - expensesMtd
         const roasMtd = adSpendMtd > 0 ? revenueMtd / adSpendMtd : null
 
         const expBreakdown = {
-          ad_spend: expMtdAll.filter(e => e.category === 'ad_spend').reduce((s, r) => s + Number(r.amount), 0),
-          tools_software: expMtdAll.filter(e => e.category === 'tools_software').reduce((s, r) => s + Number(r.amount), 0),
-          platform_fees: expMtdAll.filter(e => e.category === 'platform_fees').reduce((s, r) => s + Number(r.amount), 0),
-          team_salaries: expMtdAll.filter(e => e.category === 'team_salaries').reduce((s, r) => s + Number(r.amount), 0),
-          creative_production: expMtdAll.filter(e => e.category === 'creative_production').reduce((s, r) => s + Number(r.amount), 0),
-          other: expMtdAll.filter(e => e.category === 'other').reduce((s, r) => s + Number(r.amount), 0),
+          ad_spend: sumUSD(expMtdAll.filter(e => e.category === 'ad_spend')),
+          tools_software: sumUSD(expMtdAll.filter(e => e.category === 'tools_software')),
+          platform_fees: sumUSD(expMtdAll.filter(e => e.category === 'platform_fees')),
+          team_salaries: sumUSD(expMtdAll.filter(e => e.category === 'team_salaries')),
+          creative_production: sumUSD(expMtdAll.filter(e => e.category === 'creative_production')),
+          other: sumUSD(expMtdAll.filter(e => e.category === 'other')),
         }
 
-        const rev30d = sum(rev30dRes.data)
-        const adSpend30d = sum(adSpend30dRes.data)
+        const rev30d = sumUSD(rev30dRes.data)
+        const adSpend30d = sumUSD(adSpend30dRes.data)
         const roas30d = adSpend30d > 0 ? rev30d / adSpend30d : null
 
         const waList = (waRes.data ?? []) as WaAccountSummary[]
@@ -120,10 +138,10 @@ export function useDashboard() {
 
         const alerts: Alert[] = []
         for (const acc of (bannedRes.data ?? [])) {
-          alerts.push({ type: 'danger', message: `Número ${acc.phone_number} fue baneado`, entityId: acc.id })
+          alerts.push({ type: 'danger', message: `Numero ${acc.phone_number} fue baneado`, entityId: acc.id })
         }
         for (const acc of (readyRes.data ?? [])) {
-          alerts.push({ type: 'warning', message: `${acc.phone_number} completó calentamiento — listo para activar`, entityId: acc.id })
+          alerts.push({ type: 'warning', message: `${acc.phone_number} completo calentamiento — listo para activar`, entityId: acc.id })
         }
         if (waAccounts.active === 0 && waAccounts.total > 0) {
           alerts.push({ type: 'info', message: 'No hay cuentas WA activas en este momento' })
@@ -136,9 +154,10 @@ export function useDashboard() {
           roas30d,
           waAccounts,
           alerts,
+          dolarBlue: blueRate,
         })
       } catch (err) {
-        setError('Error al cargar métricas')
+        setError('Error al cargar metricas')
         console.error(err)
       } finally {
         setIsLoading(false)
