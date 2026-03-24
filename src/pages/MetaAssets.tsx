@@ -25,7 +25,7 @@ export default function MetaAssets() {
   async function syncMeta() {
     setSyncing(true)
     try {
-      const res = await fetch('/api/meta-sync?days=7')
+      const res = await fetch('/api/meta-sync?days=30')
       const data = await res.json()
       if (!res.ok) {
         toast.error(data.error || 'Error al sincronizar')
