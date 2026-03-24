@@ -130,7 +130,7 @@ function AssetDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: iconColor + '15' }}>
-              <Icon size={16} style={{ color: iconColor }} />
+              <span style={{ color: iconColor }}><Icon size={16} /></span>
             </div>
             {title}
           </DialogTitle>
@@ -215,7 +215,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: iconColor + '12' }}>
-              <Icon size={20} style={{ color: iconColor }} />
+              <span style={{ color: iconColor }}><Icon size={20} /></span>
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-800">{title}</h3>
