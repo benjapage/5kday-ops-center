@@ -92,7 +92,7 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     return currency === 'ARS' ? amount / blueRate : amount
   }
 
-  // Compute daily P&L: revenue from Meta, expenses from expenses table
+  // Compute daily P&L: revenue from Meta + revenue_entries, expenses from expenses table
   const dailyPnl: DailyPnlRow[] = useMemo(() => {
     const byDate: Record<string, { revenue: number; expenses: number; adSpend: number }> = {}
 
@@ -101,6 +101,13 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
       const d = m.stat_date
       if (!byDate[d]) byDate[d] = { revenue: 0, expenses: 0, adSpend: 0 }
       byDate[d].revenue += toUSD(Number(m.purchase_value ?? 0), m.currency)
+    }
+
+    // Revenue from revenue_entries (Shopify + manual)
+    for (const r of revenues) {
+      const d = r.revenue_date
+      if (!byDate[d]) byDate[d] = { revenue: 0, expenses: 0, adSpend: 0 }
+      byDate[d].revenue += toUSD(Number(r.amount), r.currency)
     }
 
     // Expenses from expenses table
@@ -121,7 +128,7 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
         profit: v.revenue - v.expenses,
       }))
       .sort((a, b) => b.date.localeCompare(a.date))
-  }, [metaStats, expenses, blueRate])
+  }, [metaStats, revenues, expenses, blueRate])
 
   async function addExpense(data: ExpenseInsert): Promise<{ error: string | null }> {
     if (!data.category) return { error: 'La categoria es obligatoria' }
@@ -168,14 +175,17 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     return { error: null }
   }
 
-  // MTD summary: revenue from Meta, expenses from expenses table
+  // MTD summary: revenue from Meta + revenue_entries, expenses from expenses table
   const today = new Date()
   const mtdFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
 
   const mtdMeta = metaStats.filter(m => m.stat_date >= mtdFrom)
+  const mtdRevEntries = revenues.filter(r => r.revenue_date >= mtdFrom)
   const mtdExpensesList = expenses.filter(e => e.expense_date >= mtdFrom)
 
-  const mtdRevenue = mtdMeta.reduce((s, m) => s + toUSD(Number(m.purchase_value ?? 0), m.currency), 0)
+  const mtdMetaRevenue = mtdMeta.reduce((s, m) => s + toUSD(Number(m.purchase_value ?? 0), m.currency), 0)
+  const mtdEntriesRevenue = mtdRevEntries.reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+  const mtdRevenue = mtdMetaRevenue + mtdEntriesRevenue
   const mtdExpenses = mtdExpensesList.reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
   const mtdAdSpend = mtdExpensesList.filter(e => e.category === 'ad_spend').reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
   const mtdProfit = mtdRevenue - mtdExpenses

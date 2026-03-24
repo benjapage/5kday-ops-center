@@ -167,19 +167,19 @@ export default function Financial() {
         <p className="text-sm text-slate-500 mt-0.5">P&amp;L, inversiones e ingresos del negocio</p>
       </div>
 
-      {/* MTD Summary */}
+      {/* Resumen del mes */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-        <MetricCard title="Ingresos MTD" value={mtd.revenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
-        <MetricCard title="Inversiones MTD" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#EF4444" />
-        <MetricCard title="Inversion Ads MTD" value={mtd.adSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
+        <MetricCard title="Ingresos del mes" value={mtd.revenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
+        <MetricCard title="Inversiones del mes" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#EF4444" />
+        <MetricCard title="Inversion Ads del mes" value={mtd.adSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
         <MetricCard
-          title="Profit MTD"
+          title="Profit del mes"
           value={mtd.profit}
           format="currency"
           icon={DollarSign}
           iconColor={mtd.profit >= 0 ? '#10B981' : '#EF4444'}
         />
-        <MetricCard title="ROAS MTD" value={mtd.roas} format="roas" icon={TrendingUp} iconColor="#0B1A2E" />
+        <MetricCard title="ROAS del mes" value={mtd.roas} format="roas" icon={TrendingUp} iconColor="#0B1A2E" />
       </div>
 
       <Tabs defaultValue="daily">
