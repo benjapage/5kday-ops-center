@@ -18,12 +18,25 @@ async function metaGet(path, token, params = {}) {
 }
 
 function extractPurchases(day) {
-  const purchases = (day.actions || []).find(a => a.action_type === 'purchase')
-  const purchaseValue = (day.action_values || []).find(a => a.action_type === 'purchase')
-  return {
-    count: purchases ? parseInt(purchases.value) : 0,
-    value: purchaseValue ? parseFloat(purchaseValue.value) : 0,
+  // Buscar en action_values el valor total de conversiones de compras
+  // Meta puede reportar como 'purchase', 'omni_purchase', o 'offsite_conversion.fb_pixel_purchase'
+  const purchaseTypes = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase']
+  const actionTypes = ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase']
+
+  let count = 0
+  let value = 0
+
+  // Tomar el primer tipo que tenga datos (omni_purchase es el mas completo)
+  for (const type of actionTypes) {
+    const action = (day.actions || []).find(a => a.action_type === type)
+    if (action) { count = parseInt(action.value); break }
   }
+  for (const type of purchaseTypes) {
+    const actionVal = (day.action_values || []).find(a => a.action_type === type)
+    if (actionVal) { value = parseFloat(actionVal.value); break }
+  }
+
+  return { count, value }
 }
 
 module.exports = async function handler(req, res) {
@@ -62,6 +75,7 @@ module.exports = async function handler(req, res) {
           time_range: timeRange,
           time_increment: '1',
           level: 'account',
+          action_attribution_windows: '["7d_click","1d_view"]',
           limit: '100',
         })
 
