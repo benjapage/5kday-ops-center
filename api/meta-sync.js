@@ -5,7 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
-const META_API = 'https://graph.facebook.com/v21.0'
+const META_API = 'https://graph.facebook.com/v22.0'
 
 async function metaGet(path, token, params = {}) {
   const qs = new URLSearchParams({ access_token: token, ...params })
