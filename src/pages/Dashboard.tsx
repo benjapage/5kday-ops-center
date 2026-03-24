@@ -122,11 +122,11 @@ export default function Dashboard() {
             color: '#EF4444',
           },
           {
-            label: 'Inversion en ads del mes',
-            value: metrics.adSpendMtd,
+            label: 'Revenue Shopify hoy',
+            value: metrics.shopifyRevenueToday,
             format: 'currency' as const,
-            icon: BarChart3,
-            color: '#F59E0B',
+            icon: DollarSign,
+            color: '#96bf48',
           },
           {
             label: 'ROAS 30d',
