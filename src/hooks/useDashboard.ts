@@ -79,8 +79,7 @@ export function useDashboard() {
         const [
           // Revenue from Meta (purchase_value = total revenue tracked by pixel)
           metaTodayRes, metaMtdRes, meta30dRes,
-          // Revenue entries (Shopify + manual)
-          revTodayRes, revMtdRes, rev30dRes,
+          // Shopify revenue (separate display)
           shopifyTodayRes,
           // Expenses
           expTodayRes, expMtdRes, adSpend30dRes,
@@ -91,9 +90,6 @@ export function useDashboard() {
           supabase.from('meta_ad_stats').select('purchase_value, currency').eq('stat_date', today),
           supabase.from('meta_ad_stats').select('purchase_value, currency').gte('stat_date', mtdFrom),
           supabase.from('meta_ad_stats').select('purchase_value, spend, currency').gte('stat_date', since30d),
-          supabase.from('revenue_entries').select('amount, currency').eq('revenue_date', today),
-          supabase.from('revenue_entries').select('amount, currency').gte('revenue_date', mtdFrom),
-          supabase.from('revenue_entries').select('amount, currency').gte('revenue_date', since30d),
           supabase.from('revenue_entries').select('amount, currency').eq('revenue_date', today).eq('channel', 'shopify'),
           supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
           supabase.from('expenses').select('amount, currency, category').gte('expense_date', mtdFrom),
@@ -124,10 +120,10 @@ export function useDashboard() {
             return s + (r.currency === 'ARS' ? amt / blueRate : amt)
           }, 0)
 
-        // Revenue = Meta purchase_value + revenue_entries (Shopify + manual)
-        const revenueToday = sumMetaRevenue(metaTodayRes.data) + sumUSD(revTodayRes.data)
-        const revenueMtd = sumMetaRevenue(metaMtdRes.data) + sumUSD(revMtdRes.data)
-        const rev30d = sumMetaRevenue(meta30dRes.data) + sumUSD(rev30dRes.data)
+        // Revenue solo de Meta (purchase_value del pixel)
+        const revenueToday = sumMetaRevenue(metaTodayRes.data)
+        const revenueMtd = sumMetaRevenue(metaMtdRes.data)
+        const rev30d = sumMetaRevenue(meta30dRes.data)
 
         // Shopify revenue (separate display)
         const shopifyRevenueToday = sumUSD(shopifyTodayRes.data)
