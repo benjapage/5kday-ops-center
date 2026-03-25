@@ -213,7 +213,7 @@ export default function Team() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Equipo</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Equipo</h1>
         <p className="text-sm text-slate-500 mt-0.5">Miembros, checklists y recursos internos</p>
       </div>
 
@@ -226,11 +226,11 @@ export default function Team() {
 
         {/* Members */}
         <TabsContent value="members" className="mt-4">
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50">
+                  <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Nombre</TableHead>
                     <TableHead className="text-xs">Email</TableHead>
                     <TableHead className="text-xs">Rol</TableHead>
@@ -246,7 +246,7 @@ export default function Team() {
                       </TableCell>
                     </TableRow>
                   ) : members.map(member => (
-                    <TableRow key={member.id} className="hover:bg-slate-50/50">
+                    <TableRow key={member.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div
@@ -322,7 +322,7 @@ export default function Team() {
                 const isExpanded = expandedChecklists.has(cl.id)
 
                 return (
-                  <Card key={cl.id} className="shadow-sm border-slate-200">
+                  <Card key={cl.id} className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
                     <CardHeader
                       className="pb-2 cursor-pointer"
                       onClick={() => toggleExpanded(cl.id)}
@@ -387,11 +387,11 @@ export default function Team() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {driveLinks.map(link => (
-                <Card key={link.id} className="shadow-sm border-slate-200">
+                <Card key={link.id} className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{link.title}</p>
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{link.title}</p>
                         {link.category && (
                           <Badge variant="outline" className="text-xs mt-1">{link.category}</Badge>
                         )}

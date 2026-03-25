@@ -31,12 +31,12 @@ export function MetricCard({
   }
 
   return (
-    <Card className="shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+    <Card className="shadow-sm border border-slate-200/80 dark:border-slate-700/60 dark:bg-slate-800/60 hover:shadow-md transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
-            <p className="mt-2 text-2xl font-bold tracking-tight font-mono tabular-nums text-slate-800">
+            <p className="mt-2 text-2xl font-bold tracking-tight font-mono tabular-nums text-slate-800 dark:text-slate-100">
               {formatValue(value)}
             </p>
             {subtitle && (

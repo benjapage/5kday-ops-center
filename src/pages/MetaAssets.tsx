@@ -210,7 +210,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
   }
 
   return (
-    <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
+    <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60 hover:shadow-md transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
@@ -218,7 +218,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               <span style={{ color: iconColor }}><Icon size={20} /></span>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{title}</h3>
               <p className="text-[10px] text-slate-400 uppercase tracking-wider">{items.length} total</p>
             </div>
           </div>
@@ -236,7 +236,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
             { label: 'Restringidas', count: counts.restricted, color: '#F59E0B' },
             { label: 'Baneadas', count: counts.banned, color: '#EF4444' },
           ].map(c => (
-            <div key={c.label} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50">
+            <div key={c.label} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 dark:bg-slate-700/50">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
               <span className="text-[10px] font-semibold text-slate-600">{c.count}</span>
               <span className="text-[10px] text-slate-400">{c.label}</span>
@@ -252,9 +252,9 @@ function AssetSection<T extends { id: string; name: string; status: string; note
         ) : (
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {items.map(item => (
-              <div key={item.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors group">
+              <div key={item.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{item.name}</p>
                   <p className="text-[10px] font-mono text-slate-400 truncate">{idLabel}: {getId(item)}</p>
                 </div>
                 <StatusBadge status={item.status} />
@@ -349,7 +349,7 @@ export default function MetaAssets() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Activos Meta</h1>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Activos Meta</h1>
           <p className="text-sm text-slate-500 mt-0.5">Contingencias: numeros WA, cuentas publicitarias, BMs y perfiles</p>
         </div>
         <Button size="sm" variant="outline" className="text-xs h-8" disabled={syncing} onClick={syncMeta}>

@@ -103,7 +103,7 @@ export default function Integrations() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Integraciones</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Integraciones</h1>
         <p className="text-sm text-slate-500 mt-0.5">Conecta tus tiendas y servicios externos</p>
       </div>
 
@@ -111,7 +111,7 @@ export default function Integrations() {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <HardDrive size={16} className="text-[#4285f4]" />
-          <h2 className="text-sm font-semibold text-slate-700">Google Drive</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Google Drive</h2>
           {!googleLoading && (
             <Badge variant="outline" className="text-xs text-slate-400">
               {googleConn ? 'Conectado' : 'No conectado'}
@@ -119,7 +119,7 @@ export default function Integrations() {
           )}
         </div>
 
-        <Card className="shadow-sm border-slate-200">
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -127,7 +127,7 @@ export default function Integrations() {
                   <HardDrive size={17} className="text-[#4285f4]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Monitoreo de carpetas</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Monitoreo de carpetas</p>
                   <p className="text-xs text-slate-400 font-mono">Anuncios + OFERTAS</p>
                 </div>
               </div>
@@ -182,7 +182,7 @@ export default function Integrations() {
             </div>
 
             {googleConn && (
-              <div className="mt-3 pt-3 border-t border-slate-100">
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-4 text-xs text-slate-400">
                   <span>
                     Conectado el{' '}
@@ -200,7 +200,7 @@ export default function Integrations() {
 
         {/* Recent drive files */}
         {driveFiles.length > 0 && (
-          <Card className="shadow-sm border-slate-100 bg-slate-50">
+          <Card className="shadow-sm border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40">
             <CardContent className="p-4">
               <p className="text-xs font-medium text-slate-600 mb-2">Ultimos archivos detectados</p>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
@@ -234,7 +234,7 @@ export default function Integrations() {
           </Card>
         )}
 
-        <Card className="shadow-sm border-slate-100 bg-slate-50">
+        <Card className="shadow-sm border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-slate-600 mb-1">Carpetas monitoreadas</p>
             <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
@@ -251,7 +251,7 @@ export default function Integrations() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingBag size={16} className="text-[#96bf48]" />
-            <h2 className="text-sm font-semibold text-slate-700">Shopify</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Shopify</h2>
             <Badge variant="outline" className="text-xs text-slate-400">
               {isLoading ? '...' : `${stores.filter(s => s.is_active).length} conectada${stores.filter(s => s.is_active).length !== 1 ? 's' : ''}`}
             </Badge>
@@ -274,7 +274,7 @@ export default function Integrations() {
           {CONFIGURED_SHOPS.map(cfg => {
             const connected = stores.find(s => s.shop === cfg.shop && s.is_active)
             return (
-              <Card key={cfg.shop} className="shadow-sm border-slate-200">
+              <Card key={cfg.shop} className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -282,7 +282,7 @@ export default function Integrations() {
                         <ShoppingBag size={17} className="text-[#96bf48]" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-800">{cfg.displayName}</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{cfg.displayName}</p>
                         <p className="text-xs text-slate-400 font-mono">{cfg.customDomain}</p>
                       </div>
                     </div>
@@ -326,7 +326,7 @@ export default function Integrations() {
                   </div>
 
                   {connected && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-4 text-xs text-slate-400">
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center gap-4 text-xs text-slate-400">
                       <span>
                         Conectada el{' '}
                         {new Date(connected.installed_at).toLocaleDateString('es-AR', {

@@ -163,7 +163,7 @@ export default function Financial() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Modulo Financiero</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Modulo Financiero</h1>
         <p className="text-sm text-slate-500 mt-0.5">P&amp;L, inversiones e ingresos del negocio</p>
       </div>
 
@@ -212,11 +212,11 @@ export default function Financial() {
 
         {/* Daily P&L */}
         <TabsContent value="daily">
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50">
+                  <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Fecha</TableHead>
                     <TableHead className="text-xs text-right">Ingresos</TableHead>
                     <TableHead className="text-xs text-right">Inversion Ads</TableHead>
@@ -242,7 +242,7 @@ export default function Financial() {
                       const profit = row.profit
                       const roas = adSpend > 0 ? revenue / adSpend : null
                       return (
-                        <TableRow key={row.date} className="hover:bg-slate-50/50">
+                        <TableRow key={row.date} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                           <TableCell className="text-sm font-medium">{formatDate(row.date)}</TableCell>
                           <TableCell className="text-right font-mono text-sm text-green-700">
                             {formatCurrency(revenue)}
@@ -274,11 +274,11 @@ export default function Financial() {
 
         {/* Expenses list */}
         <TabsContent value="expenses">
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50">
+                  <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Fecha</TableHead>
                     <TableHead className="text-xs">Categoría</TableHead>
                     <TableHead className="text-xs">Descripción</TableHead>
@@ -295,7 +295,7 @@ export default function Financial() {
                     </TableRow>
                   ) : (
                     expenses.map(expense => (
-                      <TableRow key={expense.id} className="hover:bg-slate-50/50">
+                      <TableRow key={expense.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                         <TableCell className="text-sm">{formatDate(expense.expense_date)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">{categoryLabel(expense.category)}</Badge>
@@ -328,9 +328,9 @@ export default function Financial() {
 
         {/* Chart */}
         <TabsContent value="chart">
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-slate-700">Mes actual — Ingresos, Gastos y Profit diario</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Mes actual — Ingresos, Gastos y Profit diario</CardTitle>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (
@@ -369,11 +369,11 @@ export default function Financial() {
             </Button>
           </div>
 
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50">
+                  <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Nombre</TableHead>
                     <TableHead className="text-xs">Categoria</TableHead>
                     <TableHead className="text-xs text-right">Monto</TableHead>
@@ -390,7 +390,7 @@ export default function Financial() {
                       </TableCell>
                     </TableRow>
                   ) : subscriptions.map(sub => (
-                    <TableRow key={sub.id} className={`hover:bg-slate-50/50 ${!sub.is_active ? 'opacity-50' : ''}`}>
+                    <TableRow key={sub.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-700/30 ${!sub.is_active ? 'opacity-50' : ''}`}>
                       <TableCell className="text-sm font-medium">{sub.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">{categoryLabel(sub.category)}</Badge>

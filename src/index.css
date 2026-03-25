@@ -139,7 +139,7 @@
 /* Form field focus ring */
 @layer components {
   .form-section {
-    @apply space-y-4 rounded-lg border border-slate-100 bg-slate-50/50 p-4;
+    @apply space-y-4 rounded-lg border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/50;
   }
   .form-section-title {
     @apply text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3;

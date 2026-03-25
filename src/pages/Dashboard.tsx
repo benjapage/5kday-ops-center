@@ -136,7 +136,7 @@ export default function Dashboard() {
             color: metrics.roas30d == null ? '#94A3B8' : metrics.roas30d >= 3 ? '#22C55E' : metrics.roas30d >= 1.5 ? '#F59E0B' : '#EF4444',
           },
         ].map(card => (
-          <div key={card.label} className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
+          <div key={card.label} className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{card.label}</p>
               <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: card.color + '12' }}>
@@ -156,7 +156,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-12 gap-4">
 
         {/* WhatsApp — col-span-5 */}
-        <div className="col-span-5 bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5 space-y-4">
+        <div className="col-span-5 bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5 space-y-4">
           <SectionLabel icon={Smartphone}>WhatsApp</SectionLabel>
 
           {/* 3 counter badges */}
@@ -179,9 +179,9 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
               {metrics.waAccounts.list.map(acc => (
-                <div key={acc.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <div key={acc.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                   <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLOR[acc.status] }} />
-                  <Mono className="text-xs font-medium text-slate-700 flex-1 truncate">{acc.phone_number}</Mono>
+                  <Mono className="text-xs font-medium text-slate-700 dark:text-slate-300 flex-1 truncate">{acc.phone_number}</Mono>
                   {acc.bm_id ? (
                     <Mono className="text-[10px] text-slate-400 truncate max-w-[70px]">{acc.bm_id.slice(0, 8)}...</Mono>
                   ) : (
@@ -195,7 +195,7 @@ export default function Dashboard() {
         </div>
 
         {/* Tareas y alertas — col-span-4 */}
-        <div className="col-span-4 bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
+        <div className="col-span-4 bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
           <SectionLabel icon={AlertTriangle}>Alertas hoy</SectionLabel>
           <div className="mt-3">
             {metrics.alerts.length === 0 ? (
@@ -225,7 +225,7 @@ export default function Dashboard() {
         </div>
 
         {/* Meta objetivo — col-span-3 */}
-        <div className="col-span-3 bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5 space-y-3">
+        <div className="col-span-3 bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5 space-y-3">
           <SectionLabel icon={Target}>Meta del mes</SectionLabel>
 
           <div>
@@ -253,7 +253,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+          <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-700">
             {[
               { label: 'Inversion Ads', value: metrics.expenseBreakdownMtd.ad_spend },
               { label: 'Apps / Tools', value: metrics.expenseBreakdownMtd.tools_software + metrics.expenseBreakdownMtd.platform_fees },
@@ -277,7 +277,7 @@ export default function Dashboard() {
       {/* ROW 3 — Creativos | Pipeline */}
       <div className="grid grid-cols-2 gap-4">
         {/* Creativos */}
-        <div className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
+        <div className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
           <div className="flex items-center justify-between mb-3">
             <SectionLabel icon={ImageIcon}>Creativos activos</SectionLabel>
             <span className="text-xs font-bold text-slate-400 font-mono">{activeCreatives.length}</span>
@@ -289,7 +289,7 @@ export default function Dashboard() {
               {activeCreatives.slice(0, 6).map(c => {
                 const TypeIcon = c.asset_type === 'video' ? Video : c.asset_type === 'copy' ? FileText : c.asset_type === 'image' ? ImageIcon : Package
                 return (
-                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <TypeIcon size={13} className="text-slate-400 flex-shrink-0" />
                     <span className="text-xs text-slate-700 flex-1 truncate font-medium">{c.name}</span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider" style={{ backgroundColor: '#DCFCE7', color: '#16A34A' }}>
@@ -306,7 +306,7 @@ export default function Dashboard() {
         </div>
 
         {/* Pipeline */}
-        <div className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
+        <div className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-shadow p-5">
           <div className="flex items-center justify-between mb-3">
             <SectionLabel icon={TrendingUp}>Pipeline activo</SectionLabel>
             <span className="text-xs font-bold text-slate-400 font-mono">{activeOffers.length}</span>
@@ -316,7 +316,7 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-1">
               {activeOffers.slice(0, 6).map(offer => (
-                <div key={offer.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <div key={offer.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                   <span className="text-sm">{countryFlag(offer.country)}</span>
                   <span className="text-xs text-slate-700 flex-1 truncate font-medium">{offer.name}</span>
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider">{offer.channel}</span>
@@ -342,7 +342,7 @@ export default function Dashboard() {
       </div>
 
       {/* ROW 4 — Activos Meta full width */}
-      <div className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm p-5">
+      <div className="bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 dark:border-slate-700/60 shadow-sm p-5">
         <SectionLabel icon={Smartphone}>Activos Meta — Business Managers</SectionLabel>
 
         {Object.keys(bmGroups).length === 0 ? (
@@ -353,7 +353,7 @@ export default function Dashboard() {
               const isNoBm = bmKey === '__none__'
               const manyChatConnected = accounts.some(a => a.manychat_name)
               return (
-                <div key={bmKey} className="border border-slate-200 rounded-xl p-4 space-y-3 hover:border-slate-300 transition-colors">
+                <div key={bmKey} className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3 hover:border-slate-300 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">BM</p>
@@ -391,7 +391,7 @@ export default function Dashboard() {
                   </div>
 
                   {accounts.some(a => a.manychat_name) && (
-                    <div className="pt-2 border-t border-slate-100">
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
                       {accounts.filter(a => a.manychat_name).map(a => (
                         <div key={a.id} className="flex items-center gap-1.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-green-400 flex-shrink-0" />
@@ -406,7 +406,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100">
+        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
           {[
             { color: '#22C55E', label: 'Lista' },
             { color: '#F59E0B', label: 'Calentando' },

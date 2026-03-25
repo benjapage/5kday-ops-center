@@ -85,17 +85,17 @@ export default function Settings() {
       </div>
 
       {/* PERFIL */}
-      <Card className="shadow-sm border-slate-200/80">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <User size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Perfil</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Perfil</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Nombre</p>
-              <p className="text-sm font-medium text-slate-800">{profile?.full_name || '—'}</p>
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{profile?.full_name || '—'}</p>
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Email</p>
@@ -116,22 +116,22 @@ export default function Settings() {
       </Card>
 
       {/* EQUIPO */}
-      <Card className="shadow-sm border-slate-200/80">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <Users size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Equipo</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Equipo</h2>
             <span className="text-xs text-slate-400 ml-auto font-mono">{members.length} miembros</span>
           </div>
 
           <div className="space-y-2">
             {members.map(m => (
-              <div key={m.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors">
+              <div key={m.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                 <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: '#10B981' }}>
                   {m.full_name?.[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                     {m.full_name}
                     {m.id === profile?.id && <span className="text-xs text-slate-400 ml-1.5">(yo)</span>}
                   </p>
@@ -147,11 +147,11 @@ export default function Settings() {
       </Card>
 
       {/* INTEGRACIONES */}
-      <Card className="shadow-sm border-slate-200/80">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <Plug size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Integraciones</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Integraciones</h2>
           </div>
 
           <div className="space-y-3">
@@ -162,12 +162,12 @@ export default function Settings() {
               { name: 'Supabase', detail: 'Base de datos + Auth', connected: true, color: '#3ECF8E' },
               { name: 'Vercel', detail: 'Hosting + Serverless', connected: true, color: '#000' },
             ].map(int => (
-              <div key={int.name} className="flex items-center gap-3 py-2 px-3 rounded-lg border border-slate-100">
+              <div key={int.name} className="flex items-center gap-3 py-2 px-3 rounded-lg border border-slate-100 dark:border-slate-700">
                 <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: int.color + '15' }}>
                   <Plug size={14} style={{ color: int.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800">{int.name}</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{int.name}</p>
                   <p className="text-xs text-slate-400">{int.detail}</p>
                 </div>
                 {int.connected ? (
@@ -188,11 +188,11 @@ export default function Settings() {
       </Card>
 
       {/* METAS FINANCIERAS */}
-      <Card className="shadow-sm border-slate-200/80">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <DollarSign size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Metas financieras</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Metas financieras</h2>
           </div>
 
           <form onSubmit={handleSave} className="space-y-3">
@@ -235,11 +235,11 @@ export default function Settings() {
       </Card>
 
       {/* APARIENCIA */}
-      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/50">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60 dark:border-slate-700/80 dark:bg-slate-800/50">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700 dark:border-slate-700">
             <Moon size={16} className="text-slate-500 dark:text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Apariencia</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 dark:text-slate-200">Apariencia</h2>
           </div>
 
           <div className="flex gap-3">
@@ -269,11 +269,11 @@ export default function Settings() {
       </Card>
 
       {/* NOTIFICACIONES */}
-      <Card className="shadow-sm border-slate-200/80">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <Bell size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Notificaciones</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Notificaciones</h2>
           </div>
 
           <div className="space-y-3">
@@ -282,9 +282,9 @@ export default function Settings() {
               { label: 'Resumen diario', description: 'Email con metricas del dia anterior', enabled: false },
               { label: 'Ordenes Shopify', description: 'Notificacion en tiempo real de nuevas ventas', enabled: true },
             ].map(n => (
-              <div key={n.label} className="flex items-center justify-between py-2 px-3 rounded-lg border border-slate-100">
+              <div key={n.label} className="flex items-center justify-between py-2 px-3 rounded-lg border border-slate-100 dark:border-slate-700">
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{n.label}</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{n.label}</p>
                   <p className="text-xs text-slate-400">{n.description}</p>
                 </div>
                 <div className={`h-6 w-10 rounded-full relative cursor-pointer transition-colors ${n.enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}>
@@ -298,11 +298,11 @@ export default function Settings() {
       </Card>
 
       {/* SEGURIDAD */}
-      <Card className="shadow-sm border-slate-200/80">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <Shield size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700">Seguridad</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Seguridad</h2>
           </div>
 
           <form onSubmit={handlePasswordChange} className="space-y-3">
@@ -339,7 +339,7 @@ export default function Settings() {
             </Button>
           </form>
 
-          <div className="pt-3 border-t border-slate-100">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-700">
             <div className="flex items-center gap-2">
               <Mail size={14} className="text-slate-400" />
               <p className="text-xs text-slate-500">
