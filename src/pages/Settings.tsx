@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings2, User, Users, Plug, Bell, Shield, CheckCircle2, XCircle, DollarSign, Key, Mail } from 'lucide-react'
+import { Settings2, User, Users, Plug, Bell, Shield, CheckCircle2, XCircle, DollarSign, Key, Mail, Moon, Sun, Monitor } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { useShopifyStores } from '@/hooks/useShopifyStores'
 import { useGoogleConnection } from '@/hooks/useDriveFiles'
 import { formatCurrency } from '@/lib/formatters'
@@ -16,6 +17,7 @@ import { supabase } from '@/lib/supabase'
 export default function Settings() {
   const { monthlyTarget, isLoading, saveMonthlyTarget } = useSettings()
   const { profile, user } = useAuth()
+  const { theme, setTheme } = useTheme()
   const { stores } = useShopifyStores()
   const { connection: googleConn } = useGoogleConnection()
   const [inputValue, setInputValue] = useState('')
@@ -78,7 +80,7 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Configuracion</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Configuracion</h1>
         <p className="text-sm text-slate-500 mt-0.5">Perfil, equipo, integraciones y seguridad</p>
       </div>
 
@@ -229,6 +231,40 @@ export default function Settings() {
               )}
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* APARIENCIA */}
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/50">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <Moon size={16} className="text-slate-500 dark:text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Apariencia</h2>
+          </div>
+
+          <div className="flex gap-3">
+            {([
+              { value: 'light' as const, label: 'Claro', Icon: Sun },
+              { value: 'dark' as const, label: 'Oscuro', Icon: Moon },
+            ]).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setTheme(opt.value)}
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all flex-1 ${
+                  theme === opt.value
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                    : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                }`}
+              >
+                <opt.Icon size={18} className={theme === opt.value ? 'text-emerald-600' : 'text-slate-400'} />
+                <div className="text-left">
+                  <p className={`text-sm font-medium ${theme === opt.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                    {opt.label}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

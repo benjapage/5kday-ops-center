@@ -7,10 +7,13 @@ import {
   Settings2,
   Plug,
   LogOut,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { Logo } from './Logo'
 import { NavItem } from './NavItem'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 const NAV_ITEMS = [
@@ -25,6 +28,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { profile, user, signOut } = useAuth()
+  const { theme, toggleTheme } = useTheme()
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuario'
   const initials = profile?.full_name
@@ -68,14 +72,23 @@ export function Sidebar() {
             <p className="text-xs text-slate-400 capitalize">{profile?.role}</p>
           </div>
         </div>
-        <button
-          onClick={signOut}
-          aria-label="Cerrar sesión"
-          className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors w-full"
-        >
-          <LogOut size={14} aria-hidden="true" />
-          <span>Cerrar sesión</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={signOut}
+            aria-label="Cerrar sesión"
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors flex-1"
+          >
+            <LogOut size={14} aria-hidden="true" />
+            <span>Cerrar sesión</span>
+          </button>
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
+        </div>
       </div>
     </aside>
   )

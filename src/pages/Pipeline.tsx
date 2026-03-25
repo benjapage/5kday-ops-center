@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette, Clock, MessageSquare, Save, Zap, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -13,9 +13,10 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { useOffers } from '@/hooks/useOffers'
 import { useCreatives } from '@/hooks/useCreatives'
+import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { COUNTRIES, CHANNELS, ASSET_TYPES } from '@/lib/constants'
-import { formatDate, formatROAS, formatCurrency } from '@/lib/formatters'
+import { formatDate, formatROAS, formatCurrency, getDaysSince } from '@/lib/formatters'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database.types'
 
@@ -393,9 +394,156 @@ function AssetIcon({ type }: { type: string | null }) {
   return <Package size={14} className="text-slate-400" />
 }
 
+function OfferNoteCard({ offer, creatives, onUpdate, canWrite, monthlyTarget }: {
+  offer: Offer
+  creatives: { id: string; offer_id: string | null; status: string; created_at: string; name: string; asset_type: string | null }[]
+  onUpdate: ReturnType<typeof useOffers>['update']
+  canWrite: boolean
+  monthlyTarget: number
+}) {
+  const [notes, setNotes] = useState(offer.notes ?? '')
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+
+  useEffect(() => {
+    setNotes(offer.notes ?? '')
+    setDirty(false)
+  }, [offer.notes])
+
+  const handleNotesChange = useCallback((val: string) => {
+    setNotes(val)
+    setDirty(val !== (offer.notes ?? ''))
+  }, [offer.notes])
+
+  async function saveNotes() {
+    setSaving(true)
+    const { error } = await onUpdate(offer.id, { notes })
+    setSaving(false)
+    if (error) { toast.error(error); return }
+    setDirty(false)
+    toast.success('Notas guardadas')
+  }
+
+  const linkedCreatives = creatives.filter(c => c.offer_id === offer.id)
+  const now = new Date()
+  const weekAgo = new Date(now.getTime() - 7 * 86400000)
+  const creativesThisWeek = linkedCreatives.filter(c => new Date(c.created_at) >= weekAgo)
+  const daysActive = getDaysSince(offer.start_date)
+
+  return (
+    <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
+      <CardContent className="p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">{countryFlag(offer.country)}</span>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{offer.name}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="outline" className="text-[10px]">{offer.channel}</Badge>
+                <span className="text-[10px] text-slate-400 font-mono">{daysActive}d activa</span>
+              </div>
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className={`text-xs ${offer.status === 'active' ? 'border-green-300 text-green-700 bg-green-50' : offer.status === 'paused' ? 'border-amber-300 text-amber-700 bg-amber-50' : 'border-slate-200 text-slate-500'}`}
+          >
+            {offer.status === 'active' ? 'Activa' : offer.status === 'paused' ? 'Pausada' : 'Archivada'}
+          </Badge>
+        </div>
+
+        {/* KPIs row */}
+        <div className="grid grid-cols-4 gap-3">
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">ROAS</p>
+            <span className={`text-base font-bold font-mono ${
+              offer.current_roas != null && offer.target_roas != null
+                ? offer.current_roas >= offer.target_roas ? 'text-green-600' : 'text-red-500'
+                : 'text-slate-400'
+            }`}>
+              {formatROAS(offer.current_roas)}
+            </span>
+          </div>
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Objetivo</p>
+            <span className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
+              {formatROAS(offer.target_roas)}
+            </span>
+          </div>
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Creativos semana</p>
+            <span className={`text-base font-bold font-mono ${creativesThisWeek.length > 0 ? 'text-purple-600' : 'text-slate-400'}`}>
+              {creativesThisWeek.length}
+            </span>
+          </div>
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Meta facturacion</p>
+            <span className="text-base font-bold font-mono text-emerald-600">
+              {formatCurrency(monthlyTarget)}
+            </span>
+          </div>
+        </div>
+
+        {/* Creativos linked */}
+        {linkedCreatives.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Creativos vinculados ({linkedCreatives.length})</p>
+            <div className="flex flex-wrap gap-1.5">
+              {linkedCreatives.slice(0, 8).map(c => (
+                <div key={c.id} className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600">
+                  <AssetIcon type={c.asset_type} />
+                  <span className="text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[120px]">{c.name}</span>
+                  {new Date(c.created_at) >= weekAgo && (
+                    <span className="text-[9px] font-bold text-purple-500 uppercase">new</span>
+                  )}
+                </div>
+              ))}
+              {linkedCreatives.length > 8 && (
+                <span className="text-[10px] text-slate-400 self-center ml-1">+{linkedCreatives.length - 8} mas</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <MessageSquare size={12} className="text-slate-400" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Notas de campana</p>
+            </div>
+            {canWrite && dirty && (
+              <Button
+                size="sm"
+                className="h-6 text-xs gap-1 text-white"
+                style={{ backgroundColor: '#10B981' }}
+                disabled={saving}
+                onClick={saveNotes}
+              >
+                <Save size={10} />
+                {saving ? 'Guardando...' : 'Guardar'}
+              </Button>
+            )}
+          </div>
+          <textarea
+            className="w-full text-sm text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 placeholder:text-slate-300 dark:placeholder:text-slate-500"
+            rows={3}
+            placeholder="Ideas, estrategias, proximos pasos..."
+            value={notes}
+            onChange={e => handleNotesChange(e.target.value)}
+            disabled={!canWrite}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function Pipeline() {
   const { offers, isLoading: loadingOffers, create: createOffer, update: updateOffer, archive } = useOffers()
   const { creatives, isLoading: loadingCreatives, create: createCreative, retire } = useCreatives()
+  const { monthlyTarget } = useSettings()
   const { profile } = useAuth()
   const [addOfferOpen, setAddOfferOpen] = useState(false)
   const [addCreativeOpen, setAddCreativeOpen] = useState(false)
@@ -405,14 +553,19 @@ export default function Pipeline() {
   const canWrite = profile?.role === 'admin' || profile?.role === 'tech'
 
   const filteredOffers = statusFilter === 'all' ? offers : offers.filter(o => o.status === statusFilter)
+  const activeOffers = offers.filter(o => o.status === 'active')
+
+  // Count creatives this week
+  const now = new Date()
+  const weekAgo = new Date(now.getTime() - 7 * 86400000)
 
   if (loadingOffers) return <LoadingSpinner />
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Pipeline</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Ofertas activas, métricas y banco de creativos</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Pipeline</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Ofertas activas, metricas y banco de creativos</p>
       </div>
 
       {/* Summary */}
@@ -422,19 +575,19 @@ export default function Pipeline() {
           { label: 'Pausadas', count: offers.filter(o => o.status === 'paused').length, color: '#F59E0B' },
           { label: 'Archivadas', count: offers.filter(o => o.status === 'archived').length, color: '#94A3B8' },
         ].map(item => (
-          <Card key={item.label} className="shadow-sm border-slate-200">
+          <Card key={item.label} className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
             <CardContent className="p-4 flex items-center justify-between">
-              <span className="text-sm text-slate-600">{item.label}</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{item.label}</span>
               <span className="text-xl font-bold font-mono" style={{ color: item.color }}>{item.count}</span>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* OFERTAS */}
+      {/* OFERTAS TABLE */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-slate-700">Ofertas</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Ofertas</h2>
           {canWrite && (
             <Button size="sm" className="text-white gap-1.5" style={{ backgroundColor: '#10B981' }} onClick={() => setAddOfferOpen(true)}>
               <Plus size={14} /> Nueva oferta
@@ -451,7 +604,7 @@ export default function Pipeline() {
                 key={f}
                 onClick={() => setStatusFilter(f)}
                 aria-pressed={statusFilter === f}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${statusFilter === f ? 'text-white' : 'text-slate-600 bg-white border border-slate-200 hover:bg-slate-50'}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${statusFilter === f ? 'text-white' : 'text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                 style={statusFilter === f ? { backgroundColor: '#0B1A2E' } : {}}
               >
                 {label}
@@ -460,17 +613,19 @@ export default function Pipeline() {
             })}
           </div>
 
-          <Card className="shadow-sm border-slate-200">
+          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50">
+                  <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Oferta</TableHead>
-                    <TableHead className="text-xs">País / Canal</TableHead>
+                    <TableHead className="text-xs">Pais / Canal</TableHead>
                     <TableHead className="text-xs">Estado</TableHead>
-                    <TableHead className="text-xs text-right">ROAS actual</TableHead>
-                    <TableHead className="text-xs text-right">ROAS objetivo</TableHead>
-                    <TableHead className="text-xs text-right">CPL actual</TableHead>
+                    <TableHead className="text-xs text-right">ROAS</TableHead>
+                    <TableHead className="text-xs text-center">Creativos semana</TableHead>
+                    <TableHead className="text-xs text-center">Objetivo</TableHead>
+                    <TableHead className="text-xs text-center">Meta fact.</TableHead>
+                    <TableHead className="text-xs text-center">Dias</TableHead>
                     <TableHead className="text-xs">Inicio</TableHead>
                     {canWrite && <TableHead className="w-10" />}
                   </TableRow>
@@ -478,17 +633,19 @@ export default function Pipeline() {
                 <TableBody>
                   {filteredOffers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canWrite ? 8 : 7}>
-                        <EmptyState icon={Plus} title="Sin ofertas" description="Creá tu primera oferta" />
+                      <TableCell colSpan={canWrite ? 10 : 9}>
+                        <EmptyState icon={Plus} title="Sin ofertas" description="Crea tu primera oferta" />
                       </TableCell>
                     </TableRow>
                   ) : filteredOffers.map(offer => {
                     const roasOk = offer.current_roas != null && offer.target_roas != null
                       ? offer.current_roas >= offer.target_roas
                       : null
+                    const daysActive = getDaysSince(offer.start_date)
+                    const creativesWeek = creatives.filter(c => c.offer_id === offer.id && new Date(c.created_at) >= weekAgo)
                     return (
-                      <TableRow key={offer.id} className="hover:bg-slate-50/50">
-                        <TableCell className="font-medium text-sm">{offer.name}</TableCell>
+                      <TableRow key={offer.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                        <TableCell className="font-medium text-sm dark:text-slate-200">{offer.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm">{countryFlag(offer.country)} {offer.country}</span>
@@ -506,11 +663,22 @@ export default function Pipeline() {
                         <TableCell className={`text-right font-mono text-sm font-semibold ${roasOk === true ? 'text-green-700' : roasOk === false ? 'text-red-500' : 'text-slate-400'}`}>
                           {formatROAS(offer.current_roas)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-slate-500">
+                        <TableCell className="text-center">
+                          <span className={`text-xs font-mono font-bold ${creativesWeek.length > 0 ? 'text-purple-600' : 'text-slate-300'}`}>
+                            {creativesWeek.length}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-sm text-slate-500 dark:text-slate-400">
                           {formatROAS(offer.target_roas)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-slate-600">
-                          {offer.current_cpl != null ? formatCurrency(offer.current_cpl) : '—'}
+                        <TableCell className="text-center font-mono text-xs text-emerald-600 font-semibold">
+                          {formatCurrency(monthlyTarget)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Clock size={11} className="text-slate-300" />
+                            <span className="text-xs font-mono text-slate-600 dark:text-slate-400">{daysActive}d</span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs text-slate-500">{formatDate(offer.start_date)}</TableCell>
                         {canWrite && (
@@ -548,10 +716,29 @@ export default function Pipeline() {
           </Card>
       </div>
 
+      {/* OFFER DETAIL CARDS — one per active offer */}
+      {activeOffers.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Detalle por oferta</h2>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {activeOffers.map(offer => (
+              <OfferNoteCard
+                key={offer.id}
+                offer={offer}
+                creatives={creatives}
+                onUpdate={updateOffer}
+                canWrite={canWrite}
+                monthlyTarget={monthlyTarget}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* BANCO DE CREATIVOS */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-slate-700">Banco de creativos</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Banco de creativos</h2>
           {canWrite && (
             <Button size="sm" variant="outline" onClick={() => setAddCreativeOpen(true)} className="gap-1.5">
               <Plus size={14} /> Agregar creativo
@@ -564,17 +751,17 @@ export default function Pipeline() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {creatives.length === 0 ? (
                 <div className="col-span-full">
-                  <EmptyState icon={ImageIcon} title="Sin creativos" description="Agregá tu primer asset al banco" />
+                  <EmptyState icon={ImageIcon} title="Sin creativos" description="Agrega tu primer asset al banco" />
                 </div>
               ) : creatives.map(creative => {
                 const linkedOffer = offers.find(o => o.id === creative.offer_id)
                 return (
-                  <Card key={creative.id} className={`shadow-sm border-slate-200 ${creative.status === 'retired' ? 'opacity-60' : ''}`}>
+                  <Card key={creative.id} className={`shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 ${creative.status === 'retired' ? 'opacity-60' : ''}`}>
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5">
                           <AssetIcon type={creative.asset_type} />
-                          <span className="text-sm font-medium text-slate-800 truncate">{creative.name}</span>
+                          <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{creative.name}</span>
                         </div>
                         {creative.status === 'retired' && (
                           <Badge variant="outline" className="text-xs text-slate-400 flex-shrink-0">Retirado</Badge>

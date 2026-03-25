@@ -185,14 +185,47 @@ module.exports = async function handler(req, res) {
       results.errors.push({ folder: 'anuncios', error: err.message })
     }
 
-    // 2. Sync OFERTAS folder (subfolders with files)
+    // 2. Sync OFERTAS folder (subfolders with files + root-level files)
     try {
-      // First list subfolders
-      const subfolders = await listFiles(token, FOLDERS.ofertas)
-      const folders = subfolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder')
+      // First list all items in ofertas root
+      const allItems = await listFiles(token, FOLDERS.ofertas)
+      const folders = allItems.filter(f => f.mimeType === 'application/vnd.google-apps.folder')
+      const rootFiles = allItems.filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
 
-      console.log('[google-drive-sync] Ofertas subfolders:', folders.length)
+      console.log('[google-drive-sync] Ofertas subfolders:', folders.length, 'root files:', rootFiles.length)
 
+      // 2a. Process root-level files (files uploaded directly to OFERTAS folder)
+      for (const file of rootFiles) {
+        const parsed = parseOfferFile(file.name)
+        // Try to extract offer name from filename even without TYPE prefix
+        const baseName = file.name.replace(/\.[^.]+$/, '')
+        const offerName = parsed?.offer_name || baseName
+
+        await supabase.rpc('upsert_drive_file', {
+          p_file_id: file.id,
+          p_file_name: file.name,
+          p_mime_type: file.mimeType,
+          p_folder_id: FOLDERS.ofertas,
+          p_folder_type: 'ofertas',
+          p_web_view_link: file.webViewLink || null,
+          p_ad_number: null,
+          p_test_number: null,
+          p_editor: null,
+          p_offer_name: offerName,
+          p_file_type: parsed?.file_type || 'other',
+          p_offer_folder: null,
+          p_created_time: file.createdTime || null,
+          p_modified_time: file.modifiedTime || null,
+        })
+
+        results.ofertas.push({
+          folder: '(root)',
+          name: file.name,
+          parsed: parsed || { offer_name: offerName, file_type: 'other' },
+        })
+      }
+
+      // 2b. Process subfolders (existing behavior)
       for (const folder of folders) {
         const parsedFolder = parseOfferFolder(folder.name)
         const offerFolderName = parsedFolder?.offer_name || folder.name
