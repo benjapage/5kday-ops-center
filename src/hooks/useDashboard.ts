@@ -81,19 +81,18 @@ export function useDashboard() {
         const since30d = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
         const readyCutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
 
-        // Fetch everything in parallel: UTMify + historical data + WA + expenses
         const [
-          utmRes,
-          revMtdRes, rev30dRes,
-          expTodayRes, expMtdRes,
+          revTodayRes, revMtdRes, rev30dRes,
+          expTodayRes, expMtdRes, adSpend30dRes,
           waRes, bannedRes, readyRes,
           blueRate,
         ] = await Promise.all([
-          fetch('/api/utmify?action=dashboard-data&days=30').then(r => r.ok ? r.json() : null).catch(() => null),
+          supabase.from('revenue_entries').select('amount, currency, channel').eq('revenue_date', today),
           supabase.from('revenue_entries').select('amount, currency, channel, revenue_date').gte('revenue_date', mtdFrom),
           supabase.from('revenue_entries').select('amount, currency, channel, revenue_date').gte('revenue_date', since30d),
           supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
           supabase.from('expenses').select('amount, currency, category, expense_date').gte('expense_date', mtdFrom),
+          supabase.from('expenses').select('amount, currency, expense_date').eq('category', 'ad_spend').gte('expense_date', since30d),
           supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name, country').order('status').order('start_date', { ascending: false }),
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
           supabase.from('wa_accounts').select('id, phone_number, start_date').eq('status', 'warming').lte('start_date', readyCutoff),
@@ -106,73 +105,28 @@ export function useDashboard() {
             return s + (r.currency === 'ARS' ? amt / blueRate : amt)
           }, 0)
 
-        // Non-ads expenses always from expenses table
-        const expMtdAll = expMtdRes.data ?? []
-        const nonAdsExpensesMtd = sumUSD(expMtdAll.filter((e: any) => e.category !== 'ad_spend'))
-        const expTodayAll = expTodayRes.data ?? []
-        const nonAdsExpensesToday = sumUSD(expTodayAll.filter((e: any) => e.category !== 'ad_spend'))
+        const revTodayAll = revTodayRes.data ?? []
+        const revenueToday = sumUSD(revTodayAll)
+        const shopifyRevenueToday = sumUSD(revTodayAll.filter((r: any) => r.channel === 'shopify'))
 
-        // UTMify data (primary for NEW data)
-        const utmify = utmRes && utmRes.totalRows > 0 ? utmRes : null
-
-        // Historical revenue from revenue_entries (for data before UTMify was connected)
         const revMtdAll = revMtdRes.data ?? []
+        const revenueMtd = sumUSD(revMtdAll)
+
         const rev30dAll = rev30dRes.data ?? []
-        const historicalRevenueMtd = sumUSD(revMtdAll)
-        const historicalAdSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend'))
 
-        // MERGE: UTMify revenue + historical revenue (avoid double counting by using the higher value)
-        // UTMify covers Meta Ads tracked sales; historical covers Shopify direct + manual entries
-        const utmRevenueMtd = utmify?.mtd?.revenue ?? 0
-        const utmSpendMtd = utmify?.mtd?.spend ?? 0
-        const utmProfitMtd = utmify?.mtd?.profit ?? 0
+        const expTodayAll = expTodayRes.data ?? []
+        const expensesToday = sumUSD(expTodayAll)
+        const adSpendToday = sumUSD(expTodayAll.filter((e: any) => e.category === 'ad_spend'))
+        const profitToday = revenueToday - expensesToday
 
-        // Use UTMify for ad-tracked data, historical for everything else
-        // Revenue: max of UTMify vs historical (UTMify is more accurate when available)
-        const revenueMtd = utmRevenueMtd > 0 ? utmRevenueMtd : historicalRevenueMtd
-        const adSpendMtd = utmSpendMtd > 0 ? utmSpendMtd : historicalAdSpendMtd
-        const profitMtd = (utmRevenueMtd > 0 ? utmProfitMtd : (historicalRevenueMtd - historicalAdSpendMtd)) - nonAdsExpensesMtd
-        const expensesMtd = adSpendMtd + nonAdsExpensesMtd
-        const roasMtd = utmify?.mtd?.roas ?? (historicalAdSpendMtd > 0 ? historicalRevenueMtd / historicalAdSpendMtd : null)
-
-        // Today
-        const utmToday = utmify?.today
-        const revenueToday = utmToday?.revenue ?? 0
-        const adSpendToday = utmToday?.spend ?? 0
-        const profitToday = (utmToday?.profit ?? 0) - nonAdsExpensesToday
-        const expensesToday = adSpendToday + nonAdsExpensesToday
-
-        const roas30d = roasMtd
-
-        // Chart: UTMify daily data merged with historical
-        let dailyChart: DailyChartPoint[] = []
-        if (utmify?.dailyChart?.length > 0) {
-          dailyChart = utmify.dailyChart.map((d: any) => ({
-            date: d.date, label: d.label, revenue: d.revenue, profit: d.profit,
-          }))
-        } else {
-          // Fallback: build from historical data
-          const chartByDate: Record<string, { revenue: number; expenses: number }> = {}
-          for (const r of rev30dAll) {
-            const d = (r as any).revenue_date
-            if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
-            const amt = Number((r as any).amount)
-            chartByDate[d].revenue += (r as any).currency === 'ARS' ? amt / blueRate : amt
-          }
-          for (const e of expMtdAll) {
-            const d = (e as any).expense_date
-            if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
-            const amt = Number((e as any).amount)
-            chartByDate[d].expenses += (e as any).currency === 'ARS' ? amt / blueRate : amt
-          }
-          dailyChart = Object.entries(chartByDate)
-            .map(([date, v]) => ({ date, label: date.split('-').slice(1).join('/'), revenue: v.revenue, profit: v.revenue - v.expenses }))
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(-30)
-        }
+        const expMtdAll = expMtdRes.data ?? []
+        const expensesMtd = sumUSD(expMtdAll)
+        const adSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend'))
+        const profitMtd = revenueMtd - expensesMtd
+        const roasMtd = adSpendMtd > 0 ? revenueMtd / adSpendMtd : null
 
         const expBreakdown = {
-          ad_spend: adSpendMtd,
+          ad_spend: sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend')),
           tools_software: sumUSD(expMtdAll.filter((e: any) => e.category === 'tools_software')),
           platform_fees: sumUSD(expMtdAll.filter((e: any) => e.category === 'platform_fees')),
           team_salaries: sumUSD(expMtdAll.filter((e: any) => e.category === 'team_salaries')),
@@ -180,7 +134,29 @@ export function useDashboard() {
           other: sumUSD(expMtdAll.filter((e: any) => e.category === 'other')),
         }
 
-        // WA accounts
+        const adSpend30d = sumUSD(adSpend30dRes.data)
+        const rev30dTotal = sumUSD(rev30dAll)
+        const roas30d = adSpend30d > 0 ? rev30dTotal / adSpend30d : null
+
+        // Daily chart from revenue_entries + expenses
+        const chartByDate: Record<string, { revenue: number; expenses: number }> = {}
+        for (const r of rev30dAll) {
+          const d = (r as any).revenue_date
+          if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
+          const amt = Number((r as any).amount)
+          chartByDate[d].revenue += (r as any).currency === 'ARS' ? amt / blueRate : amt
+        }
+        for (const e of expMtdAll) {
+          const d = (e as any).expense_date
+          if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
+          const amt = Number((e as any).amount)
+          chartByDate[d].expenses += (e as any).currency === 'ARS' ? amt / blueRate : amt
+        }
+        const dailyChart: DailyChartPoint[] = Object.entries(chartByDate)
+          .map(([date, v]) => ({ date, label: date.split('-').slice(1).join('/'), revenue: v.revenue, profit: v.revenue - v.expenses }))
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(-30)
+
         const waList = (waRes.data ?? []) as WaAccountSummary[]
         const waAccounts = {
           total: waList.length,
@@ -190,7 +166,6 @@ export function useDashboard() {
           list: waList,
         }
 
-        // Alerts
         const alerts: Alert[] = []
         for (const acc of (bannedRes.data ?? [])) {
           alerts.push({ type: 'danger', message: `Numero ${acc.phone_number} fue baneado`, entityId: acc.id })
@@ -203,11 +178,10 @@ export function useDashboard() {
         }
 
         setMetrics({
-          revenueToday, shopifyRevenueToday: revenueToday, expensesToday, adSpendToday, profitToday,
+          revenueToday, shopifyRevenueToday, expensesToday, adSpendToday, profitToday,
           revenueMtd, expensesMtd, adSpendMtd, profitMtd, roasMtd,
           expenseBreakdownMtd: expBreakdown,
-          roas30d,
-          waAccounts, alerts, dolarBlue: blueRate, dailyChart,
+          roas30d, waAccounts, alerts, dolarBlue: blueRate, dailyChart,
         })
       } catch (err) {
         setError('Error al cargar metricas')

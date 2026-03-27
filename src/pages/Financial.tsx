@@ -12,7 +12,6 @@ import { ExpenseForm } from '@/components/financial/ExpenseForm'
 import { RevenueForm } from '@/components/financial/RevenueForm'
 import { useFinancials } from '@/hooks/useFinancials'
 import { useSubscriptions, type Subscription } from '@/hooks/useSubscriptions'
-import { useUtmifyData } from '@/hooks/useUtmify'
 import { useAuth } from '@/contexts/AuthContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -144,12 +143,8 @@ export default function Financial() {
   const [subOpen, setSubOpen] = useState(false)
   const { dailyPnl, expenses, revenues, isLoading, addExpense, addRevenue, deleteExpense, mtd, blueRate, toUSD } = useFinancials()
   const { subscriptions, create: createSub, toggleActive, remove: removeSub, processSubscriptions } = useSubscriptions()
-  const { data: utmifyData } = useUtmifyData()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
-
-  // UTMify primary, historical fallback
-  const utm = utmifyData && utmifyData.totalRows > 0 ? utmifyData : null
 
   async function handleDeleteExpense(id: string) {
     if (!confirm('Eliminar esta inversion?')) return
@@ -158,26 +153,22 @@ export default function Financial() {
     else toast.success('Inversion eliminada')
   }
 
-  // Chart data: UTMify primary, historical fallback
-  const chartData = utm
-    ? utm.dailyChart.map((d: any) => ({ date: d.label, Ingresos: d.revenue, Profit: d.profit, 'Inversion Ads': d.spend }))
-    : [...dailyPnl].sort((a, b) => a.date.localeCompare(b.date)).slice(-30)
-        .map(d => ({ date: d.date.split('-').slice(1).join('/'), Ingresos: d.total_revenue, Profit: d.profit, 'Inversion Ads': d.ad_spend }))
+  // Chart data from revenue_entries + expenses
+  const chartData = [...dailyPnl]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-30)
+    .map(d => ({ date: d.date.split('-').slice(1).join('/'), Ingresos: d.total_revenue, Profit: d.profit, 'Inversion Ads': d.ad_spend }))
 
   // Compute quadrant data (Cambio 13)
   const mtdSubs = subscriptions
     .filter(s => s.is_active)
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
 
-  // Financial data: UTMify primary, historical fallback
+  // Financial data from revenue_entries + expenses
   const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const mtdRevenues = revenues.filter(r => r.revenue_date >= mtdFrom)
-  const waRevenue = utm ? utm.mtd.waRevenue : mtdRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const shopifyRevenue = utm ? utm.mtd.landingRevenue : mtdRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const adSpendQuadrant = utm ? utm.mtd.spend : mtd.adSpend
-  const roasQuadrant = utm ? utm.mtd.roas : mtd.roas
-  const utmRevenue = utm ? utm.mtd.revenue : mtd.revenue
-  const utmProfit = utm ? utm.mtd.profit : mtd.profit
+  const waRevenue = mtdRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+  const shopifyRevenue = mtdRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
 
   if (isLoading) return <LoadingSpinner />
 
@@ -190,17 +181,17 @@ export default function Financial() {
 
       {/* Resumen del mes */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-        <MetricCard title="Ingresos del mes" value={utmRevenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
-        <MetricCard title="Inversiones del mes" value={adSpendQuadrant + mtdSubs} format="currency" icon={BarChart3} iconColor="#E8816D" />
-        <MetricCard title="Inversion Ads del mes" value={adSpendQuadrant} format="currency" icon={BarChart3} iconColor="#F59E0B" />
+        <MetricCard title="Ingresos del mes" value={mtd.revenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
+        <MetricCard title="Inversiones del mes" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#E8816D" />
+        <MetricCard title="Inversion Ads del mes" value={mtd.adSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
         <MetricCard
           title="Profit del mes"
-          value={utmProfit - mtdSubs}
+          value={mtd.profit}
           format="currency"
           icon={DollarSign}
-          iconColor={(utmProfit - mtdSubs) >= 0 ? '#10B981' : '#E8816D'}
+          iconColor={mtd.profit >= 0 ? '#10B981' : '#E8816D'}
         />
-        <MetricCard title="ROAS del mes" value={roasQuadrant} format="roas" icon={TrendingUp} iconColor="#6366F1" />
+        <MetricCard title="ROAS del mes" value={mtd.roas} format="roas" icon={TrendingUp} iconColor="#6366F1" />
       </div>
 
       {/* 4 Quadrants — Cambio 13 */}
@@ -241,9 +232,9 @@ export default function Financial() {
                 <p className="text-[10px] text-slate-400">Gasto en Meta Ads del mes</p>
               </div>
             </div>
-            <p className="num text-2xl text-amber-600 dark:text-amber-400">{formatCurrency(adSpendQuadrant)}</p>
-            {roasQuadrant != null && (
-              <p className="text-xs text-slate-400 mt-1">ROAS: <span className="num font-semibold" style={{ color: roasQuadrant >= 3 ? '#22C55E' : roasQuadrant >= 1.5 ? '#F59E0B' : '#E8816D' }}>{formatROAS(roasQuadrant)}</span></p>
+            <p className="num text-2xl text-amber-600 dark:text-amber-400">{formatCurrency(mtd.adSpend)}</p>
+            {mtd.roas != null && (
+              <p className="text-xs text-slate-400 mt-1">ROAS: <span className="num font-semibold" style={{ color: mtd.roas >= 3 ? '#22C55E' : mtd.roas >= 1.5 ? '#F59E0B' : '#E8816D' }}>{formatROAS(mtd.roas)}</span></p>
             )}
           </CardContent>
         </Card>
