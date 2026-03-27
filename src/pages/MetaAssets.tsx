@@ -388,7 +388,7 @@ export default function MetaAssets() {
 
   // Lookup helpers for relationship chain
   const bmLookup = Object.fromEntries(bms.items.map(b => [b.bm_id, b.name]))
-  const profileLookup = Object.fromEntries(profiles.items.map(p => [p.profile_id || p.id, p.name]))
+  const profileLookup = Object.fromEntries(profiles.items.map(p => [p.id, p.name]))
 
   async function syncMeta() {
     setSyncing(true)
@@ -514,7 +514,10 @@ export default function MetaAssets() {
                 { value: 'whatsapp', label: 'WhatsApp' },
                 { value: 'landing', label: 'Landing (Shopify)' },
               ]},
-              { key: 'bm_id', label: 'BM vinculado (BM ID)', placeholder: 'ID del Business Manager' },
+              { key: 'bm_id', label: 'BM vinculado', placeholder: 'Seleccionar BM...', type: 'select', options: [
+                { value: '', label: 'Sin BM' },
+                ...bms.items.map(b => ({ value: b.bm_id, label: b.name })),
+              ]},
             ]}
             onAdd={async (data) => {
               const { error } = await adAccounts.create({
@@ -567,7 +570,10 @@ export default function MetaAssets() {
                 { value: 'cuentas', label: 'Para cuentas publicitarias' },
                 { value: 'mixto', label: 'Mixto' },
               ]},
-              { key: 'profile_id', label: 'Perfil vinculado (Profile ID)', placeholder: 'ID del perfil' },
+              { key: 'profile_id', label: 'Perfil vinculado', placeholder: 'Seleccionar perfil...', type: 'select', options: [
+                { value: '', label: 'Sin perfil' },
+                ...profiles.items.map(p => ({ value: p.id, label: p.name })),
+              ]},
             ]}
             onAdd={async (data) => {
               const { error } = await bms.create({

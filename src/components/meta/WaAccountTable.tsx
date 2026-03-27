@@ -118,7 +118,7 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
               <TableHead className="text-xs">País</TableHead>
               <TableHead className="text-xs">Estado</TableHead>
               <TableHead className="text-xs">Calentamiento</TableHead>
-              <TableHead className="text-xs">BM ID</TableHead>
+              <TableHead className="text-xs">BM</TableHead>
               <TableHead className="text-xs">ManyChat</TableHead>
               <TableHead className="text-xs">Inicio</TableHead>
               <TableHead className="w-10" />

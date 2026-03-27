@@ -35,6 +35,7 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
   const [form, setForm] = useState({
     name: '', countries: [] as string[], channel: '', start_date: today,
     target_roas: '', target_cpl: '', current_roas: '', current_cpl: '',
+    drive_folder_url: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
@@ -72,11 +73,12 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
       target_cpl: form.target_cpl ? Number(form.target_cpl) : null,
       current_roas: form.current_roas ? Number(form.current_roas) : null,
       current_cpl: form.current_cpl ? Number(form.current_cpl) : null,
-    })
+      drive_folder_url: form.drive_folder_url || null,
+    } as any)
     setIsLoading(false)
     if (error) { toast.error(error); return }
     toast.success('Oferta creada')
-    setForm({ name: '', countries: [], channel: '', start_date: today, target_roas: '', target_cpl: '', current_roas: '', current_cpl: '' })
+    setForm({ name: '', countries: [], channel: '', start_date: today, target_roas: '', target_cpl: '', current_roas: '', current_cpl: '', drive_folder_url: '' })
     onOpenChange(false)
   }
 
@@ -158,6 +160,15 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
                 <Label className="text-xs font-medium">CPL actual (USD)</Label>
                 <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
               </div>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <p className="form-section-title">Google Drive</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Carpeta de creativos</Label>
+              <Input placeholder="https://drive.google.com/drive/folders/..." value={form.drive_folder_url} onChange={e => set('drive_folder_url', e.target.value)} />
+              <p className="text-[10px] text-slate-400">URL de la carpeta de Drive con los creativos de esta oferta</p>
             </div>
           </div>
 
@@ -394,6 +405,42 @@ function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
   )
 }
 
+function DrivefolderInput({ offerId, onUpdate }: { offerId: string; onUpdate: ReturnType<typeof useOffers>['update'] }) {
+  const [url, setUrl] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    if (!url.trim()) return
+    setSaving(true)
+    const { error } = await onUpdate(offerId, { drive_folder_url: url.trim() } as any)
+    setSaving(false)
+    if (error) toast.error(error)
+    else toast.success('Carpeta de Drive vinculada')
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <FolderOpen size={13} className="text-slate-400 flex-shrink-0" />
+      <Input
+        className="text-xs h-7 flex-1"
+        placeholder="https://drive.google.com/drive/folders/..."
+        value={url}
+        onChange={e => setUrl(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save() } }}
+      />
+      <Button
+        size="sm"
+        className="h-7 text-xs text-white px-2 flex-shrink-0"
+        style={{ backgroundColor: '#4285f4' }}
+        disabled={saving || !url.trim()}
+        onClick={save}
+      >
+        {saving ? '...' : 'Vincular'}
+      </Button>
+    </div>
+  )
+}
+
 function AssetIcon({ type }: { type: string | null }) {
   if (type === 'image') return <ImageIcon size={14} className="text-blue-500" />
   if (type === 'video') return <Video size={14} className="text-purple-500" />
@@ -620,15 +667,27 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite }: {
           />
         </div>
 
-        {/* Banco de creativos link — Cambio 18 Phase 1 */}
+        {/* Drive folder link — Corrección 24 */}
         <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-          <button
-            className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-            onClick={() => toast.info('Vincula una carpeta de Google Drive desde Integraciones')}
-          >
-            <FolderOpen size={13} />
-            Abrir carpeta de creativos en Drive
-          </button>
+          {(offer as any).drive_folder_url ? (
+            <a
+              href={(offer as any).drive_folder_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+            >
+              <FolderOpen size={13} />
+              Abrir carpeta de creativos en Drive
+              <ExternalLink size={10} className="opacity-50" />
+            </a>
+          ) : canWrite ? (
+            <DrivefolderInput offerId={offer.id} onUpdate={onUpdate} />
+          ) : (
+            <span className="text-xs text-slate-400 flex items-center gap-2">
+              <FolderOpen size={13} />
+              Sin carpeta de Drive vinculada
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
