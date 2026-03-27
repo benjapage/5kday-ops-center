@@ -20,7 +20,7 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/utmify/sync?days=1",
+      "path": "/api/utmify?action=sync&days=1",
       "schedule": "0 10 * * *"
     }
   ]

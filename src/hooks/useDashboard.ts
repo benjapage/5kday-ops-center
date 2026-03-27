@@ -89,7 +89,7 @@ export function useDashboard() {
         // Try UTMify first for financial data
         let utmifyData: any = null
         try {
-          const utmRes = await fetch('/api/utmify/dashboard-data?days=30')
+          const utmRes = await fetch('/api/utmify?action=dashboard-data?days=30')
           if (utmRes.ok) {
             const json = await utmRes.json()
             if (json.totalRows > 0) utmifyData = json

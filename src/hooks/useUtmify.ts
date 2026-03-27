@@ -60,7 +60,7 @@ export function useUtmifyData() {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await window.fetch('/api/utmify/dashboard-data?days=30')
+      const res = await window.fetch('/api/utmify?action=dashboard-data?days=30')
       if (!res.ok) {
         const err = await res.json()
         setError(err.error || 'Error fetching UTMify data')

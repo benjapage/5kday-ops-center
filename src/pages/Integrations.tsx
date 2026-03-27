@@ -115,7 +115,7 @@ export default function Integrations() {
   async function testUtmifyConnection() {
     setUtmifyTesting(true)
     try {
-      const res = await fetch('/api/utmify/test-connection')
+      const res = await fetch('/api/utmify?action=test-connection')
       const data = await res.json()
       if (data.ok) {
         toast.success('Conexion UTMify exitosa')
@@ -132,7 +132,7 @@ export default function Integrations() {
   async function syncUtmify(days = 30) {
     setUtmifySyncing(true)
     try {
-      const res = await fetch(`/api/utmify/sync?days=${days}`)
+      const res = await fetch(`/api/utmify?action=sync&days=${days}`)
       const data = await res.json()
       if (data.error) {
         toast.error(data.error)
