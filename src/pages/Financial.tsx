@@ -156,6 +156,8 @@ export default function Financial() {
     else toast.success('Inversion eliminada')
   }
 
+  const CUTOFF = '2026-03-27'
+
   // Chart: historical before cutoff + UTMify from cutoff onward
   const histChart = [...dailyPnl]
     .filter(d => d.date < CUTOFF)
@@ -166,13 +168,10 @@ export default function Financial() {
     .map((d: any) => ({ date: d.label, Ingresos: d.revenue, Profit: d.profit, 'Inversion Ads': d.spend }))
   const chartData = [...histChart, ...utmChart].slice(-30)
 
-  // Compute quadrant data (Cambio 13)
+  // Compute quadrant data
   const mtdSubs = subscriptions
     .filter(s => s.is_active)
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
-
-  // Merge: historical (before 2026-03-27) + UTMify (from 2026-03-27 onward)
-  const CUTOFF = '2026-03-27'
   const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const histRevenues = revenues.filter(r => r.revenue_date >= mtdFrom && r.revenue_date < CUTOFF)
   const histWaRev = histRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
