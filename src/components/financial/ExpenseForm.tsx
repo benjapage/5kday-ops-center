@@ -70,7 +70,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
               <Receipt size={16} className="text-red-500" />
             </div>
             Registrar inversion
@@ -85,7 +85,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
             <p className="form-section-title">Detalle de la inversion</p>
             <div className="grid grid-cols-5 gap-3">
               <div className="col-span-3 space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Monto *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -98,7 +98,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
                 {errors.amount && <p className="text-xs text-red-500" role="alert">{errors.amount}</p>}
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Moneda</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Moneda</Label>
                 <Select value={form.currency} onValueChange={v => set('currency', v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -113,7 +113,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Categoria *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Categoria *</Label>
                 <Select value={form.category} onValueChange={v => set('category', v)}>
                   <SelectTrigger className={errors.category ? 'border-red-300' : ''}>
                     <SelectValue placeholder="Seleccionar..." />
@@ -127,7 +127,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
                 {errors.category && <p className="text-xs text-red-500" role="alert">{errors.category}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Fecha *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Fecha *</Label>
                 <Input
                   type="date"
                   value={form.expense_date}
@@ -140,7 +140,7 @@ export function ExpenseForm({ open, onOpenChange, onAdd }: ExpenseFormProps) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-600">Descripcion</Label>
+            <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Descripcion</Label>
             <Textarea
               placeholder="Detalle de la inversion..."
               value={form.description}

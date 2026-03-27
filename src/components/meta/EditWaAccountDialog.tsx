@@ -72,7 +72,7 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
               <Pencil size={14} className="text-blue-600" />
             </div>
             Editar cuenta
@@ -84,7 +84,7 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
           <div className="form-section">
             <p className="form-section-title">Ubicacion</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Pais</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Pais</Label>
               <Select value={form.country} onValueChange={v => set('country', v)}>
                 <SelectTrigger className="max-w-[250px]">
                   <SelectValue />
@@ -106,11 +106,11 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">BM ID</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">BM ID</Label>
                 <Input value={form.bm_id} onChange={e => set('bm_id', e.target.value)} placeholder="123456789" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">BM Link</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">BM Link</Label>
                 <Input value={form.bm_link_url} onChange={e => set('bm_link_url', e.target.value)} placeholder="https://..." />
               </div>
             </div>
@@ -122,23 +122,23 @@ export function EditWaAccountDialog({ account, open, onOpenChange, onUpdate }: E
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Nombre de cuenta</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Nombre de cuenta</Label>
                 <Input value={form.manychat_name} onChange={e => set('manychat_name', e.target.value)} placeholder="Mi Bot" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">URL</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">URL</Label>
                 <Input value={form.manychat_url} onChange={e => set('manychat_url', e.target.value)} placeholder="https://manychat.com/..." />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">API Key</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">API Key</Label>
               <Input value={form.manychat_api_key} onChange={e => set('manychat_api_key', e.target.value)} placeholder="Tu API Key de ManyChat" type="password" />
               <p className="text-[10px] text-slate-400">Se usa para detectar baneos automaticamente.</p>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-600">Notas</Label>
+            <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Notas</Label>
             <Textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} className="resize-none" />
           </div>
 

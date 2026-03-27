@@ -72,9 +72,9 @@ export default function Settings() {
 
   const ROLE_LABELS: Record<string, string> = { admin: 'Admin', tech: 'Tech', editor: 'Editor' }
   const ROLE_COLORS: Record<string, string> = {
-    admin: 'bg-blue-50 text-blue-700 border-blue-200',
-    tech: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    editor: 'bg-slate-50 text-slate-600 border-slate-200',
+    admin: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-700/50',
+    tech: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700/50',
+    editor: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-700/50 dark:text-slate-400 dark:border-slate-600',
   }
 
   return (
@@ -99,7 +99,7 @@ export default function Settings() {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Email</p>
-              <p className="text-sm text-slate-600 font-mono">{user?.email || '—'}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 font-mono">{user?.email || '—'}</p>
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Rol</p>
@@ -197,7 +197,7 @@ export default function Settings() {
 
           <form onSubmit={handleSave} className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Meta de facturacion mensual (USD)</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meta de facturacion mensual (USD)</Label>
               <div className="flex gap-3">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">$</span>
@@ -235,11 +235,11 @@ export default function Settings() {
       </Card>
 
       {/* APARIENCIA */}
-      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60 dark:border-slate-700/80 dark:bg-slate-800/50">
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700 dark:border-slate-700">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <Moon size={16} className="text-slate-500 dark:text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 dark:text-slate-200">Apariencia</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Apariencia</h2>
           </div>
 
           <div className="flex gap-3">
@@ -287,7 +287,7 @@ export default function Settings() {
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{n.label}</p>
                   <p className="text-xs text-slate-400">{n.description}</p>
                 </div>
-                <div className={`h-6 w-10 rounded-full relative cursor-pointer transition-colors ${n.enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                <div className={`h-6 w-10 rounded-full relative cursor-pointer transition-colors ${n.enabled ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600'}`}>
                   <div className={`h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform ${n.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </div>
               </div>
@@ -309,7 +309,7 @@ export default function Settings() {
             <p className="text-xs text-slate-500">Cambiar contrasena de acceso</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Nueva contrasena</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Nueva contrasena</Label>
                 <Input
                   type="password"
                   placeholder="••••••••"
@@ -318,7 +318,7 @@ export default function Settings() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Confirmar contrasena</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Confirmar contrasena</Label>
                 <Input
                   type="password"
                   placeholder="••••••••"
@@ -343,7 +343,7 @@ export default function Settings() {
             <div className="flex items-center gap-2">
               <Mail size={14} className="text-slate-400" />
               <p className="text-xs text-slate-500">
-                Sesion activa: <span className="font-mono text-slate-600">{user?.email}</span>
+                Sesion activa: <span className="font-mono text-slate-600 dark:text-slate-400">{user?.email}</span>
               </p>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">

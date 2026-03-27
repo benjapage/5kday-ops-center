@@ -22,9 +22,9 @@ import type { Database } from '@/types/database.types'
 type Role = Database['public']['Tables']['profiles']['Row']['role']
 
 const ROLE_COLORS: Record<Role, string> = {
-  admin: 'bg-blue-100 text-blue-800 border-blue-200',
-  tech: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  editor: 'bg-slate-100 text-slate-600 border-slate-200',
+  admin: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-700/50',
+  tech: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700/50',
+  editor: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700/50 dark:text-slate-400 dark:border-slate-600',
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -61,7 +61,7 @@ function AddChecklistDialog({ open, onOpenChange, onAdd }: {
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
               <ListChecks size={16} className="text-blue-600" />
             </div>
             Nuevo checklist
@@ -71,11 +71,11 @@ function AddChecklistDialog({ open, onOpenChange, onAdd }: {
           <div className="form-section">
             <p className="form-section-title">Configuracion</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Titulo *</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Titulo *</Label>
               <Input placeholder="Ej: Tareas diarias de marketing" value={title} onChange={e => setTitle(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Asignado a</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Asignado a</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger className="max-w-[200px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -156,7 +156,7 @@ function AddDriveLinkDialog({ open, onOpenChange, onAdd }: {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
               <Link2 size={16} className="text-blue-600" />
             </div>
             Agregar recurso
@@ -166,15 +166,15 @@ function AddDriveLinkDialog({ open, onOpenChange, onAdd }: {
           <div className="form-section">
             <p className="form-section-title">Detalle del recurso</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Titulo *</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Titulo *</Label>
               <Input placeholder="Ej: SOPs de onboarding" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">URL *</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">URL *</Label>
               <Input placeholder="https://drive.google.com/..." value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Categoria</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Categoria</Label>
               <Input placeholder="Ej: SOPs, Creativos, Reportes..." value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} />
             </div>
           </div>

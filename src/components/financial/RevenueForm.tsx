@@ -69,7 +69,7 @@ export function RevenueForm({ open, onOpenChange, onAdd }: RevenueFormProps) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
               <DollarSign size={16} className="text-emerald-600" />
             </div>
             Registrar ingreso
@@ -84,7 +84,7 @@ export function RevenueForm({ open, onOpenChange, onAdd }: RevenueFormProps) {
             <p className="form-section-title">Detalle del ingreso</p>
             <div className="grid grid-cols-5 gap-3">
               <div className="col-span-3 space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Monto *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -97,7 +97,7 @@ export function RevenueForm({ open, onOpenChange, onAdd }: RevenueFormProps) {
                 {errors.amount && <p className="text-xs text-red-500" role="alert">{errors.amount}</p>}
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Moneda</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Moneda</Label>
                 <Select value={form.currency} onValueChange={v => set('currency', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -110,7 +110,7 @@ export function RevenueForm({ open, onOpenChange, onAdd }: RevenueFormProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Canal *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Canal *</Label>
                 <Select value={form.channel} onValueChange={v => set('channel', v)}>
                   <SelectTrigger className={errors.channel ? 'border-red-300' : ''}>
                     <SelectValue placeholder="Seleccionar..." />
@@ -124,7 +124,7 @@ export function RevenueForm({ open, onOpenChange, onAdd }: RevenueFormProps) {
                 {errors.channel && <p className="text-xs text-red-500" role="alert">{errors.channel}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Fecha *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Fecha *</Label>
                 <Input
                   type="date"
                   value={form.revenue_date}
@@ -135,7 +135,7 @@ export function RevenueForm({ open, onOpenChange, onAdd }: RevenueFormProps) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-600">Notas</Label>
+            <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Notas</Label>
             <Textarea
               placeholder="Detalle del ingreso..."
               value={form.notes}

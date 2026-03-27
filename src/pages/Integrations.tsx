@@ -202,7 +202,7 @@ export default function Integrations() {
         {driveFiles.length > 0 && (
           <Card className="shadow-sm border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40">
             <CardContent className="p-4">
-              <p className="text-xs font-medium text-slate-600 mb-2">Ultimos archivos detectados</p>
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Ultimos archivos detectados</p>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {driveFiles.slice(0, 10).map(f => (
                   <div key={f.id} className="flex items-center justify-between text-xs">
@@ -210,13 +210,13 @@ export default function Integrations() {
                       <Badge
                         variant="outline"
                         className={`text-[10px] px-1.5 ${f.folder_type === 'anuncios'
-                          ? 'border-purple-200 text-purple-700 bg-purple-50'
-                          : 'border-blue-200 text-blue-700 bg-blue-50'
+                          ? 'border-purple-200 text-purple-700 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-700/50'
+                          : 'border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-700/50'
                         }`}
                       >
                         {f.folder_type === 'anuncios' ? 'AD' : f.file_type?.toUpperCase() || 'FILE'}
                       </Badge>
-                      <span className="text-slate-600 font-mono truncate max-w-[300px]">{f.file_name}</span>
+                      <span className="text-slate-600 dark:text-slate-300 font-mono truncate max-w-[300px]">{f.file_name}</span>
                     </div>
                     <div className="flex items-center gap-2 text-slate-400">
                       {f.editor && <span className="font-medium">{f.editor}</span>}
@@ -236,7 +236,7 @@ export default function Integrations() {
 
         <Card className="shadow-sm border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40">
           <CardContent className="p-4">
-            <p className="text-xs font-medium text-slate-600 mb-1">Carpetas monitoreadas</p>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Carpetas monitoreadas</p>
             <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
               <li><strong>Anuncios</strong>: detecta creativos por nomenclatura AD[n].TT[n].[EDITOR].[Oferta]</li>
               <li><strong>OFERTAS</strong>: detecta subcarpetas OFERTA.[Nombre].[Fecha] con AVATAR, BRIEF, COPY, LANDING, RESULTADO</li>
@@ -295,11 +295,11 @@ export default function Integrations() {
                             <span className="text-xs font-medium">Conectada</span>
                           </div>
                           {connected.webhook_id ? (
-                            <Badge variant="outline" className="text-xs border-green-200 text-green-700 bg-green-50">
+                            <Badge variant="outline" className="text-xs border-green-200 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700/50">
                               Webhook activo
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-xs border-amber-200 text-amber-700 bg-amber-50">
+                            <Badge variant="outline" className="text-xs border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50">
                               Sin webhook
                             </Badge>
                           )}

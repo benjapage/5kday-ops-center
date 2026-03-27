@@ -80,7 +80,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
               <Smartphone size={16} className="text-emerald-600" />
             </div>
             Agregar cuenta WhatsApp
@@ -96,7 +96,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
             <p className="form-section-title">Datos de la cuenta</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Numero de telefono *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Numero de telefono *</Label>
                 <Input
                   placeholder="+54 9 11 1234-5678"
                   value={form.phone_number}
@@ -107,7 +107,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Pais *</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Pais *</Label>
                 <Select value={form.country} onValueChange={v => set('country', v)}>
                   <SelectTrigger className={errors.country ? 'border-red-300' : ''}>
                     <SelectValue placeholder="Seleccionar..." />
@@ -125,7 +125,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Inicio de calentamiento *</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Inicio de calentamiento *</Label>
               <Input
                 type="date"
                 value={form.start_date}
@@ -143,7 +143,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">BM ID</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">BM ID</Label>
                 <Input
                   placeholder="123456789"
                   value={form.bm_id}
@@ -151,7 +151,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">BM Link</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">BM Link</Label>
                 <Input
                   placeholder="https://business.facebook.com/..."
                   value={form.bm_link_url}
@@ -168,7 +168,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Nombre de cuenta</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Nombre de cuenta</Label>
                 <Input
                   placeholder="Mi Bot Principal"
                   value={form.manychat_name}
@@ -176,7 +176,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">URL</Label>
+                <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">URL</Label>
                 <Input
                   placeholder="https://manychat.com/..."
                   value={form.manychat_url}
@@ -185,7 +185,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">API Key</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">API Key</Label>
               <Input
                 placeholder="Configuracion > API > Tu API Key"
                 value={form.manychat_api_key}
@@ -198,7 +198,7 @@ export function AddWaAccountDialog({ open, onOpenChange, onCreate }: AddWaAccoun
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-slate-600">Notas</Label>
+            <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Notas</Label>
             <Textarea
               placeholder="Observaciones adicionales..."
               value={form.notes}
