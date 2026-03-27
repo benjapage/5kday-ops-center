@@ -358,11 +358,11 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               [idField]: getId(editItem),
               status: editItem.status,
               notes: editItem.notes ?? '',
-              ...((editItem as any).channel_type ? { channel_type: (editItem as any).channel_type } : {}),
-              ...((editItem as any).bm_id && idField !== 'bm_id' ? { bm_id: (editItem as any).bm_id } : {}),
-              ...((editItem as any).bm_function ? { bm_function: (editItem as any).bm_function } : {}),
-              ...((editItem as any).profile_id && idField !== 'profile_id' ? { profile_id: (editItem as any).profile_id } : {}),
-              ...((editItem as any).profile_function ? { profile_function: (editItem as any).profile_function } : {}),
+              channel_type: (editItem as any).channel_type || '__none__',
+              bm_id: (idField !== 'bm_id' && (editItem as any).bm_id) ? (editItem as any).bm_id : '__none__',
+              bm_function: (editItem as any).bm_function || '__none__',
+              profile_id: (idField !== 'profile_id' && (editItem as any).profile_id) ? (editItem as any).profile_id : '__none__',
+              profile_function: (editItem as any).profile_function || '__none__',
             }}
             submitLabel="Guardar"
           />
@@ -449,6 +449,7 @@ export default function MetaAssets() {
               { key: 'name', label: 'Nombre / Alias', placeholder: 'Ej: Juan Perez', required: true },
               { key: 'profile_id', label: 'Profile ID', placeholder: 'Opcional — ID tecnico' },
               { key: 'profile_function', label: 'Funcion del perfil', placeholder: 'Funcion...', type: 'select', options: [
+                { value: '__none__', label: '— Sin funcion —' },
                 { value: 'publicitario', label: 'Publicitario' },
                 { value: 'calentamiento', label: 'Calentamiento' },
                 { value: 'admin', label: 'Admin' },
@@ -456,21 +457,23 @@ export default function MetaAssets() {
               ]},
             ]}
             onAdd={async (data) => {
+              const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await profiles.create({
                 name: data.name, profile_id: data.profile_id || '',
                 status: (data.status as MetaProfile['status']) || 'active',
-                profile_function: data.profile_function || null,
-                notes: data.notes || null,
+                profile_function: clean(data.profile_function),
+                notes: clean(data.notes),
               } as any)
               if (error) toast.error(error)
               else toast.success('Perfil creado')
             }}
             onUpdate={async (id, data) => {
+              const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await profiles.update(id, {
                 name: data.name, profile_id: data.profile_id,
                 status: data.status as MetaProfile['status'],
-                profile_function: data.profile_function || null,
-                notes: data.notes || null,
+                profile_function: clean(data.profile_function),
+                notes: clean(data.notes),
               } as any)
               if (error) toast.error(error)
               else toast.success('Perfil actualizado')
@@ -511,34 +514,37 @@ export default function MetaAssets() {
               { key: 'account_id', label: 'Account ID', placeholder: 'Ej: 123456789', required: true },
               { key: 'currency', label: 'Moneda', placeholder: 'USD' },
               { key: 'channel_type', label: 'Tipo de canal', placeholder: 'Canal...', type: 'select', options: [
+                { value: '__none__', label: '— Sin canal —' },
                 { value: 'whatsapp', label: 'WhatsApp' },
                 { value: 'landing', label: 'Landing (Shopify)' },
               ]},
               { key: 'bm_id', label: 'BM vinculado', placeholder: 'Seleccionar BM...', type: 'select', options: [
-                { value: '', label: 'Sin BM' },
-                ...bms.items.map(b => ({ value: b.bm_id, label: b.name })),
+                { value: '__none__', label: '— Sin BM —' },
+                ...bms.items.map(b => ({ value: b.bm_id, label: `${b.name} (${b.bm_id.slice(0, 8)}...)` })),
               ]},
             ]}
             onAdd={async (data) => {
+              const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await adAccounts.create({
                 name: data.name, account_id: data.account_id,
                 status: (data.status as AdAccount['status']) || 'active',
                 currency: data.currency || 'USD',
-                channel_type: data.channel_type || null,
-                bm_id: data.bm_id || null,
-                notes: data.notes || null,
+                channel_type: clean(data.channel_type),
+                bm_id: clean(data.bm_id),
+                notes: clean(data.notes),
               } as any)
               if (error) toast.error(error)
               else toast.success('Cuenta creada')
             }}
             onUpdate={async (id, data) => {
+              const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await adAccounts.update(id, {
                 name: data.name, account_id: data.account_id,
                 status: data.status as AdAccount['status'],
                 currency: data.currency,
-                channel_type: data.channel_type || null,
-                bm_id: data.bm_id || null,
-                notes: data.notes || null,
+                channel_type: clean(data.channel_type),
+                bm_id: clean(data.bm_id),
+                notes: clean(data.notes),
               } as any)
               if (error) toast.error(error)
               else toast.success('Cuenta actualizada')
@@ -566,33 +572,36 @@ export default function MetaAssets() {
               { key: 'name', label: 'Nombre', placeholder: 'Ej: BM Principal', required: true },
               { key: 'bm_id', label: 'BM ID', placeholder: 'Ej: 123456789', required: true },
               { key: 'bm_function', label: 'Funcion del BM', placeholder: 'Funcion...', type: 'select', options: [
+                { value: '__none__', label: '— Sin funcion —' },
                 { value: 'numeros', label: 'Para numeros' },
                 { value: 'cuentas', label: 'Para cuentas publicitarias' },
                 { value: 'mixto', label: 'Mixto' },
               ]},
               { key: 'profile_id', label: 'Perfil vinculado', placeholder: 'Seleccionar perfil...', type: 'select', options: [
-                { value: '', label: 'Sin perfil' },
+                { value: '__none__', label: '— Sin perfil —' },
                 ...profiles.items.map(p => ({ value: p.id, label: p.name })),
               ]},
             ]}
             onAdd={async (data) => {
+              const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await bms.create({
                 name: data.name, bm_id: data.bm_id,
                 status: (data.status as BusinessManager['status']) || 'active',
-                bm_function: data.bm_function || null,
-                profile_id: data.profile_id || null,
-                notes: data.notes || null,
+                bm_function: clean(data.bm_function),
+                profile_id: clean(data.profile_id),
+                notes: clean(data.notes),
               } as any)
               if (error) toast.error(error)
               else toast.success('BM creado')
             }}
             onUpdate={async (id, data) => {
+              const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await bms.update(id, {
                 name: data.name, bm_id: data.bm_id,
                 status: data.status as BusinessManager['status'],
-                bm_function: data.bm_function || null,
-                profile_id: data.profile_id || null,
-                notes: data.notes || null,
+                bm_function: clean(data.bm_function),
+                profile_id: clean(data.profile_id),
+                notes: clean(data.notes),
               } as any)
               if (error) toast.error(error)
               else toast.success('BM actualizado')
