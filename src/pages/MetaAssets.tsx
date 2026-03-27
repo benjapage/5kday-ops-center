@@ -438,7 +438,8 @@ export default function MetaAssets() {
             onAdd={async (data) => {
               const clean = (v?: string) => (!v || v === '__none__') ? null : v
               const { error } = await profiles.create({
-                name: data.name, profile_id: data.profile_id || '',
+                name: data.name,
+                profile_id: data.profile_id || null,
                 status: (data.status as MetaProfile['status']) || 'active',
                 profile_function: clean(data.profile_function),
                 notes: clean(data.notes),
