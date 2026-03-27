@@ -83,7 +83,7 @@ export function WaAccountTable() {
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 filter === f.value
                   ? 'text-white'
-                  : 'text-slate-600 bg-white border border-slate-200 hover:bg-slate-50'
+                  : 'text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
               style={filter === f.value ? { backgroundColor: '#0B1A2E' } : {}}
             >
@@ -110,10 +110,10 @@ export function WaAccountTable() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50">
+            <TableRow className="bg-slate-50 dark:bg-slate-800">
               <TableHead className="text-xs">Número</TableHead>
               <TableHead className="text-xs">País</TableHead>
               <TableHead className="text-xs">Estado</TableHead>
@@ -154,7 +154,7 @@ export function WaAccountTable() {
               </TableRow>
             ) : (
               filtered.map(account => (
-                <TableRow key={account.id} className="hover:bg-slate-50/50">
+                <TableRow key={account.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                   <TableCell className="font-mono text-sm font-medium">
                     {account.phone_number}
                   </TableCell>

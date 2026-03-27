@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Loader2, Megaphone, Building2, User, Plus, Trash2, Edit2, MoreHorizontal } from 'lucide-react'
+import { RefreshCw, Loader2, Megaphone, Building2, User, Plus, Trash2, Edit2, MoreHorizontal, AlertTriangle, ShoppingCart, MessageCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,7 @@ interface AdAccount {
   account_id: string
   status: 'active' | 'disabled' | 'banned'
   currency: string
+  channel_type?: string | null
   notes?: string | null
 }
 
@@ -29,6 +30,7 @@ interface BusinessManager {
   name: string
   bm_id: string
   status: 'active' | 'restricted' | 'banned'
+  bm_function?: string | null
   notes?: string | null
 }
 
@@ -37,6 +39,7 @@ interface MetaProfile {
   name: string
   profile_id: string
   status: 'active' | 'restricted' | 'banned'
+  profile_function?: string | null
   notes?: string | null
 }
 
@@ -79,19 +82,39 @@ function useMetaAssets<T extends { id: string }>(table: string) {
 }
 
 // ─── Status colors ───────────────────────────────────────
-const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  active: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  disabled: { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200' },
-  restricted: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  banned: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+const STATUS_STYLES: Record<string, { bg: string; text: string; border: string; darkBg: string; darkText: string }> = {
+  active: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', darkBg: 'dark:bg-green-900/20', darkText: 'dark:text-green-400' },
+  disabled: { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200', darkBg: 'dark:bg-slate-700/30', darkText: 'dark:text-slate-400' },
+  restricted: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', darkBg: 'dark:bg-amber-900/20', darkText: 'dark:text-amber-400' },
+  banned: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', darkBg: 'dark:bg-red-900/20', darkText: 'dark:text-red-400' },
 }
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] ?? STATUS_STYLES.disabled
   return (
-    <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${s.bg} ${s.text} ${s.border}`}>
+    <Badge variant="outline" className={`text-[10px] uppercase tracking-wider ${s.bg} ${s.text} ${s.border} ${s.darkBg} ${s.darkText}`}>
       {status === 'active' ? 'Activa' : status === 'disabled' ? 'Deshabilitada' : status === 'restricted' ? 'Restringida' : status === 'banned' ? 'Baneada' : status}
     </Badge>
+  )
+}
+
+function FunctionBadge({ fn }: { fn?: string | null }) {
+  if (!fn) return null
+  const colors: Record<string, string> = {
+    whatsapp: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    landing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    numeros: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    cuentas: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    mixto: 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300',
+    publicitario: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    calentamiento: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    admin: 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300',
+    soporte: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  }
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider ${colors[fn] ?? colors.mixto}`}>
+      {fn}
+    </span>
   )
 }
 
@@ -106,7 +129,7 @@ function AssetDialog({
   title: string
   icon: React.ComponentType<{ size?: number; className?: string }>
   iconColor: string
-  fields: { key: string; label: string; placeholder: string; type?: 'text' | 'select'; options?: { value: string; label: string }[] }[]
+  fields: { key: string; label: string; placeholder: string; required?: boolean; type?: 'text' | 'select'; options?: { value: string; label: string }[] }[]
   initialValues?: Record<string, string>
   submitLabel: string
 }) {
@@ -139,7 +162,7 @@ function AssetDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           {fields.map(f => (
             <div key={f.key} className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">{f.label}</Label>
+              <Label className="text-xs font-medium">{f.label}{f.required && ' *'}</Label>
               {f.type === 'select' ? (
                 <Select value={form[f.key] ?? ''} onValueChange={v => setForm(p => ({ ...p, [f.key]: v }))}>
                   <SelectTrigger><SelectValue placeholder={f.placeholder} /></SelectTrigger>
@@ -171,7 +194,8 @@ function AssetDialog({
 // ─── Asset Card Section ──────────────────────────────────
 function AssetSection<T extends { id: string; name: string; status: string; notes?: string | null }>({
   title, icon: Icon, iconColor, items, isLoading, idField, idLabel,
-  getId, onAdd, onUpdate, onDelete, canWrite, fields,
+  getId, onAdd, onUpdate, onDelete, canWrite, fields, getFn,
+  restrictedBmWarning,
 }: {
   title: string
   icon: React.ComponentType<{ size?: number; className?: string }>
@@ -185,7 +209,9 @@ function AssetSection<T extends { id: string; name: string; status: string; note
   onUpdate: (id: string, data: Record<string, string>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   canWrite: boolean
-  fields: { key: string; label: string; placeholder: string; type?: 'text' | 'select'; options?: { value: string; label: string }[] }[]
+  fields: { key: string; label: string; placeholder: string; required?: boolean; type?: 'text' | 'select'; options?: { value: string; label: string }[] }[]
+  getFn?: (item: T) => string | null | undefined
+  restrictedBmWarning?: boolean
 }) {
   const [addOpen, setAddOpen] = useState(false)
   const [editItem, setEditItem] = useState<T | null>(null)
@@ -234,15 +260,23 @@ function AssetSection<T extends { id: string; name: string; status: string; note
           {[
             { label: 'Activas', count: counts.active, color: '#22C55E' },
             { label: 'Restringidas', count: counts.restricted, color: '#F59E0B' },
-            { label: 'Baneadas', count: counts.banned, color: '#EF4444' },
+            { label: 'Baneadas', count: counts.banned, color: '#E8816D' },
           ].map(c => (
             <div key={c.label} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 dark:bg-slate-700/50">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
-              <span className="text-[10px] font-semibold text-slate-600">{c.count}</span>
+              <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{c.count}</span>
               <span className="text-[10px] text-slate-400">{c.label}</span>
             </div>
           ))}
         </div>
+
+        {/* Restricted BM warning - Cambio 12 */}
+        {restrictedBmWarning && (
+          <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
+            <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
+            <p className="text-[11px] text-amber-700 dark:text-amber-400">BM vinculado restringido — activos en riesgo</p>
+          </div>
+        )}
 
         {/* List */}
         {isLoading ? (
@@ -255,8 +289,9 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               <div key={item.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{item.name}</p>
-                  <p className="text-[10px] font-mono text-slate-400 truncate">{idLabel}: {getId(item)}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{idLabel}: {getId(item)}</p>
                 </div>
+                {getFn && <FunctionBadge fn={getFn(item)} />}
                 <StatusBadge status={item.status} />
                 {canWrite && (
                   <DropdownMenu>
@@ -312,6 +347,9 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               [idField]: getId(editItem),
               status: editItem.status,
               notes: editItem.notes ?? '',
+              ...((editItem as any).channel_type ? { channel_type: (editItem as any).channel_type } : {}),
+              ...((editItem as any).bm_function ? { bm_function: (editItem as any).bm_function } : {}),
+              ...((editItem as any).profile_function ? { profile_function: (editItem as any).profile_function } : {}),
             }}
             submitLabel="Guardar"
           />
@@ -330,6 +368,9 @@ export default function MetaAssets() {
   const adAccounts = useMetaAssets<AdAccount>('meta_ad_accounts')
   const bms = useMetaAssets<BusinessManager>('meta_business_managers')
   const profiles = useMetaAssets<MetaProfile>('meta_profiles')
+
+  // Cambio 12: detect restricted BMs for cascade warning
+  const hasRestrictedBm = bms.items.some(b => b.status === 'restricted' || b.status === 'banned')
 
   async function syncMeta() {
     setSyncing(true)
@@ -350,7 +391,7 @@ export default function MetaAssets() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Activos Meta</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Contingencias: numeros WA, cuentas publicitarias, BMs y perfiles</p>
+          <p className="text-sm text-slate-500 mt-0.5">Numeros WA, perfiles, cuentas publicitarias y BMs</p>
         </div>
         <Button size="sm" variant="outline" className="text-xs h-8" disabled={syncing} onClick={syncMeta}>
           {syncing ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <RefreshCw size={13} className="mr-1.5" />}
@@ -358,128 +399,178 @@ export default function MetaAssets() {
         </Button>
       </div>
 
-      {/* WhatsApp Accounts */}
-      <WaAccountTable />
+      {/* ─── Bloque 1: Numeros WhatsApp (Cambio 11) ─── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <MessageCircle size={16} className="text-green-500" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Numeros de WhatsApp</h2>
+          <span className="text-[10px] text-slate-400 ml-1">Stock principal</span>
+        </div>
+        <WaAccountTable />
+      </div>
 
-      {/* 3 Asset Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <AssetSection<AdAccount>
-          title="Cuentas publicitarias"
-          icon={Megaphone}
-          iconColor="#3B82F6"
-          items={adAccounts.items}
-          isLoading={adAccounts.isLoading}
-          idField="account_id"
-          idLabel="ID"
-          getId={(item) => item.account_id}
-          canWrite={canWrite}
-          fields={[
-            { key: 'name', label: 'Nombre', placeholder: 'Ej: Cuenta principal' },
-            { key: 'account_id', label: 'Account ID', placeholder: 'Ej: 123456789' },
-            { key: 'currency', label: 'Moneda', placeholder: 'USD' },
-          ]}
-          onAdd={async (data) => {
-            const { error } = await adAccounts.create({
-              name: data.name, account_id: data.account_id,
-              status: (data.status as AdAccount['status']) || 'active',
-              currency: data.currency || 'USD', notes: data.notes || null,
-            } as any)
-            if (error) toast.error(error)
-            else toast.success('Cuenta creada')
-          }}
-          onUpdate={async (id, data) => {
-            const { error } = await adAccounts.update(id, {
-              name: data.name, account_id: data.account_id,
-              status: data.status as AdAccount['status'],
-              currency: data.currency, notes: data.notes || null,
-            } as any)
-            if (error) toast.error(error)
-            else toast.success('Cuenta actualizada')
-          }}
-          onDelete={async (id) => {
-            const { error } = await adAccounts.remove(id)
-            if (error) toast.error(error)
-            else toast.success('Cuenta eliminada')
-          }}
-        />
+      {/* ─── Bloque 2: Perfiles de Meta (Cambio 11) — prioridad alta ─── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <User size={16} className="text-pink-500" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Perfiles de Meta</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <AssetSection<MetaProfile>
+            title="Perfiles"
+            icon={User}
+            iconColor="#EC4899"
+            items={profiles.items}
+            isLoading={profiles.isLoading}
+            idField="profile_id"
+            idLabel="Profile ID"
+            getId={(item) => item.profile_id}
+            canWrite={canWrite}
+            getFn={(item) => item.profile_function}
+            fields={[
+              { key: 'name', label: 'Nombre / Alias', placeholder: 'Ej: Juan Perez', required: true },
+              { key: 'profile_id', label: 'Profile ID', placeholder: 'Opcional — ID tecnico' },
+              { key: 'profile_function', label: 'Funcion del perfil', placeholder: 'Funcion...', type: 'select', options: [
+                { value: 'publicitario', label: 'Publicitario' },
+                { value: 'calentamiento', label: 'Calentamiento' },
+                { value: 'admin', label: 'Admin' },
+                { value: 'soporte', label: 'Soporte' },
+              ]},
+            ]}
+            onAdd={async (data) => {
+              const { error } = await profiles.create({
+                name: data.name, profile_id: data.profile_id || '',
+                status: (data.status as MetaProfile['status']) || 'active',
+                profile_function: data.profile_function || null,
+                notes: data.notes || null,
+              } as any)
+              if (error) toast.error(error)
+              else toast.success('Perfil creado')
+            }}
+            onUpdate={async (id, data) => {
+              const { error } = await profiles.update(id, {
+                name: data.name, profile_id: data.profile_id,
+                status: data.status as MetaProfile['status'],
+                profile_function: data.profile_function || null,
+                notes: data.notes || null,
+              } as any)
+              if (error) toast.error(error)
+              else toast.success('Perfil actualizado')
+            }}
+            onDelete={async (id) => {
+              const { error } = await profiles.remove(id)
+              if (error) toast.error(error)
+              else toast.success('Perfil eliminado')
+            }}
+          />
+        </div>
+      </div>
 
-        <AssetSection<BusinessManager>
-          title="Business Managers"
-          icon={Building2}
-          iconColor="#8B5CF6"
-          items={bms.items}
-          isLoading={bms.isLoading}
-          idField="bm_id"
-          idLabel="BM ID"
-          getId={(item) => item.bm_id}
-          canWrite={canWrite}
-          fields={[
-            { key: 'name', label: 'Nombre', placeholder: 'Ej: BM Principal' },
-            { key: 'bm_id', label: 'BM ID', placeholder: 'Ej: 123456789' },
-          ]}
-          onAdd={async (data) => {
-            const { error } = await bms.create({
-              name: data.name, bm_id: data.bm_id,
-              status: (data.status as BusinessManager['status']) || 'active',
-              notes: data.notes || null,
-            } as any)
-            if (error) toast.error(error)
-            else toast.success('BM creado')
-          }}
-          onUpdate={async (id, data) => {
-            const { error } = await bms.update(id, {
-              name: data.name, bm_id: data.bm_id,
-              status: data.status as BusinessManager['status'],
-              notes: data.notes || null,
-            } as any)
-            if (error) toast.error(error)
-            else toast.success('BM actualizado')
-          }}
-          onDelete={async (id) => {
-            const { error } = await bms.remove(id)
-            if (error) toast.error(error)
-            else toast.success('BM eliminado')
-          }}
-        />
+      {/* ─── Bloque 3: Cuentas Publicitarias + BMs (dato secundario) ─── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Megaphone size={16} className="text-blue-500" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cuentas publicitarias y BMs</h2>
+          <span className="text-[10px] text-slate-400 ml-1">Infraestructura</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <AssetSection<AdAccount>
+            title="Cuentas publicitarias"
+            icon={Megaphone}
+            iconColor="#3B82F6"
+            items={adAccounts.items}
+            isLoading={adAccounts.isLoading}
+            idField="account_id"
+            idLabel="ID"
+            getId={(item) => item.account_id}
+            canWrite={canWrite}
+            getFn={(item) => item.channel_type}
+            restrictedBmWarning={hasRestrictedBm}
+            fields={[
+              { key: 'name', label: 'Nombre', placeholder: 'Ej: Cuenta principal', required: true },
+              { key: 'account_id', label: 'Account ID', placeholder: 'Ej: 123456789', required: true },
+              { key: 'currency', label: 'Moneda', placeholder: 'USD' },
+              { key: 'channel_type', label: 'Tipo de canal', placeholder: 'Canal...', type: 'select', options: [
+                { value: 'whatsapp', label: 'WhatsApp' },
+                { value: 'landing', label: 'Landing (Shopify)' },
+              ]},
+            ]}
+            onAdd={async (data) => {
+              const { error } = await adAccounts.create({
+                name: data.name, account_id: data.account_id,
+                status: (data.status as AdAccount['status']) || 'active',
+                currency: data.currency || 'USD',
+                channel_type: data.channel_type || null,
+                notes: data.notes || null,
+              } as any)
+              if (error) toast.error(error)
+              else toast.success('Cuenta creada')
+            }}
+            onUpdate={async (id, data) => {
+              const { error } = await adAccounts.update(id, {
+                name: data.name, account_id: data.account_id,
+                status: data.status as AdAccount['status'],
+                currency: data.currency,
+                channel_type: data.channel_type || null,
+                notes: data.notes || null,
+              } as any)
+              if (error) toast.error(error)
+              else toast.success('Cuenta actualizada')
+            }}
+            onDelete={async (id) => {
+              const { error } = await adAccounts.remove(id)
+              if (error) toast.error(error)
+              else toast.success('Cuenta eliminada')
+            }}
+          />
 
-        <AssetSection<MetaProfile>
-          title="Perfiles"
-          icon={User}
-          iconColor="#EC4899"
-          items={profiles.items}
-          isLoading={profiles.isLoading}
-          idField="profile_id"
-          idLabel="Profile ID"
-          getId={(item) => item.profile_id}
-          canWrite={canWrite}
-          fields={[
-            { key: 'name', label: 'Nombre', placeholder: 'Ej: Juan Perez' },
-            { key: 'profile_id', label: 'Profile ID', placeholder: 'Ej: 123456789' },
-          ]}
-          onAdd={async (data) => {
-            const { error } = await profiles.create({
-              name: data.name, profile_id: data.profile_id,
-              status: (data.status as MetaProfile['status']) || 'active',
-              notes: data.notes || null,
-            } as any)
-            if (error) toast.error(error)
-            else toast.success('Perfil creado')
-          }}
-          onUpdate={async (id, data) => {
-            const { error } = await profiles.update(id, {
-              name: data.name, profile_id: data.profile_id,
-              status: data.status as MetaProfile['status'],
-              notes: data.notes || null,
-            } as any)
-            if (error) toast.error(error)
-            else toast.success('Perfil actualizado')
-          }}
-          onDelete={async (id) => {
-            const { error } = await profiles.remove(id)
-            if (error) toast.error(error)
-            else toast.success('Perfil eliminado')
-          }}
-        />
+          <AssetSection<BusinessManager>
+            title="Business Managers"
+            icon={Building2}
+            iconColor="#8B5CF6"
+            items={bms.items}
+            isLoading={bms.isLoading}
+            idField="bm_id"
+            idLabel="BM ID"
+            getId={(item) => item.bm_id}
+            canWrite={canWrite}
+            getFn={(item) => item.bm_function}
+            fields={[
+              { key: 'name', label: 'Nombre', placeholder: 'Ej: BM Principal', required: true },
+              { key: 'bm_id', label: 'BM ID', placeholder: 'Ej: 123456789', required: true },
+              { key: 'bm_function', label: 'Funcion del BM', placeholder: 'Funcion...', type: 'select', options: [
+                { value: 'numeros', label: 'Para numeros' },
+                { value: 'cuentas', label: 'Para cuentas publicitarias' },
+                { value: 'mixto', label: 'Mixto' },
+              ]},
+            ]}
+            onAdd={async (data) => {
+              const { error } = await bms.create({
+                name: data.name, bm_id: data.bm_id,
+                status: (data.status as BusinessManager['status']) || 'active',
+                bm_function: data.bm_function || null,
+                notes: data.notes || null,
+              } as any)
+              if (error) toast.error(error)
+              else toast.success('BM creado')
+            }}
+            onUpdate={async (id, data) => {
+              const { error } = await bms.update(id, {
+                name: data.name, bm_id: data.bm_id,
+                status: data.status as BusinessManager['status'],
+                bm_function: data.bm_function || null,
+                notes: data.notes || null,
+              } as any)
+              if (error) toast.error(error)
+              else toast.success('BM actualizado')
+            }}
+            onDelete={async (id) => {
+              const { error } = await bms.remove(id)
+              if (error) toast.error(error)
+              else toast.success('BM eliminado')
+            }}
+          />
+        </div>
       </div>
     </div>
   )
