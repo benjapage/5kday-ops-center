@@ -67,7 +67,7 @@ async function fetchDolarBlue(): Promise<number> {
   return 1300
 }
 
-// Cutoff: UTMify takes over from this date onward
+// Cutoff: before this date = meta_ad_stats, from this date = UTMify
 const UTMIFY_CUTOFF = '2026-03-27'
 
 export function useDashboard() {
@@ -86,18 +86,19 @@ export function useDashboard() {
 
         const [
           utmRes,
-          // Historical: revenue_entries for dates BEFORE cutoff
-          revHistMtdRes, revHist30dRes,
-          // Expenses (subs, team, tools — always from here)
-          expTodayRes, expMtdRes, adSpendHist30dRes,
+          // Historical revenue from Meta pixel (purchase_value) — BEFORE cutoff
+          metaMtdRes, meta30dRes,
+          // Expenses (all dates — subs, team, tools, ad_spend)
+          expTodayRes, expMtdRes, adSpend30dRes,
           // WA
           waRes, bannedRes, readyRes,
           blueRate,
         ] = await Promise.all([
           fetch('/api/utmify?action=dashboard-data&days=30').then(r => r.ok ? r.json() : null).catch(() => null),
-          // Historical revenue: only dates BEFORE cutoff
-          supabase.from('revenue_entries').select('amount, currency, channel, revenue_date').gte('revenue_date', mtdFrom).lt('revenue_date', UTMIFY_CUTOFF),
-          supabase.from('revenue_entries').select('amount, currency, channel, revenue_date').gte('revenue_date', since30d).lt('revenue_date', UTMIFY_CUTOFF),
+          // Meta revenue for MTD before cutoff
+          supabase.from('meta_ad_stats').select('purchase_value, currency').gte('stat_date', mtdFrom).lt('stat_date', UTMIFY_CUTOFF),
+          // Meta revenue for 30d before cutoff
+          supabase.from('meta_ad_stats').select('purchase_value, spend, currency, stat_date').gte('stat_date', since30d).lt('stat_date', UTMIFY_CUTOFF),
           supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
           supabase.from('expenses').select('amount, currency, category, expense_date').gte('expense_date', mtdFrom),
           supabase.from('expenses').select('amount, currency, expense_date').eq('category', 'ad_spend').gte('expense_date', since30d).lt('expense_date', UTMIFY_CUTOFF),
@@ -113,17 +114,23 @@ export function useDashboard() {
             return s + (r.currency === 'ARS' ? amt / blueRate : amt)
           }, 0)
 
+        const sumMetaRevenue = (rows: { purchase_value: unknown; currency?: unknown }[] | null) =>
+          (rows ?? []).reduce((s, r) => {
+            const amt = Number(r.purchase_value ?? 0)
+            return s + (r.currency === 'ARS' ? amt / blueRate : amt)
+          }, 0)
+
         const utmify = utmRes && utmRes.totalRows > 0 ? utmRes : null
 
-        // ── Historical (before cutoff) ──
-        const histRevMtd = sumUSD(revHistMtdRes.data)
-        const histRev30d = sumUSD(revHist30dRes.data)
-        const histAdSpend30d = sumUSD(adSpendHist30dRes.data)
+        // ── Historical (before cutoff): revenue from meta_ad_stats ──
+        const histRevMtd = sumMetaRevenue(metaMtdRes.data)
+        const histRev30d = sumMetaRevenue(meta30dRes.data)
 
-        // Non-ads expenses (always from expenses table, all dates)
+        // Expenses
         const expMtdAll = expMtdRes.data ?? []
-        const nonAdsExpensesMtd = sumUSD(expMtdAll.filter((e: any) => e.category !== 'ad_spend'))
         const histAdSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend' && e.expense_date < UTMIFY_CUTOFF))
+        const histAdSpend30d = sumUSD(adSpend30dRes.data)
+        const nonAdsExpensesMtd = sumUSD(expMtdAll.filter((e: any) => e.category !== 'ad_spend'))
         const expTodayAll = expTodayRes.data ?? []
         const nonAdsExpensesToday = sumUSD(expTodayAll.filter((e: any) => e.category !== 'ad_spend'))
 
@@ -133,7 +140,6 @@ export function useDashboard() {
         const utmProfitMtd = utmify?.mtd?.profit ?? 0
         const utmRevToday = utmify?.today?.revenue ?? 0
         const utmSpendToday = utmify?.today?.spend ?? 0
-        const utmProfitToday = utmify?.today?.profit ?? 0
 
         // ── MERGED totals ──
         const revenueMtd = histRevMtd + utmRevMtd
@@ -145,15 +151,17 @@ export function useDashboard() {
         const revenueToday = utmRevToday
         const adSpendToday = utmSpendToday
         const expensesToday = adSpendToday + nonAdsExpensesToday
-        const profitToday = utmProfitToday - nonAdsExpensesToday
+        const profitToday = revenueToday - expensesToday
 
-        const roas30d = (histAdSpend30d + utmSpendMtd) > 0 ? (histRev30d + utmRevMtd) / (histAdSpend30d + utmSpendMtd) : null
+        const totalRev30d = histRev30d + utmRevMtd
+        const totalAdSpend30d = histAdSpend30d + utmSpendMtd
+        const roas30d = totalAdSpend30d > 0 ? totalRev30d / totalAdSpend30d : null
 
-        // ── Chart: merge historical + UTMify daily ──
+        // ── Chart: merge historical (meta_ad_stats) + UTMify ──
         const chartByDate: Record<string, { revenue: number; profit: number }> = {}
 
-        // Historical chart data (before cutoff)
-        const histRevAll = revHist30dRes.data ?? []
+        // Historical from meta_ad_stats
+        const metaRows = meta30dRes.data ?? []
         const histExpByDate: Record<string, number> = {}
         for (const e of expMtdAll) {
           const d = (e as any).expense_date
@@ -163,11 +171,11 @@ export function useDashboard() {
             histExpByDate[d] += (e as any).currency === 'ARS' ? amt / blueRate : amt
           }
         }
-        for (const r of histRevAll) {
-          const d = (r as any).revenue_date
+        for (const m of metaRows) {
+          const d = (m as any).stat_date
           if (!chartByDate[d]) chartByDate[d] = { revenue: 0, profit: 0 }
-          const amt = Number((r as any).amount)
-          const usd = (r as any).currency === 'ARS' ? amt / blueRate : amt
+          const rev = Number((m as any).purchase_value ?? 0)
+          const usd = (m as any).currency === 'ARS' ? rev / blueRate : rev
           chartByDate[d].revenue += usd
         }
         for (const [d, v] of Object.entries(chartByDate)) {

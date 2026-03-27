@@ -172,20 +172,18 @@ export default function Financial() {
   const mtdSubs = subscriptions
     .filter(s => s.is_active)
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
-  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const histRevenues = revenues.filter(r => r.revenue_date >= mtdFrom && r.revenue_date < CUTOFF)
-  const histWaRev = histRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const histShopifyRev = histRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const waRevenue = histWaRev + (utm?.mtd?.waRevenue ?? 0)
-  const shopifyRevenue = histShopifyRev + (utm?.mtd?.landingRevenue ?? 0)
-
-  // Merged totals
-  const histRevMtd = histRevenues.reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const histAdSpend = expenses.filter(e => e.category === 'ad_spend' && e.expense_date >= mtdFrom && e.expense_date < CUTOFF).reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
-  const mergedRevenue = histRevMtd + (utm?.mtd?.revenue ?? 0)
-  const mergedAdSpend = histAdSpend + (utm?.mtd?.spend ?? 0)
+  // mtd from useFinancials reads from meta_ad_stats (historical, correct numbers)
+  // Add UTMify data on top for cutoff period
+  const mergedRevenue = mtd.revenue + (utm?.mtd?.revenue ?? 0)
+  const mergedAdSpend = mtd.adSpend + (utm?.mtd?.spend ?? 0)
   const mergedProfit = mergedRevenue - mergedAdSpend - mtdSubs
   const mergedRoas = mergedAdSpend > 0 ? mergedRevenue / mergedAdSpend : null
+
+  // WA vs Landing for quadrants
+  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const histRevenues = revenues.filter(r => r.revenue_date >= mtdFrom && r.revenue_date < CUTOFF)
+  const waRevenue = histRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.waRevenue ?? 0)
+  const shopifyRevenue = histRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.landingRevenue ?? 0)
 
   if (isLoading) return <LoadingSpinner />
 
