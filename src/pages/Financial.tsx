@@ -9,6 +9,7 @@ import { MetricCard } from '@/components/shared/MetricCard'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ExpenseForm } from '@/components/financial/ExpenseForm'
+import { RevenueForm } from '@/components/financial/RevenueForm'
 import { useFinancials } from '@/hooks/useFinancials'
 import { useSubscriptions, type Subscription } from '@/hooks/useSubscriptions'
 import { useUtmifyData } from '@/hooks/useUtmify'
@@ -141,13 +142,13 @@ function ChartTooltip({ active, payload, label }: any) {
 export default function Financial() {
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [subOpen, setSubOpen] = useState(false)
-  const { expenses, isLoading, addExpense, deleteExpense, blueRate, toUSD } = useFinancials()
+  const { dailyPnl, expenses, revenues, isLoading, addExpense, addRevenue, deleteExpense, mtd, blueRate, toUSD } = useFinancials()
   const { subscriptions, create: createSub, toggleActive, remove: removeSub, processSubscriptions } = useSubscriptions()
   const { data: utmifyData } = useUtmifyData()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
 
-  // UTMify is the SOLE financial data source
+  // UTMify primary, historical fallback
   const utm = utmifyData && utmifyData.totalRows > 0 ? utmifyData : null
 
   async function handleDeleteExpense(id: string) {
@@ -157,26 +158,26 @@ export default function Financial() {
     else toast.success('Inversion eliminada')
   }
 
-  // Chart data: exclusively from UTMify
-  const chartData = (utm?.dailyChart ?? []).map((d: any) => ({
-    date: d.label,
-    Ingresos: d.revenue,
-    Profit: d.profit,
-    'Inversion Ads': d.spend,
-  }))
+  // Chart data: UTMify primary, historical fallback
+  const chartData = utm
+    ? utm.dailyChart.map((d: any) => ({ date: d.label, Ingresos: d.revenue, Profit: d.profit, 'Inversion Ads': d.spend }))
+    : [...dailyPnl].sort((a, b) => a.date.localeCompare(b.date)).slice(-30)
+        .map(d => ({ date: d.date.split('-').slice(1).join('/'), Ingresos: d.total_revenue, Profit: d.profit, 'Inversion Ads': d.ad_spend }))
 
   // Compute quadrant data (Cambio 13)
   const mtdSubs = subscriptions
     .filter(s => s.is_active)
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
 
-  // Financial data exclusively from UTMify
-  const waRevenue = utm?.mtd?.waRevenue ?? 0
-  const shopifyRevenue = utm?.mtd?.landingRevenue ?? 0
-  const adSpendQuadrant = utm?.mtd?.spend ?? 0
-  const roasQuadrant = utm?.mtd?.roas ?? null
-  const utmRevenue = utm?.mtd?.revenue ?? 0
-  const utmProfit = utm?.mtd?.profit ?? 0
+  // Financial data: UTMify primary, historical fallback
+  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const mtdRevenues = revenues.filter(r => r.revenue_date >= mtdFrom)
+  const waRevenue = utm ? utm.mtd.waRevenue : mtdRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+  const shopifyRevenue = utm ? utm.mtd.landingRevenue : mtdRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+  const adSpendQuadrant = utm ? utm.mtd.spend : mtd.adSpend
+  const roasQuadrant = utm ? utm.mtd.roas : mtd.roas
+  const utmRevenue = utm ? utm.mtd.revenue : mtd.revenue
+  const utmProfit = utm ? utm.mtd.profit : mtd.profit
 
   if (isLoading) return <LoadingSpinner />
 
