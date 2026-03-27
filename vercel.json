@@ -16,10 +16,6 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/meta-sync?days=1",
-      "schedule": "0 7 * * *"
-    },
-    {
       "path": "/api/utmify?action=sync&days=1",
       "schedule": "0 10 * * *"
     }

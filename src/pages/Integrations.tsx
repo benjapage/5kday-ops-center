@@ -32,7 +32,6 @@ export default function Integrations() {
   const [searchParams] = useSearchParams()
   const isAdmin = profile?.role === 'admin'
   const [syncing, setSyncing] = useState(false)
-  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('connected') === '1') {
@@ -76,26 +75,6 @@ export default function Integrations() {
       toast.error(err.message || 'Error de red')
     } finally {
       setSyncing(false)
-    }
-  }
-
-  async function importShopifyOrders() {
-    setImporting(true)
-    try {
-      const res = await fetch('/api/shopify-import?days=30')
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Error al importar')
-        return
-      }
-      const shopSummaries = data.shops
-        .map((s: any) => `${s.shop}: ${s.synced} nuevas, ${s.skipped} omitidas`)
-        .join(' | ')
-      toast.success(`Importado: ${shopSummaries}`)
-    } catch (err: any) {
-      toast.error(err.message || 'Error de red')
-    } finally {
-      setImporting(false)
     }
   }
 
@@ -215,7 +194,7 @@ export default function Integrations() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tracking financiero</p>
-                  <p className="text-xs text-slate-400">Fuente principal de datos: Meta Ads + Shopify + WA</p>
+                  <p className="text-xs text-slate-400">Fuente unica de datos financieros</p>
                 </div>
               </div>
               {utmifyConfig && (
@@ -488,19 +467,10 @@ export default function Integrations() {
             <Badge variant="outline" className="text-xs text-slate-400">
               {isLoading ? '...' : `${stores.filter(s => s.is_active).length} conectada${stores.filter(s => s.is_active).length !== 1 ? 's' : ''}`}
             </Badge>
+            <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50">
+              Financiero via UTMify
+            </Badge>
           </div>
-          {isAdmin && stores.some(s => s.is_active) && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs h-8 gap-1.5"
-              disabled={importing}
-              onClick={importShopifyOrders}
-            >
-              {importing ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-              {importing ? 'Importando...' : 'Importar ultimos 30 dias'}
-            </Button>
-          )}
         </div>
 
         <div className="space-y-3">

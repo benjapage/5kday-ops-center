@@ -9,7 +9,6 @@ import { MetricCard } from '@/components/shared/MetricCard'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ExpenseForm } from '@/components/financial/ExpenseForm'
-import { RevenueForm } from '@/components/financial/RevenueForm'
 import { useFinancials } from '@/hooks/useFinancials'
 import { useSubscriptions, type Subscription } from '@/hooks/useSubscriptions'
 import { useUtmifyData } from '@/hooks/useUtmify'
@@ -141,16 +140,15 @@ function ChartTooltip({ active, payload, label }: any) {
 
 export default function Financial() {
   const [expenseOpen, setExpenseOpen] = useState(false)
-  const [revenueOpen, setRevenueOpen] = useState(false)
   const [subOpen, setSubOpen] = useState(false)
-  const { dailyPnl, expenses, revenues, isLoading, addExpense, addRevenue, deleteExpense, mtd, blueRate, toUSD } = useFinancials()
+  const { expenses, isLoading, addExpense, deleteExpense, blueRate, toUSD } = useFinancials()
   const { subscriptions, create: createSub, toggleActive, remove: removeSub, processSubscriptions } = useSubscriptions()
   const { data: utmifyData } = useUtmifyData()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
 
-  // Use UTMify data if available for financial metrics
-  const hasUtmify = utmifyData && utmifyData.totalRows > 0
+  // UTMify is the SOLE financial data source
+  const utm = utmifyData && utmifyData.totalRows > 0 ? utmifyData : null
 
   async function handleDeleteExpense(id: string) {
     if (!confirm('Eliminar esta inversion?')) return
@@ -159,36 +157,26 @@ export default function Financial() {
     else toast.success('Inversion eliminada')
   }
 
-  // Chart data: last 30 days — UTMify or fallback
-  const chartData = hasUtmify
-    ? utmifyData.dailyChart.map((d: any) => ({
-        date: d.label,
-        Ingresos: d.revenue,
-        Profit: d.profit,
-        'Inversion Ads': d.spend,
-      }))
-    : [...dailyPnl]
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(-30)
-        .map(d => ({
-          date: d.date.split('-').slice(1).join('/'),
-          Ingresos: d.total_revenue,
-          Profit: d.profit,
-          'Inversion Ads': d.ad_spend,
-        }))
+  // Chart data: exclusively from UTMify
+  const chartData = (utm?.dailyChart ?? []).map((d: any) => ({
+    date: d.label,
+    Ingresos: d.revenue,
+    Profit: d.profit,
+    'Inversion Ads': d.spend,
+  }))
 
   // Compute quadrant data (Cambio 13)
   const mtdSubs = subscriptions
     .filter(s => s.is_active)
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
 
-  // WA vs Shopify revenue — UTMify or fallback
-  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const mtdRevenues = revenues.filter(r => r.revenue_date >= mtdFrom)
-  const waRevenue = hasUtmify ? utmifyData.mtd.waRevenue : mtdRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const shopifyRevenue = hasUtmify ? utmifyData.mtd.landingRevenue : mtdRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
-  const adSpendQuadrant = hasUtmify ? utmifyData.mtd.spend : mtd.adSpend
-  const roasQuadrant = hasUtmify ? utmifyData.mtd.roas : mtd.roas
+  // Financial data exclusively from UTMify
+  const waRevenue = utm?.mtd?.waRevenue ?? 0
+  const shopifyRevenue = utm?.mtd?.landingRevenue ?? 0
+  const adSpendQuadrant = utm?.mtd?.spend ?? 0
+  const roasQuadrant = utm?.mtd?.roas ?? null
+  const utmRevenue = utm?.mtd?.revenue ?? 0
+  const utmProfit = utm?.mtd?.profit ?? 0
 
   if (isLoading) return <LoadingSpinner />
 
@@ -201,15 +189,15 @@ export default function Financial() {
 
       {/* Resumen del mes */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-        <MetricCard title="Ingresos del mes" value={hasUtmify ? utmifyData.mtd.revenue : mtd.revenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
-        <MetricCard title="Inversiones del mes" value={hasUtmify ? (utmifyData.mtd.spend + mtdSubs) : mtd.expenses} format="currency" icon={BarChart3} iconColor="#E8816D" />
+        <MetricCard title="Ingresos del mes" value={utmRevenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
+        <MetricCard title="Inversiones del mes" value={adSpendQuadrant + mtdSubs} format="currency" icon={BarChart3} iconColor="#E8816D" />
         <MetricCard title="Inversion Ads del mes" value={adSpendQuadrant} format="currency" icon={BarChart3} iconColor="#F59E0B" />
         <MetricCard
           title="Profit del mes"
-          value={hasUtmify ? (utmifyData.mtd.profit - mtdSubs) : mtd.profit}
+          value={utmProfit - mtdSubs}
           format="currency"
           icon={DollarSign}
-          iconColor={(hasUtmify ? utmifyData.mtd.profit : mtd.profit) >= 0 ? '#10B981' : '#E8816D'}
+          iconColor={(utmProfit - mtdSubs) >= 0 ? '#10B981' : '#E8816D'}
         />
         <MetricCard title="ROAS del mes" value={roasQuadrant} format="roas" icon={TrendingUp} iconColor="#6366F1" />
       </div>
@@ -307,14 +295,6 @@ export default function Financial() {
               className="gap-1.5"
             >
               <Plus size={14} /> Inversion
-            </Button>
-            <Button
-              size="sm"
-              className="text-white gap-1.5"
-              style={{ backgroundColor: '#10B981' }}
-              onClick={() => setRevenueOpen(true)}
-            >
-              <Plus size={14} /> Ingreso
             </Button>
           </div>
         </div>
@@ -501,8 +481,7 @@ export default function Financial() {
       )}
 
       <ExpenseForm open={expenseOpen} onOpenChange={setExpenseOpen} onAdd={addExpense} />
-      <RevenueForm open={revenueOpen} onOpenChange={setRevenueOpen} onAdd={addRevenue} />
-      <AddSubscriptionDialog open={subOpen} onOpenChange={setSubOpen} onCreate={createSub} />
+<AddSubscriptionDialog open={subOpen} onOpenChange={setSubOpen} onCreate={createSub} />
     </div>
   )
 }

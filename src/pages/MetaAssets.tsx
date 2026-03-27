@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, Loader2, Megaphone, Building2, User, Plus, Trash2, Edit2, MoreHorizontal, AlertTriangle, ShoppingCart, MessageCircle } from 'lucide-react'
+import { Megaphone, Building2, User, Plus, Trash2, Edit2, MoreHorizontal, AlertTriangle, MessageCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -374,7 +374,6 @@ function AssetSection<T extends { id: string; name: string; status: string; note
 
 // ─── Main Component ──────────────────────────────────────
 export default function MetaAssets() {
-  const [syncing, setSyncing] = useState(false)
   const { profile } = useAuth()
   const canWrite = profile?.role === 'admin' || profile?.role === 'tech'
 
@@ -390,31 +389,11 @@ export default function MetaAssets() {
   const bmLookup = Object.fromEntries(bms.items.map(b => [b.bm_id, b.name]))
   const profileLookup = Object.fromEntries(profiles.items.map(p => [p.id, p.name]))
 
-  async function syncMeta() {
-    setSyncing(true)
-    try {
-      const res = await fetch('/api/meta-sync?days=30')
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || 'Error al sincronizar'); return }
-      toast.success(`Sincronizado: ${data.synced.accountDays} dias`)
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Activos Meta</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Numeros WA, perfiles, cuentas publicitarias y BMs</p>
-        </div>
-        <Button size="sm" variant="outline" className="text-xs h-8" disabled={syncing} onClick={syncMeta}>
-          {syncing ? <Loader2 size={13} className="mr-1.5 animate-spin" /> : <RefreshCw size={13} className="mr-1.5" />}
-          Sync Meta Ads
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Activos Meta</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Numeros WA, perfiles, cuentas publicitarias y BMs</p>
       </div>
 
       {/* ─── Bloque 1: Numeros WhatsApp (Cambio 11) ─── */}
