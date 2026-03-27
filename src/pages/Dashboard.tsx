@@ -341,6 +341,97 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* ═══════════════════ ROW 3 — Activos Meta full width ═══════════════════ */}
+      {(() => {
+        const bmGroups: Record<string, typeof metrics.waAccounts.list> = {}
+        for (const acc of metrics.waAccounts.list) {
+          const key = acc.bm_id ?? '__none__'
+          if (!bmGroups[key]) bmGroups[key] = []
+          bmGroups[key].push(acc)
+        }
+
+        return (
+          <div className="card-base p-5">
+            <SectionLabel icon={Smartphone}>Activos Meta — Business Managers</SectionLabel>
+
+            {Object.keys(bmGroups).length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-6 mt-3">Sin cuentas WA registradas</p>
+            ) : (
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
+                {Object.entries(bmGroups).map(([bmKey, accounts]) => {
+                  const isNoBm = bmKey === '__none__'
+                  const manyChatConnected = accounts.some(a => a.manychat_name)
+                  return (
+                    <div key={bmKey} className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">BM</p>
+                          <Num className="text-xs text-slate-700 dark:text-slate-200 truncate">
+                            {isNoBm ? 'Sin BM asignado' : bmKey.slice(0, 14) + (bmKey.length > 14 ? '...' : '')}
+                          </Num>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${manyChatConnected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500'}`}>
+                          MC
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {accounts.map(acc => (
+                          <div key={acc.id} className="relative group" title={`${acc.phone_number} · ${acc.status}`}>
+                            <div className="h-5 w-5 rounded" style={{ backgroundColor: (STATUS_COLOR[acc.status] ?? '#94A3B8') + '30', border: `2px solid ${STATUS_COLOR[acc.status] ?? '#94A3B8'}` }} />
+                          </div>
+                        ))}
+                        {Array.from({ length: Math.max(0, 5 - accounts.length) }).map((_, i) => (
+                          <div key={`empty-${i}`} className="h-5 w-5 rounded border-2 border-dashed border-slate-200 dark:border-slate-600" />
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1 text-center">
+                        {[
+                          { label: 'Listas', value: accounts.filter(a => a.status === 'ready').length, color: '#22C55E' },
+                          { label: 'Calentando', value: accounts.filter(a => a.status === 'warming').length, color: '#F59E0B' },
+                          { label: 'Baneadas', value: accounts.filter(a => a.status === 'banned').length, color: '#E8816D' },
+                        ].map(s => (
+                          <div key={s.label}>
+                            <Num className="text-base" style={{ color: s.color }}>{s.value}</Num>
+                            <p className="text-[9px] uppercase tracking-wider text-slate-400">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {accounts.some(a => a.manychat_name) && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                          {accounts.filter(a => a.manychat_name).map(a => (
+                            <div key={a.id} className="flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-green-400 flex-shrink-0" />
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{a.manychat_name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
+              {[
+                { color: '#22C55E', label: 'Lista' },
+                { color: '#F59E0B', label: 'Calentando' },
+                { color: '#E8816D', label: 'Baneada' },
+              ].map(l => (
+                <div key={l.label} className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded" style={{ backgroundColor: l.color + '30', border: `2px solid ${l.color}` }} />
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">{l.label}</span>
+                </div>
+              ))}
+              <span className="text-[10px] text-slate-400 ml-2">· MC = ManyChat conectado</span>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
