@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'DM Sans', 'Inter', system-ui, sans-serif;
 
   --color-navy: #0B1A2E;
   --color-navy-light: #162844;
@@ -17,6 +17,9 @@
   --color-status-active: #22C55E;
   --color-status-warming: #F59E0B;
   --color-status-banned: #EF4444;
+
+  --color-negative: #F87171;
+  --color-negative-soft: #E8816D;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -81,7 +84,7 @@
   --foreground: 210 20% 92%;
   --card: 222 47% 10%;
   --card-foreground: 210 20% 92%;
-  --popover: 222 47% 10%;
+  --popover: 222 47% 12%;
   --popover-foreground: 210 20% 92%;
   --primary: 160 73% 40%;
   --primary-foreground: 0 0% 100%;
@@ -94,7 +97,7 @@
   --destructive: 0 63% 50%;
   --destructive-foreground: 210 40% 98%;
   --border: 217 33% 20%;
-  --input: 217 33% 20%;
+  --input: 217 33% 22%;
   --ring: 160 73% 40%;
   --chart-1: 12 76% 61%;
   --chart-2: 173 58% 39%;
@@ -121,12 +124,6 @@
   #root {
     min-height: 100svh;
   }
-  /* Consistent monospace for all numeric inputs */
-  input[type="number"],
-  input[type="tel"] {
-    font-family: 'JetBrains Mono', monospace;
-    font-feature-settings: 'tnum';
-  }
   /* Smoother scrollbars */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -144,4 +141,73 @@
   .form-section-title {
     @apply text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3;
   }
+  /* Card styles */
+  .card-base {
+    @apply bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm;
+  }
+  /* Numbers — clean modern style, not monospace terminal */
+  .num {
+    font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  /* Softer negative value colors */
+  .text-negative {
+    color: #E8816D;
+  }
+  .text-negative-dark {
+    color: #F0A090;
+  }
+}
+
+/* Dark mode form fixes */
+.dark [data-radix-select-viewport],
+.dark [data-radix-popper-content-wrapper] [role="listbox"],
+.dark [data-radix-dropdown-menu-content],
+.dark [data-radix-select-content] {
+  background-color: hsl(222 47% 12%) !important;
+  border-color: hsl(217 33% 20%) !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(222 47% 12%);
+  color: hsl(210 20% 92%);
+  border-color: hsl(217 33% 22%);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(215 20% 45%);
+}
+
+.dark input:focus,
+.dark textarea:focus {
+  border-color: hsl(160 73% 40%);
+  box-shadow: 0 0 0 2px hsla(160, 73%, 40%, 0.15);
+}
+
+.dark [data-radix-select-trigger],
+.dark button[role="combobox"] {
+  background-color: hsl(222 47% 12%);
+  border-color: hsl(217 33% 22%);
+  color: hsl(210 20% 92%);
+}
+
+.dark label {
+  color: hsl(215 20% 65%);
+}
+
+.dark .form-section {
+  background-color: hsl(222 47% 9%);
+  border-color: hsl(217 33% 18%);
+}
+
+/* Dialog dark mode fixes */
+.dark [data-radix-dialog-content],
+.dark [role="dialog"] {
+  background-color: hsl(222 47% 10%);
+  border-color: hsl(217 33% 20%);
 }

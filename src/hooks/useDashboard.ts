@@ -8,12 +8,20 @@ export interface WaAccountSummary {
   start_date: string
   bm_id: string | null
   manychat_name: string | null
+  country?: string | null
 }
 
 export interface Alert {
   type: 'warning' | 'danger' | 'info'
   message: string
   entityId?: string
+}
+
+export interface DailyChartPoint {
+  date: string
+  label: string
+  revenue: number
+  profit: number
 }
 
 export interface DashboardMetrics {
@@ -49,6 +57,8 @@ export interface DashboardMetrics {
   }
   alerts: Alert[]
   dolarBlue: number | null
+  // Chart data (last 30 days)
+  dailyChart: DailyChartPoint[]
 }
 
 async function fetchDolarBlue(): Promise<number> {
@@ -77,24 +87,21 @@ export function useDashboard() {
         const readyCutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
 
         const [
-          // Revenue from Meta (purchase_value = total revenue tracked by pixel)
-          metaTodayRes, metaMtdRes, meta30dRes,
-          // Shopify revenue (separate display)
-          shopifyTodayRes,
+          // Revenue from revenue_entries (Shopify-based, primary source)
+          revTodayRes, revMtdRes, rev30dRes,
           // Expenses
           expTodayRes, expMtdRes, adSpend30dRes,
           // WA
           waRes, bannedRes, readyRes,
           blueRate,
         ] = await Promise.all([
-          supabase.from('meta_ad_stats').select('purchase_value, currency').eq('stat_date', today),
-          supabase.from('meta_ad_stats').select('purchase_value, currency').gte('stat_date', mtdFrom),
-          supabase.from('meta_ad_stats').select('purchase_value, spend, currency').gte('stat_date', since30d),
-          supabase.from('revenue_entries').select('amount, currency').eq('revenue_date', today).eq('channel', 'shopify'),
+          supabase.from('revenue_entries').select('amount, currency, channel').eq('revenue_date', today),
+          supabase.from('revenue_entries').select('amount, currency, channel, revenue_date').gte('revenue_date', mtdFrom),
+          supabase.from('revenue_entries').select('amount, currency, channel, revenue_date').gte('revenue_date', since30d),
           supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
-          supabase.from('expenses').select('amount, currency, category').gte('expense_date', mtdFrom),
-          supabase.from('expenses').select('amount, currency').eq('category', 'ad_spend').gte('expense_date', since30d),
-          supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name').order('status').order('start_date', { ascending: false }),
+          supabase.from('expenses').select('amount, currency, category, expense_date').gte('expense_date', mtdFrom),
+          supabase.from('expenses').select('amount, currency, expense_date').eq('category', 'ad_spend').gte('expense_date', since30d),
+          supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name, country').order('status').order('start_date', { ascending: false }),
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
           supabase.from('wa_accounts').select('id, phone_number, start_date').eq('status', 'warming').lte('start_date', readyCutoff),
           fetchDolarBlue(),
@@ -107,50 +114,66 @@ export function useDashboard() {
             return s + (r.currency === 'ARS' ? amt / blueRate : amt)
           }, 0)
 
-        // Sum Meta purchase_value (revenue tracked by Meta pixel)
-        const sumMetaRevenue = (rows: { purchase_value: unknown; currency?: unknown }[] | null) =>
-          (rows ?? []).reduce((s, r) => {
-            const amt = Number(r.purchase_value ?? 0)
-            return s + (r.currency === 'ARS' ? amt / blueRate : amt)
-          }, 0)
+        // Revenue (Shopify / revenue_entries based)
+        const revTodayAll = revTodayRes.data ?? []
+        const revenueToday = sumUSD(revTodayAll)
+        const shopifyRevenueToday = sumUSD(revTodayAll.filter((r: any) => r.channel === 'shopify'))
 
-        const sumMetaSpend = (rows: { spend: unknown; currency?: unknown }[] | null) =>
-          (rows ?? []).reduce((s, r) => {
-            const amt = Number(r.spend ?? 0)
-            return s + (r.currency === 'ARS' ? amt / blueRate : amt)
-          }, 0)
+        const revMtdAll = revMtdRes.data ?? []
+        const revenueMtd = sumUSD(revMtdAll)
 
-        // Revenue solo de Meta (purchase_value del pixel)
-        const revenueToday = sumMetaRevenue(metaTodayRes.data)
-        const revenueMtd = sumMetaRevenue(metaMtdRes.data)
-        const rev30d = sumMetaRevenue(meta30dRes.data)
-
-        // Shopify revenue (separate display)
-        const shopifyRevenueToday = sumUSD(shopifyTodayRes.data)
+        const rev30dAll = rev30dRes.data ?? []
 
         // Expenses
         const expTodayAll = expTodayRes.data ?? []
         const expensesToday = sumUSD(expTodayAll)
-        const adSpendToday = sumUSD(expTodayAll.filter(e => e.category === 'ad_spend'))
+        const adSpendToday = sumUSD(expTodayAll.filter((e: any) => e.category === 'ad_spend'))
         const profitToday = revenueToday - expensesToday
 
         const expMtdAll = expMtdRes.data ?? []
         const expensesMtd = sumUSD(expMtdAll)
-        const adSpendMtd = sumUSD(expMtdAll.filter(e => e.category === 'ad_spend'))
+        const adSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend'))
         const profitMtd = revenueMtd - expensesMtd
         const roasMtd = adSpendMtd > 0 ? revenueMtd / adSpendMtd : null
 
         const expBreakdown = {
-          ad_spend: sumUSD(expMtdAll.filter(e => e.category === 'ad_spend')),
-          tools_software: sumUSD(expMtdAll.filter(e => e.category === 'tools_software')),
-          platform_fees: sumUSD(expMtdAll.filter(e => e.category === 'platform_fees')),
-          team_salaries: sumUSD(expMtdAll.filter(e => e.category === 'team_salaries')),
-          creative_production: sumUSD(expMtdAll.filter(e => e.category === 'creative_production')),
-          other: sumUSD(expMtdAll.filter(e => e.category === 'other')),
+          ad_spend: sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend')),
+          tools_software: sumUSD(expMtdAll.filter((e: any) => e.category === 'tools_software')),
+          platform_fees: sumUSD(expMtdAll.filter((e: any) => e.category === 'platform_fees')),
+          team_salaries: sumUSD(expMtdAll.filter((e: any) => e.category === 'team_salaries')),
+          creative_production: sumUSD(expMtdAll.filter((e: any) => e.category === 'creative_production')),
+          other: sumUSD(expMtdAll.filter((e: any) => e.category === 'other')),
         }
 
         const adSpend30d = sumUSD(adSpend30dRes.data)
-        const roas30d = adSpend30d > 0 ? rev30d / adSpend30d : null
+        const rev30dTotal = sumUSD(rev30dAll)
+        const roas30d = adSpend30d > 0 ? rev30dTotal / adSpend30d : null
+
+        // Build daily chart data (last 30 days)
+        const chartByDate: Record<string, { revenue: number; expenses: number }> = {}
+        for (const r of rev30dAll) {
+          const d = (r as any).revenue_date
+          if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
+          const amt = Number((r as any).amount)
+          chartByDate[d].revenue += (r as any).currency === 'ARS' ? amt / blueRate : amt
+        }
+        // Also get expenses for chart
+        for (const e of expMtdAll) {
+          const d = (e as any).expense_date
+          if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
+          const amt = Number((e as any).amount)
+          chartByDate[d].expenses += (e as any).currency === 'ARS' ? amt / blueRate : amt
+        }
+
+        const dailyChart: DailyChartPoint[] = Object.entries(chartByDate)
+          .map(([date, v]) => ({
+            date,
+            label: date.split('-').slice(1).join('/'),
+            revenue: v.revenue,
+            profit: v.revenue - v.expenses,
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(-30)
 
         const waList = (waRes.data ?? []) as WaAccountSummary[]
         const waAccounts = {
@@ -180,6 +203,7 @@ export function useDashboard() {
           waAccounts,
           alerts,
           dolarBlue: blueRate,
+          dailyChart,
         })
       } catch (err) {
         setError('Error al cargar metricas')
