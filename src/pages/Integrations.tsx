@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download } from 'lucide-react'
+import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download, BarChart3, Zap } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useShopifyStores } from '@/hooks/useShopifyStores'
 import { useGoogleConnection, useDriveFiles } from '@/hooks/useDriveFiles'
+import { useUtmifyConfig } from '@/hooks/useUtmify'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -100,11 +102,172 @@ export default function Integrations() {
   const creativos = driveFiles.filter(f => f.folder_type === 'anuncios')
   const ofertas = driveFiles.filter(f => f.folder_type === 'ofertas')
 
+  // UTMify
+  const { config: utmifyConfig, isLoading: utmifyLoading, refresh: refreshUtmify, saveConfig: saveUtmifyConfig } = useUtmifyConfig()
+  const [utmifyTesting, setUtmifyTesting] = useState(false)
+  const [utmifySyncing, setUtmifySyncing] = useState(false)
+  const [utmifyMcpUrl, setUtmifyMcpUrl] = useState('')
+
+  useEffect(() => {
+    if (utmifyConfig) setUtmifyMcpUrl(utmifyConfig.mcp_url)
+  }, [utmifyConfig])
+
+  async function testUtmifyConnection() {
+    setUtmifyTesting(true)
+    try {
+      const res = await fetch('/api/utmify/test-connection')
+      const data = await res.json()
+      if (data.ok) {
+        toast.success('Conexion UTMify exitosa')
+      } else {
+        toast.error(`Error: ${data.error}`)
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setUtmifyTesting(false)
+    }
+  }
+
+  async function syncUtmify(days = 30) {
+    setUtmifySyncing(true)
+    try {
+      const res = await fetch(`/api/utmify/sync?days=${days}`)
+      const data = await res.json()
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        toast.success(`Sincronizado: ${data.synced} campanas — Revenue: US$ ${data.summary?.revenue || 0}`)
+        refreshUtmify()
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setUtmifySyncing(false)
+    }
+  }
+
+  async function saveUtmifyUrl() {
+    if (!utmifyMcpUrl.trim()) return
+    const { error } = await saveUtmifyConfig({ mcp_url: utmifyMcpUrl.trim() } as any)
+    if (error) toast.error(error)
+    else toast.success('URL MCP actualizada')
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Integraciones</h1>
         <p className="text-sm text-slate-500 mt-0.5">Conecta tus tiendas y servicios externos</p>
+      </div>
+
+      {/* UTMify section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={16} className="text-violet-500" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">UTMify</h2>
+          <Badge variant="outline" className="text-xs text-slate-400">
+            {utmifyLoading ? '...' : utmifyConfig ? 'Configurado' : 'No configurado'}
+          </Badge>
+        </div>
+
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                  <BarChart3 size={17} className="text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tracking financiero</p>
+                  <p className="text-xs text-slate-400">Fuente principal de datos: Meta Ads + Shopify + WA</p>
+                </div>
+              </div>
+              {utmifyConfig && (
+                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                  <CheckCircle2 size={14} />
+                  <span className="text-xs font-medium">Conectado</span>
+                </div>
+              )}
+            </div>
+
+            {/* MCP URL */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">URL MCP</p>
+              <div className="flex gap-2">
+                <Input
+                  className="text-xs h-8 flex-1 font-mono"
+                  placeholder="https://mcp.utmify.com.br/mcp/?token=..."
+                  value={utmifyMcpUrl}
+                  onChange={e => setUtmifyMcpUrl(e.target.value)}
+                />
+                {isAdmin && utmifyMcpUrl !== (utmifyConfig?.mcp_url || '') && (
+                  <Button size="sm" className="h-8 text-xs text-white" style={{ backgroundColor: '#8B5CF6' }} onClick={saveUtmifyUrl}>
+                    Guardar
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7 gap-1.5"
+                disabled={utmifyTesting}
+                onClick={testUtmifyConnection}
+              >
+                {utmifyTesting ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+                Probar conexion
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7 gap-1.5"
+                disabled={utmifySyncing}
+                onClick={() => syncUtmify(1)}
+              >
+                {utmifySyncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                Sync hoy
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7 gap-1.5"
+                disabled={utmifySyncing}
+                onClick={() => syncUtmify(30)}
+              >
+                {utmifySyncing ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                Sync 30 dias
+              </Button>
+              {utmifyConfig?.last_sync_at && (
+                <span className="text-[10px] text-slate-400 ml-2">
+                  Ultima sync: {new Date(utmifyConfig.last_sync_at).toLocaleString('es-AR')}
+                </span>
+              )}
+            </div>
+
+            {/* Auto sync toggle */}
+            {utmifyConfig && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+                <div>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Auto-sync</p>
+                  <p className="text-[10px] text-slate-400">Sincronizar automaticamente cada {utmifyConfig.sync_interval_minutes} minutos</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const { error } = await saveUtmifyConfig({ auto_sync: !utmifyConfig.auto_sync } as any)
+                    if (error) toast.error(error)
+                  }}
+                  className={`h-6 w-10 rounded-full relative cursor-pointer transition-colors ${utmifyConfig.auto_sync ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600'}`}
+                >
+                  <div className={`h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform ${utmifyConfig.auto_sync ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Google Drive section */}

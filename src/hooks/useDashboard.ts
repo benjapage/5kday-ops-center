@@ -86,10 +86,20 @@ export function useDashboard() {
         const since30d = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
         const readyCutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
 
+        // Try UTMify first for financial data
+        let utmifyData: any = null
+        try {
+          const utmRes = await fetch('/api/utmify/dashboard-data?days=30')
+          if (utmRes.ok) {
+            const json = await utmRes.json()
+            if (json.totalRows > 0) utmifyData = json
+          }
+        } catch {}
+
         const [
-          // Revenue from revenue_entries (Shopify-based, primary source)
+          // Revenue from revenue_entries (fallback if no UTMify)
           revTodayRes, revMtdRes, rev30dRes,
-          // Expenses
+          // Expenses (subscriptions, team, etc — non-ads)
           expTodayRes, expMtdRes, adSpend30dRes,
           // WA
           waRes, bannedRes, readyRes,
@@ -114,30 +124,62 @@ export function useDashboard() {
             return s + (r.currency === 'ARS' ? amt / blueRate : amt)
           }, 0)
 
-        // Revenue (Shopify / revenue_entries based)
-        const revTodayAll = revTodayRes.data ?? []
-        const revenueToday = sumUSD(revTodayAll)
-        const shopifyRevenueToday = sumUSD(revTodayAll.filter((r: any) => r.channel === 'shopify'))
+        // Use UTMify data if available, otherwise fall back to revenue_entries
+        let revenueToday: number, shopifyRevenueToday: number, revenueMtd: number
+        let adSpendToday: number, adSpendMtd: number, adSpend30d: number
+        let profitToday: number, profitMtd: number, roas30d: number | null, roasMtd: number | null
+        let expensesToday: number, expensesMtd: number
+        let dailyChart: DailyChartPoint[] = []
 
-        const revMtdAll = revMtdRes.data ?? []
-        const revenueMtd = sumUSD(revMtdAll)
-
-        const rev30dAll = rev30dRes.data ?? []
-
-        // Expenses
-        const expTodayAll = expTodayRes.data ?? []
-        const expensesToday = sumUSD(expTodayAll)
-        const adSpendToday = sumUSD(expTodayAll.filter((e: any) => e.category === 'ad_spend'))
-        const profitToday = revenueToday - expensesToday
-
+        // Non-ads expenses (subscriptions, team, tools) always from expenses table
         const expMtdAll = expMtdRes.data ?? []
-        const expensesMtd = sumUSD(expMtdAll)
-        const adSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend'))
-        const profitMtd = revenueMtd - expensesMtd
-        const roasMtd = adSpendMtd > 0 ? revenueMtd / adSpendMtd : null
+        const nonAdsExpensesMtd = sumUSD(expMtdAll.filter((e: any) => e.category !== 'ad_spend'))
+        const expTodayAll = expTodayRes.data ?? []
+        const nonAdsExpensesToday = sumUSD(expTodayAll.filter((e: any) => e.category !== 'ad_spend'))
+
+        if (utmifyData) {
+          // UTMify is primary source for revenue, ad spend, profit
+          revenueToday = utmifyData.today.revenue
+          shopifyRevenueToday = utmifyData.today.revenue
+          revenueMtd = utmifyData.mtd.revenue
+          adSpendToday = utmifyData.today.spend
+          adSpendMtd = utmifyData.mtd.spend
+          adSpend30d = utmifyData.mtd.spend // approximate
+          profitToday = utmifyData.today.profit - nonAdsExpensesToday
+          profitMtd = utmifyData.mtd.profit - nonAdsExpensesMtd
+          expensesToday = adSpendToday + nonAdsExpensesToday
+          expensesMtd = adSpendMtd + nonAdsExpensesMtd
+          roasMtd = utmifyData.mtd.roas
+          roas30d = utmifyData.mtd.roas // approximate from MTD
+          dailyChart = utmifyData.dailyChart.map((d: any) => ({
+            date: d.date,
+            label: d.label,
+            revenue: d.revenue,
+            profit: d.profit,
+          }))
+        } else {
+          // Fallback: revenue_entries + expenses
+          const revTodayAll = revTodayRes.data ?? []
+          revenueToday = sumUSD(revTodayAll)
+          shopifyRevenueToday = sumUSD(revTodayAll.filter((r: any) => r.channel === 'shopify'))
+          const revMtdAll = revMtdRes.data ?? []
+          revenueMtd = sumUSD(revMtdAll)
+          const rev30dAll = rev30dRes.data ?? []
+
+          expensesToday = sumUSD(expTodayAll)
+          adSpendToday = sumUSD(expTodayAll.filter((e: any) => e.category === 'ad_spend'))
+          profitToday = revenueToday - expensesToday
+          expensesMtd = sumUSD(expMtdAll)
+          adSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend'))
+          profitMtd = revenueMtd - expensesMtd
+          roasMtd = adSpendMtd > 0 ? revenueMtd / adSpendMtd : null
+          adSpend30d = sumUSD(adSpend30dRes.data)
+          const rev30dTotal = sumUSD(rev30dAll)
+          roas30d = adSpend30d > 0 ? rev30dTotal / adSpend30d : null
+        }
 
         const expBreakdown = {
-          ad_spend: sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend')),
+          ad_spend: utmifyData ? adSpendMtd : sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend')),
           tools_software: sumUSD(expMtdAll.filter((e: any) => e.category === 'tools_software')),
           platform_fees: sumUSD(expMtdAll.filter((e: any) => e.category === 'platform_fees')),
           team_salaries: sumUSD(expMtdAll.filter((e: any) => e.category === 'team_salaries')),
@@ -145,35 +187,32 @@ export function useDashboard() {
           other: sumUSD(expMtdAll.filter((e: any) => e.category === 'other')),
         }
 
-        const adSpend30d = sumUSD(adSpend30dRes.data)
-        const rev30dTotal = sumUSD(rev30dAll)
-        const roas30d = adSpend30d > 0 ? rev30dTotal / adSpend30d : null
-
-        // Build daily chart data (last 30 days)
-        const chartByDate: Record<string, { revenue: number; expenses: number }> = {}
-        for (const r of rev30dAll) {
-          const d = (r as any).revenue_date
-          if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
-          const amt = Number((r as any).amount)
-          chartByDate[d].revenue += (r as any).currency === 'ARS' ? amt / blueRate : amt
+        // Build daily chart data (last 30 days) — only if UTMify didn't provide it
+        if (dailyChart.length === 0) {
+          const rev30dAll = rev30dRes.data ?? []
+          const chartByDate: Record<string, { revenue: number; expenses: number }> = {}
+          for (const r of rev30dAll) {
+            const d = (r as any).revenue_date
+            if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
+            const amt = Number((r as any).amount)
+            chartByDate[d].revenue += (r as any).currency === 'ARS' ? amt / blueRate : amt
+          }
+          for (const e of expMtdAll) {
+            const d = (e as any).expense_date
+            if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
+            const amt = Number((e as any).amount)
+            chartByDate[d].expenses += (e as any).currency === 'ARS' ? amt / blueRate : amt
+          }
+          dailyChart = Object.entries(chartByDate)
+            .map(([date, v]) => ({
+              date,
+              label: date.split('-').slice(1).join('/'),
+              revenue: v.revenue,
+              profit: v.revenue - v.expenses,
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(-30)
         }
-        // Also get expenses for chart
-        for (const e of expMtdAll) {
-          const d = (e as any).expense_date
-          if (!chartByDate[d]) chartByDate[d] = { revenue: 0, expenses: 0 }
-          const amt = Number((e as any).amount)
-          chartByDate[d].expenses += (e as any).currency === 'ARS' ? amt / blueRate : amt
-        }
-
-        const dailyChart: DailyChartPoint[] = Object.entries(chartByDate)
-          .map(([date, v]) => ({
-            date,
-            label: date.split('-').slice(1).join('/'),
-            revenue: v.revenue,
-            profit: v.revenue - v.expenses,
-          }))
-          .sort((a, b) => a.date.localeCompare(b.date))
-          .slice(-30)
 
         const waList = (waRes.data ?? []) as WaAccountSummary[]
         const waAccounts = {
