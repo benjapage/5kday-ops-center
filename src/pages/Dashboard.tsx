@@ -1,6 +1,8 @@
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare } from 'lucide-react'
+import { useState } from 'react'
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare, Plus, Square, CheckSquare2 } from 'lucide-react'
 import { useDashboard } from '@/hooks/useDashboard'
 import { useOffers } from '@/hooks/useOffers'
+import { useCalendarTasks } from '@/hooks/useCalendar'
 import { useCreatives } from '@/hooks/useCreatives'
 import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
@@ -69,6 +71,89 @@ function ChartTooltip({ active, payload, label }: any) {
           {p.name}: {formatCurrency(p.value)}
         </p>
       ))}
+    </div>
+  )
+}
+
+function DashboardTasks() {
+  const { tasks, isLoading, calendarConnected, toggleComplete, createTask } = useCalendarTasks()
+  const [newTask, setNewTask] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  async function handleAdd() {
+    if (!newTask.trim()) return
+    setAdding(true)
+    await createTask(newTask.trim())
+    setNewTask('')
+    setAdding(false)
+  }
+
+  return (
+    <div className="card-base p-5">
+      <div className="flex items-center justify-between mb-3">
+        <SectionLabel icon={CheckSquare}>Tareas del dia</SectionLabel>
+        {!calendarConnected && (
+          <span className="text-[9px] text-amber-500 uppercase tracking-wider">Sin Calendar</span>
+        )}
+      </div>
+
+      {/* New task input */}
+      <div className="flex gap-1.5 mb-3">
+        <input
+          className="flex-1 text-xs h-7 px-2 rounded-md border border-slate-200 dark:border-slate-600 bg-transparent dark:bg-slate-700/50 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+          placeholder="+ Nueva tarea..."
+          value={newTask}
+          onChange={e => setNewTask(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+          disabled={adding}
+        />
+        {newTask.trim() && (
+          <button
+            onClick={handleAdd}
+            disabled={adding}
+            className="h-7 w-7 rounded-md bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 hover:bg-emerald-600 transition-colors"
+          >
+            <Plus size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Task list */}
+      {isLoading ? (
+        <p className="text-xs text-slate-400 text-center py-4">Cargando...</p>
+      ) : tasks.length === 0 ? (
+        <p className="text-xs text-slate-400 text-center py-4">
+          {calendarConnected ? 'Sin tareas para hoy' : 'Conecta Google Calendar en Integraciones'}
+        </p>
+      ) : (
+        <div className="space-y-0.5 max-h-48 overflow-y-auto">
+          {tasks.map(task => (
+            <button
+              key={task.id}
+              onClick={() => {
+                if (task.id.startsWith('gcal_')) return // Can't complete pure calendar events
+                toggleComplete(task.id, !task.completed)
+              }}
+              className={`flex items-center gap-2 w-full text-left py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+            >
+              {task.completed ? (
+                <CheckSquare2 size={14} className="text-emerald-500 flex-shrink-0" />
+              ) : (
+                <Square size={14} className="text-slate-300 dark:text-slate-500 flex-shrink-0" />
+              )}
+              <span className="text-[10px] text-slate-400 num w-10 flex-shrink-0">{task.time || ''}</span>
+              <span className={`text-xs flex-1 truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                {task.title}
+              </span>
+              {task.source !== 'manual' && task.source !== 'google_calendar' && (
+                <span className="text-[8px] px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 uppercase tracking-wider flex-shrink-0">
+                  auto
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -296,17 +381,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Tareas del dia — Cambio 9 */}
-        <div className="card-base p-5">
-          <div className="flex items-center justify-between mb-3">
-            <SectionLabel icon={CheckSquare}>Tareas del dia</SectionLabel>
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-xs text-slate-400 text-center py-6">
-              Conecta Notion Calendar para ver tus tareas aqui
-            </p>
-          </div>
-        </div>
+        {/* Tareas del dia — Google Calendar */}
+        <DashboardTasks />
 
         {/* Creativos — Cambio 10 */}
         <div className="card-base p-5">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download, BarChart3, Zap } from 'lucide-react'
+import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download, BarChart3, Zap, CalendarDays } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { useShopifyStores } from '@/hooks/useShopifyStores'
 import { useGoogleConnection, useDriveFiles } from '@/hooks/useDriveFiles'
 import { useUtmifyConfig } from '@/hooks/useUtmify'
+import { useCalendarStatus } from '@/hooks/useCalendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -79,6 +80,24 @@ export default function Integrations() {
   }
 
   const creativos = driveFiles.filter(f => f.folder_type === 'anuncios')
+
+  // Google Calendar
+  const { status: calendarStatus, isLoading: calendarLoading } = useCalendarStatus()
+  const [generatingTasks, setGeneratingTasks] = useState(false)
+
+  async function generateAutoTasks() {
+    setGeneratingTasks(true)
+    try {
+      const res = await fetch('/api/calendar?action=auto-tasks')
+      const data = await res.json()
+      if (data.created > 0) {
+        toast.success(`${data.created} tareas automaticas creadas`)
+      } else {
+        toast.info('No hay tareas automaticas pendientes')
+      }
+    } catch (err: any) { toast.error(err.message) }
+    finally { setGeneratingTasks(false) }
+  }
   const ofertas = driveFiles.filter(f => f.folder_type === 'ofertas')
 
   // UTMify
@@ -313,6 +332,77 @@ export default function Integrations() {
                 >
                   <div className={`h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform ${utmifyConfig.auto_sync ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Google Calendar section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-blue-500" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Google Calendar</h2>
+          <Badge variant="outline" className="text-xs text-slate-400">
+            {calendarLoading ? '...' : calendarStatus.connected ? 'Conectado' : 'No conectado'}
+          </Badge>
+        </div>
+
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <CalendarDays size={17} className="text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tareas del dia</p>
+                  <p className="text-xs text-slate-400">Sync bidireccional con Google Calendar</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {calendarStatus.connected ? (
+                  <>
+                    <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                      <CheckCircle2 size={14} />
+                      <span className="text-xs font-medium">{calendarStatus.email}</span>
+                    </div>
+                    {isAdmin && (
+                      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => window.location.href = '/api/google-auth'}>
+                        <RefreshCw size={11} className="mr-1" /> Reconectar
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <XCircle size={14} />
+                      <span className="text-xs font-medium">No conectado</span>
+                    </div>
+                    {isAdmin && (
+                      <Button size="sm" className="text-white text-xs h-7" style={{ backgroundColor: '#4285f4' }} onClick={() => window.location.href = '/api/google-auth'}>
+                        <Plug size={11} className="mr-1" /> Conectar Google
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {calendarStatus.connected && (
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 gap-1.5"
+                  disabled={generatingTasks}
+                  onClick={generateAutoTasks}
+                >
+                  {generatingTasks ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+                  Generar tareas automaticas
+                </Button>
+                <span className="text-[10px] text-slate-400">Detecta numeros WA por vencer/baneados y ofertas sin creativos</span>
               </div>
             )}
           </CardContent>
