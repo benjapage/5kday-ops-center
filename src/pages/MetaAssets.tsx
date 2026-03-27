@@ -197,7 +197,7 @@ function AssetDialog({
 function AssetSection<T extends { id: string; name: string; status: string; notes?: string | null }>({
   title, icon: Icon, iconColor, items, isLoading, idField, idLabel,
   getId, onAdd, onUpdate, onDelete, canWrite, fields, getFn,
-  restrictedBmWarning,
+  restrictedBmWarning, restrictedBmWarningText, getLinkedName,
 }: {
   title: string
   icon: React.ComponentType<{ size?: number; className?: string }>
