@@ -36,7 +36,7 @@ export function MetricCard({
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
-            <p className="mt-2 text-2xl font-bold tracking-tight font-mono tabular-nums text-slate-800 dark:text-slate-100">
+            <p className="mt-2 text-2xl font-bold tracking-tight num text-slate-800 dark:text-slate-100">
               {formatValue(value)}
             </p>
             {subtitle && (
@@ -45,7 +45,7 @@ export function MetricCard({
             {delta !== undefined && (
               <span
                 className={`mt-1 inline-block text-xs font-medium ${
-                  delta >= 0 ? 'text-green-600' : 'text-red-500'
+                  delta >= 0 ? 'text-green-600' : 'text-negative dark:text-negative-dark'
                 }`}
               >
                 {delta >= 0 ? '+' : ''}{delta.toFixed(1)}% vs mes anterior

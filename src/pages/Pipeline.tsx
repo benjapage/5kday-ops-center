@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette, Clock, MessageSquare, Save, Zap, DollarSign } from 'lucide-react'
+import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette, Clock, MessageSquare, Save, Zap, DollarSign, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -33,29 +33,39 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
 }) {
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({
-    name: '', country: '', channel: '', start_date: today,
+    name: '', countries: [] as string[], channel: '', start_date: today,
     target_roas: '', target_cpl: '', current_roas: '', current_cpl: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
 
-  function set(k: string, v: string) {
+  function set(k: string, v: any) {
     setForm(p => ({ ...p, [k]: v }))
     if (errors[k]) setErrors(p => ({ ...p, [k]: '' }))
+  }
+
+  function toggleCountry(code: string) {
+    setForm(p => ({
+      ...p,
+      countries: p.countries.includes(code)
+        ? p.countries.filter(c => c !== code)
+        : [...p.countries, code]
+    }))
+    if (errors.country) setErrors(p => ({ ...p, country: '' }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const errs: Record<string, string> = {}
     if (!form.name) errs.name = 'Requerido'
-    if (!form.country) errs.country = 'Requerido'
+    if (form.countries.length === 0) errs.country = 'Selecciona al menos un pais'
     if (!form.channel) errs.channel = 'Requerido'
     if (Object.keys(errs).length) { setErrors(errs); return }
 
     setIsLoading(true)
     const { error } = await onCreate({
       name: form.name,
-      country: form.country,
+      country: form.countries.join(','),
       channel: form.channel as Offer['channel'],
       start_date: form.start_date,
       target_roas: form.target_roas ? Number(form.target_roas) : null,
@@ -66,7 +76,7 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
     setIsLoading(false)
     if (error) { toast.error(error); return }
     toast.success('Oferta creada')
-    setForm({ name: '', country: '', channel: '', start_date: today, target_roas: '', target_cpl: '', current_roas: '', current_cpl: '' })
+    setForm({ name: '', countries: [], channel: '', start_date: today, target_roas: '', target_cpl: '', current_roas: '', current_cpl: '' })
     onOpenChange(false)
   }
 
@@ -75,8 +85,8 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <Target size={16} className="text-emerald-600" />
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+              <Target size={16} className="text-emerald-600 dark:text-emerald-400" />
             </div>
             Nueva oferta
           </DialogTitle>
@@ -85,23 +95,33 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
           <div className="form-section">
             <p className="form-section-title">Informacion basica</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Label className="text-xs font-medium">Nombre *</Label>
               <Input placeholder="Ej: Curso Avanzado Argentina" value={form.name} onChange={e => set('name', e.target.value)} className={errors.name ? 'border-red-300' : ''} />
               {errors.name && <p className="text-xs text-red-500" role="alert">{errors.name}</p>}
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Pais *</Label>
-                <Select value={form.country} onValueChange={v => set('country', v)}>
-                  <SelectTrigger className={errors.country ? 'border-red-300' : ''}><SelectValue placeholder="Pais..." /></SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {errors.country && <p className="text-xs text-red-500" role="alert">{errors.country}</p>}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Paises * <span className="text-slate-400 normal-case">(multi-select)</span></Label>
+              <div className="flex flex-wrap gap-1.5">
+                {COUNTRIES.map(c => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => toggleCountry(c.code)}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors border ${
+                      form.countries.includes(c.code)
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600/50'
+                    }`}
+                  >
+                    {c.flag} {c.code}
+                  </button>
+                ))}
               </div>
+              {errors.country && <p className="text-xs text-red-500" role="alert">{errors.country}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Canal *</Label>
+                <Label className="text-xs font-medium">Canal *</Label>
                 <Select value={form.channel} onValueChange={v => set('channel', v)}>
                   <SelectTrigger className={errors.channel ? 'border-red-300' : ''}><SelectValue placeholder="Canal..." /></SelectTrigger>
                   <SelectContent>
@@ -111,7 +131,7 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
                 {errors.channel && <p className="text-xs text-red-500" role="alert">{errors.channel}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Inicio</Label>
+                <Label className="text-xs font-medium">Inicio</Label>
                 <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
               </div>
             </div>
@@ -121,21 +141,21 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
             <p className="form-section-title">Metricas</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">ROAS objetivo</Label>
+                <Label className="text-xs font-medium">ROAS objetivo</Label>
                 <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">ROAS actual</Label>
+                <Label className="text-xs font-medium">ROAS actual</Label>
                 <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">CPL objetivo (USD)</Label>
+                <Label className="text-xs font-medium">CPL objetivo (USD)</Label>
                 <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">CPL actual (USD)</Label>
+                <Label className="text-xs font-medium">CPL actual (USD)</Label>
                 <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
               </div>
             </div>
@@ -163,7 +183,6 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
     name: offer.name,
     country: offer.country,
     channel: offer.channel,
-    start_date: offer.start_date,
     status: offer.status,
     target_roas: offer.target_roas != null ? String(offer.target_roas) : '',
     target_cpl: offer.target_cpl != null ? String(offer.target_cpl) : '',
@@ -172,13 +191,11 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
   })
   const [isLoading, setIsLoading] = useState(false)
 
-  // Reset form when a different offer is opened
   useEffect(() => {
     setForm({
       name: offer.name,
       country: offer.country,
       channel: offer.channel,
-      start_date: offer.start_date,
       status: offer.status,
       target_roas: offer.target_roas != null ? String(offer.target_roas) : '',
       target_cpl: offer.target_cpl != null ? String(offer.target_cpl) : '',
@@ -196,7 +213,6 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
       name: form.name,
       country: form.country,
       channel: form.channel as Offer['channel'],
-      start_date: form.start_date,
       status: form.status as Offer['status'],
       target_roas: form.target_roas ? Number(form.target_roas) : null,
       target_cpl: form.target_cpl ? Number(form.target_cpl) : null,
@@ -214,8 +230,8 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Pencil size={14} className="text-blue-600" />
+            <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+              <Pencil size={14} className="text-blue-600 dark:text-blue-400" />
             </div>
             Editar oferta
           </DialogTitle>
@@ -224,21 +240,16 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
           <div className="form-section">
             <p className="form-section-title">Informacion basica</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Label className="text-xs font-medium">Nombre *</Label>
               <Input value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Pais</Label>
-                <Select value={form.country} onValueChange={v => set('country', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-medium">Paises</Label>
+                <Input value={form.country} onChange={e => set('country', e.target.value)} placeholder="AR,US,BR" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Canal</Label>
+                <Label className="text-xs font-medium">Canal</Label>
                 <Select value={form.channel} onValueChange={v => set('channel', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -247,7 +258,7 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Estado</Label>
+                <Label className="text-xs font-medium">Estado</Label>
                 <Select value={form.status} onValueChange={v => set('status', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -258,31 +269,27 @@ function EditOfferDialog({ open, onOpenChange, onUpdate, offer }: {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Fecha de inicio</Label>
-              <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className="max-w-[200px]" />
-            </div>
           </div>
 
           <div className="form-section">
             <p className="form-section-title">Metricas</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">ROAS objetivo</Label>
+                <Label className="text-xs font-medium">ROAS objetivo</Label>
                 <Input type="number" step="0.01" placeholder="3.00" value={form.target_roas} onChange={e => set('target_roas', e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">ROAS actual</Label>
+                <Label className="text-xs font-medium">ROAS actual</Label>
                 <Input type="number" step="0.01" placeholder="2.50" value={form.current_roas} onChange={e => set('current_roas', e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">CPL objetivo (USD)</Label>
+                <Label className="text-xs font-medium">CPL objetivo (USD)</Label>
                 <Input type="number" step="0.01" placeholder="5.00" value={form.target_cpl} onChange={e => set('target_cpl', e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">CPL actual (USD)</Label>
+                <Label className="text-xs font-medium">CPL actual (USD)</Label>
                 <Input type="number" step="0.01" placeholder="4.20" value={form.current_cpl} onChange={e => set('current_cpl', e.target.value)} />
               </div>
             </div>
@@ -334,8 +341,8 @@ function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <Palette size={16} className="text-purple-600" />
+            <div className="h-8 w-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
+              <Palette size={16} className="text-purple-600 dark:text-purple-400" />
             </div>
             Agregar creativo
           </DialogTitle>
@@ -344,12 +351,12 @@ function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
           <div className="form-section">
             <p className="form-section-title">Detalle del asset</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Label className="text-xs font-medium">Nombre *</Label>
               <Input placeholder="Ej: Video testimonial v3" value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Tipo</Label>
+                <Label className="text-xs font-medium">Tipo</Label>
                 <Select value={form.asset_type} onValueChange={v => set('asset_type', v)}>
                   <SelectTrigger><SelectValue placeholder="Tipo..." /></SelectTrigger>
                   <SelectContent>
@@ -358,7 +365,7 @@ function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Oferta vinculada</Label>
+                <Label className="text-xs font-medium">Oferta vinculada</Label>
                 <Select value={form.offer_id} onValueChange={v => set('offer_id', v)}>
                   <SelectTrigger><SelectValue placeholder="Vincular..." /></SelectTrigger>
                   <SelectContent>
@@ -370,7 +377,7 @@ function AddCreativeDialog({ open, onOpenChange, onCreate, offers }: {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">URL del asset</Label>
+              <Label className="text-xs font-medium">URL del asset</Label>
               <Input placeholder="https://drive.google.com/..." value={form.asset_url} onChange={e => set('asset_url', e.target.value)} />
             </div>
           </div>
@@ -394,41 +401,85 @@ function AssetIcon({ type }: { type: string | null }) {
   return <Package size={14} className="text-slate-400" />
 }
 
-function OfferNoteCard({ offer, creatives, onUpdate, canWrite, monthlyTarget }: {
+// Cambio 17: Log entry type
+interface LogEntry {
+  date: string
+  text: string
+}
+
+function OfferNoteCard({ offer, creatives, onUpdate, canWrite }: {
   offer: Offer
   creatives: { id: string; offer_id: string | null; status: string; created_at: string; name: string; asset_type: string | null }[]
   onUpdate: ReturnType<typeof useOffers>['update']
   canWrite: boolean
-  monthlyTarget: number
 }) {
-  const [notes, setNotes] = useState(offer.notes ?? '')
+  // Cambio 17: Split notes into log + free notes
+  // Format: LOG entries separated by `---LOG---` from free notes
+  const parseNotes = (raw: string) => {
+    const parts = raw.split('---LOG---')
+    const freeNotes = parts[0]?.trim() ?? ''
+    const logRaw = parts[1]?.trim() ?? ''
+    const logEntries: LogEntry[] = logRaw
+      ? logRaw.split('\n').filter(Boolean).map(line => {
+        const match = line.match(/^\[(.+?)\] (.+)$/)
+        if (match) return { date: match[1], text: match[2] }
+        return { date: '', text: line }
+      })
+      : []
+    return { freeNotes, logEntries }
+  }
+
+  const [notes, setNotes] = useState('')
+  const [logInput, setLogInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
 
+  const rawNotes = offer.notes ?? ''
+  const { freeNotes: initialFreeNotes, logEntries } = parseNotes(rawNotes)
+
   useEffect(() => {
-    setNotes(offer.notes ?? '')
+    setNotes(initialFreeNotes)
     setDirty(false)
   }, [offer.notes])
 
   const handleNotesChange = useCallback((val: string) => {
     setNotes(val)
-    setDirty(val !== (offer.notes ?? ''))
-  }, [offer.notes])
+    setDirty(val !== initialFreeNotes)
+  }, [initialFreeNotes])
 
   async function saveNotes() {
     setSaving(true)
-    const { error } = await onUpdate(offer.id, { notes })
+    const logPart = rawNotes.includes('---LOG---') ? '---LOG---' + rawNotes.split('---LOG---')[1] : ''
+    const { error } = await onUpdate(offer.id, { notes: notes + (logPart ? '\n' + logPart : '') })
     setSaving(false)
     if (error) { toast.error(error); return }
     setDirty(false)
     toast.success('Notas guardadas')
   }
 
+  async function addLogEntry() {
+    if (!logInput.trim()) return
+    setSaving(true)
+    const now = new Date()
+    const ts = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+    const newEntry = `[${ts}] ${logInput.trim()}`
+    const currentLog = rawNotes.includes('---LOG---') ? rawNotes.split('---LOG---')[1]?.trim() ?? '' : ''
+    const updatedLog = newEntry + (currentLog ? '\n' + currentLog : '')
+    const freeNotesPart = notes || initialFreeNotes
+    const { error } = await onUpdate(offer.id, { notes: freeNotesPart + '\n---LOG---\n' + updatedLog })
+    setSaving(false)
+    if (error) { toast.error(error); return }
+    setLogInput('')
+    toast.success('Entrada agregada al log')
+  }
+
   const linkedCreatives = creatives.filter(c => c.offer_id === offer.id)
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 86400000)
   const creativesThisWeek = linkedCreatives.filter(c => new Date(c.created_at) >= weekAgo)
-  const daysActive = getDaysSince(offer.start_date)
+
+  // Parse countries (multi-select support)
+  const countryCodes = offer.country.includes(',') ? offer.country.split(',') : [offer.country]
 
   return (
     <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
@@ -436,30 +487,31 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite, monthlyTarget }: 
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-lg">{countryFlag(offer.country)}</span>
+            <div className="flex gap-0.5">
+              {countryCodes.map(c => <span key={c} className="text-base">{countryFlag(c.trim())}</span>)}
+            </div>
             <div>
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{offer.name}</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="outline" className="text-[10px]">{offer.channel}</Badge>
-                <span className="text-[10px] text-slate-400 font-mono">{daysActive}d activa</span>
               </div>
             </div>
           </div>
           <Badge
             variant="outline"
-            className={`text-xs ${offer.status === 'active' ? 'border-green-300 text-green-700 bg-green-50' : offer.status === 'paused' ? 'border-amber-300 text-amber-700 bg-amber-50' : 'border-slate-200 text-slate-500'}`}
+            className={`text-xs ${offer.status === 'active' ? 'border-green-300 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700/50' : offer.status === 'paused' ? 'border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50' : 'border-slate-200 text-slate-500 dark:border-slate-600'}`}
           >
             {offer.status === 'active' ? 'Activa' : offer.status === 'paused' ? 'Pausada' : 'Archivada'}
           </Badge>
         </div>
 
-        {/* KPIs row */}
-        <div className="grid grid-cols-4 gap-3">
+        {/* KPIs row — Cambio 16: removed Meta facturacion */}
+        <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">ROAS</p>
-            <span className={`text-base font-bold font-mono ${
+            <span className={`text-base num ${
               offer.current_roas != null && offer.target_roas != null
-                ? offer.current_roas >= offer.target_roas ? 'text-green-600' : 'text-red-500'
+                ? offer.current_roas >= offer.target_roas ? 'text-green-600 dark:text-green-400' : 'text-negative dark:text-negative-dark'
                 : 'text-slate-400'
             }`}>
               {formatROAS(offer.current_roas)}
@@ -467,20 +519,14 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite, monthlyTarget }: 
           </div>
           <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Objetivo</p>
-            <span className="text-base font-bold font-mono text-slate-700 dark:text-slate-200">
+            <span className="text-base num text-slate-700 dark:text-slate-200">
               {formatROAS(offer.target_roas)}
             </span>
           </div>
           <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Creativos semana</p>
-            <span className={`text-base font-bold font-mono ${creativesThisWeek.length > 0 ? 'text-purple-600' : 'text-slate-400'}`}>
-              {creativesThisWeek.length}
-            </span>
-          </div>
-          <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Meta facturacion</p>
-            <span className="text-base font-bold font-mono text-emerald-600">
-              {formatCurrency(monthlyTarget)}
+            <span className={`text-base num ${creativesThisWeek.length > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'}`}>
+              {creativesThisWeek.length}/{linkedCreatives.length > 0 ? '10' : '0'}
             </span>
           </div>
         </div>
@@ -499,19 +545,57 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite, monthlyTarget }: 
                   )}
                 </div>
               ))}
-              {linkedCreatives.length > 8 && (
-                <span className="text-[10px] text-slate-400 self-center ml-1">+{linkedCreatives.length - 8} mas</span>
-              )}
             </div>
           </div>
         )}
 
-        {/* Notes */}
+        {/* Cambio 17A: Log de campana */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Clock size={12} className="text-slate-400" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Log de campana</p>
+          </div>
+          {canWrite && (
+            <div className="flex gap-2 mb-2">
+              <Input
+                className="text-xs h-8"
+                placeholder="Ej: Cambie a Cost Cap $5 en CP3"
+                value={logInput}
+                onChange={e => setLogInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLogEntry() } }}
+              />
+              <Button
+                size="sm"
+                className="h-8 text-xs text-white px-3 flex-shrink-0"
+                style={{ backgroundColor: '#6366F1' }}
+                disabled={saving || !logInput.trim()}
+                onClick={addLogEntry}
+              >
+                + Log
+              </Button>
+            </div>
+          )}
+          {logEntries.length === 0 ? (
+            <p className="text-[11px] text-slate-400 py-2">Sin entradas aun</p>
+          ) : (
+            <div className="space-y-1 max-h-28 overflow-y-auto">
+              {logEntries.slice(0, 10).map((entry, i) => (
+                <div key={i} className="flex gap-2 text-[11px]">
+                  <span className="text-slate-400 flex-shrink-0 num">{entry.date}</span>
+                  <span className="text-slate-600 dark:text-slate-300">—</span>
+                  <span className="text-slate-700 dark:text-slate-200">{entry.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Cambio 17B: Notas libres */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
               <MessageSquare size={12} className="text-slate-400" />
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Notas de campana</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Notas libres</p>
             </div>
             {canWrite && dirty && (
               <Button
@@ -535,6 +619,17 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite, monthlyTarget }: 
             disabled={!canWrite}
           />
         </div>
+
+        {/* Banco de creativos link — Cambio 18 Phase 1 */}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+          <button
+            className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+            onClick={() => toast.info('Vincula una carpeta de Google Drive desde Integraciones')}
+          >
+            <FolderOpen size={13} />
+            Abrir carpeta de creativos en Drive
+          </button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -555,7 +650,6 @@ export default function Pipeline() {
   const filteredOffers = statusFilter === 'all' ? offers : offers.filter(o => o.status === statusFilter)
   const activeOffers = offers.filter(o => o.status === 'active')
 
-  // Count creatives this week
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 86400000)
 
@@ -568,23 +662,7 @@ export default function Pipeline() {
         <p className="text-sm text-slate-500 mt-0.5">Ofertas activas, metricas y banco de creativos</p>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Activas', count: offers.filter(o => o.status === 'active').length, color: '#22C55E' },
-          { label: 'Pausadas', count: offers.filter(o => o.status === 'paused').length, color: '#F59E0B' },
-          { label: 'Archivadas', count: offers.filter(o => o.status === 'archived').length, color: '#94A3B8' },
-        ].map(item => (
-          <Card key={item.label} className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
-            <CardContent className="p-4 flex items-center justify-between">
-              <span className="text-sm text-slate-600 dark:text-slate-400">{item.label}</span>
-              <span className="text-xl font-bold font-mono" style={{ color: item.color }}>{item.count}</span>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* OFERTAS TABLE */}
+      {/* OFERTAS TABLE — Cambio 16: removed irrelevant columns */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Ofertas</h2>
@@ -619,21 +697,18 @@ export default function Pipeline() {
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Oferta</TableHead>
-                    <TableHead className="text-xs">Pais / Canal</TableHead>
+                    <TableHead className="text-xs">Paises / Canal</TableHead>
                     <TableHead className="text-xs">Estado</TableHead>
                     <TableHead className="text-xs text-right">ROAS</TableHead>
                     <TableHead className="text-xs text-center">Creativos semana</TableHead>
                     <TableHead className="text-xs text-center">Objetivo</TableHead>
-                    <TableHead className="text-xs text-center">Meta fact.</TableHead>
-                    <TableHead className="text-xs text-center">Dias</TableHead>
-                    <TableHead className="text-xs">Inicio</TableHead>
                     {canWrite && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredOffers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canWrite ? 10 : 9}>
+                      <TableCell colSpan={canWrite ? 7 : 6}>
                         <EmptyState icon={Plus} title="Sin ofertas" description="Crea tu primera oferta" />
                       </TableCell>
                     </TableRow>
@@ -641,46 +716,39 @@ export default function Pipeline() {
                     const roasOk = offer.current_roas != null && offer.target_roas != null
                       ? offer.current_roas >= offer.target_roas
                       : null
-                    const daysActive = getDaysSince(offer.start_date)
                     const creativesWeek = creatives.filter(c => c.offer_id === offer.id && new Date(c.created_at) >= weekAgo)
+                    const totalCreatives = creatives.filter(c => c.offer_id === offer.id).length
+                    const countryCodes = offer.country.includes(',') ? offer.country.split(',') : [offer.country]
                     return (
                       <TableRow key={offer.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                         <TableCell className="font-medium text-sm dark:text-slate-200">{offer.name}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm">{countryFlag(offer.country)} {offer.country}</span>
+                            <span className="text-sm">
+                              {countryCodes.map(c => countryFlag(c.trim())).join(' ')} {countryCodes.join(', ')}
+                            </span>
                             <Badge variant="outline" className="text-xs w-fit">{offer.channel}</Badge>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={`text-xs ${offer.status === 'active' ? 'border-green-300 text-green-700 bg-green-50' : offer.status === 'paused' ? 'border-amber-300 text-amber-700 bg-amber-50' : 'border-slate-200 text-slate-500'}`}
+                            className={`text-xs ${offer.status === 'active' ? 'border-green-300 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700/50' : offer.status === 'paused' ? 'border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50' : 'border-slate-200 text-slate-500 dark:border-slate-600'}`}
                           >
                             {offer.status === 'active' ? 'Activa' : offer.status === 'paused' ? 'Pausada' : 'Archivada'}
                           </Badge>
                         </TableCell>
-                        <TableCell className={`text-right font-mono text-sm font-semibold ${roasOk === true ? 'text-green-700' : roasOk === false ? 'text-red-500' : 'text-slate-400'}`}>
+                        <TableCell className={`text-right num text-sm font-semibold ${roasOk === true ? 'text-green-700 dark:text-green-400' : roasOk === false ? 'text-negative dark:text-negative-dark' : 'text-slate-400'}`}>
                           {formatROAS(offer.current_roas)}
                         </TableCell>
                         <TableCell className="text-center">
-                          <span className={`text-xs font-mono font-bold ${creativesWeek.length > 0 ? 'text-purple-600' : 'text-slate-300'}`}>
-                            {creativesWeek.length}
+                          <span className={`text-xs num font-bold ${creativesWeek.length > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-300 dark:text-slate-500'}`}>
+                            {creativesWeek.length}/10
                           </span>
                         </TableCell>
-                        <TableCell className="text-center font-mono text-sm text-slate-500 dark:text-slate-400">
+                        <TableCell className="text-center num text-sm text-slate-500 dark:text-slate-400">
                           {formatROAS(offer.target_roas)}
                         </TableCell>
-                        <TableCell className="text-center font-mono text-xs text-emerald-600 font-semibold">
-                          {formatCurrency(monthlyTarget)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Clock size={11} className="text-slate-300" />
-                            <span className="text-xs font-mono text-slate-600 dark:text-slate-400">{daysActive}d</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-500">{formatDate(offer.start_date)}</TableCell>
                         {canWrite && (
                           <TableCell>
                             <DropdownMenu>
@@ -716,7 +784,7 @@ export default function Pipeline() {
           </Card>
       </div>
 
-      {/* OFFER DETAIL CARDS — one per active offer */}
+      {/* OFFER DETAIL CARDS — Cambio 17 */}
       {activeOffers.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Detalle por oferta</h2>
@@ -728,14 +796,13 @@ export default function Pipeline() {
                 creatives={creatives}
                 onUpdate={updateOffer}
                 canWrite={canWrite}
-                monthlyTarget={monthlyTarget}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* BANCO DE CREATIVOS */}
+      {/* BANCO DE CREATIVOS — Cambio 18 Phase 1 */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Banco de creativos</h2>
@@ -768,7 +835,7 @@ export default function Pipeline() {
                         )}
                       </div>
                       {linkedOffer && (
-                        <p className="text-xs text-slate-500">{linkedOffer.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{linkedOffer.name}</p>
                       )}
                       <div className="flex items-center justify-between">
                         {creative.asset_url ? (
@@ -776,12 +843,12 @@ export default function Pipeline() {
                             href={creative.asset_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800"
                           >
                             <ExternalLink size={11} /> Ver asset
                           </a>
                         ) : (
-                          <span className="text-xs text-slate-300">Sin URL</span>
+                          <span className="text-xs text-slate-300 dark:text-slate-500">Sin URL</span>
                         )}
                         {canWrite && creative.status === 'active' && (
                           <Button

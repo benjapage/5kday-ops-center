@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DollarSign, TrendingUp, BarChart3, Plus, Trash2, RefreshCw, Pause, Play, CreditCard } from 'lucide-react'
+import { DollarSign, TrendingUp, BarChart3, Plus, Trash2, RefreshCw, Pause, Play, CreditCard, ShoppingCart, MessageCircle, Megaphone } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,15 +21,8 @@ import { EXPENSE_CATEGORIES } from '@/lib/constants'
 import { formatCurrency, formatDate, formatROAS } from '@/lib/formatters'
 import { toast } from 'sonner'
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Area,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Line,
 } from 'recharts'
-
-function roasColor(roas: number | null) {
-  if (roas == null) return 'text-slate-400'
-  if (roas >= 3) return 'text-green-600'
-  if (roas >= 1.5) return 'text-amber-600'
-  return 'text-red-500'
-}
 
 function categoryLabel(cat: string) {
   return EXPENSE_CATEGORIES.find(c => c.value === cat)?.label ?? cat
@@ -69,8 +62,8 @@ function AddSubscriptionDialog({ open, onOpenChange, onCreate }: {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
-              <CreditCard size={16} className="text-purple-600" />
+            <div className="h-8 w-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
+              <CreditCard size={16} className="text-purple-600 dark:text-purple-400" />
             </div>
             Nueva suscripcion
           </DialogTitle>
@@ -82,16 +75,16 @@ function AddSubscriptionDialog({ open, onOpenChange, onCreate }: {
           <div className="form-section">
             <p className="form-section-title">Detalle</p>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Nombre *</Label>
+              <Label className="text-xs font-medium">Nombre *</Label>
               <Input placeholder="Ej: ManyChat Pro" value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
             <div className="grid grid-cols-5 gap-3">
               <div className="col-span-3 space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Monto mensual *</Label>
+                <Label className="text-xs font-medium">Monto mensual *</Label>
                 <Input type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} className="text-lg font-semibold" />
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Moneda</Label>
+                <Label className="text-xs font-medium">Moneda</Label>
                 <Select value={form.currency} onValueChange={v => set('currency', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -103,7 +96,7 @@ function AddSubscriptionDialog({ open, onOpenChange, onCreate }: {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Categoria</Label>
+                <Label className="text-xs font-medium">Categoria</Label>
                 <Select value={form.category} onValueChange={v => set('category', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -114,7 +107,7 @@ function AddSubscriptionDialog({ open, onOpenChange, onCreate }: {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Dia de cobro</Label>
+                <Label className="text-xs font-medium">Dia de cobro</Label>
                 <Input type="number" min="1" max="31" value={form.billing_day} onChange={e => set('billing_day', e.target.value)} />
               </div>
             </div>
@@ -131,11 +124,25 @@ function AddSubscriptionDialog({ open, onOpenChange, onCreate }: {
   )
 }
 
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 shadow-lg">
+      <p className="text-[10px] text-slate-400 mb-1">{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.dataKey} className="text-xs font-semibold" style={{ color: p.color }}>
+          {p.name}: {formatCurrency(p.value)}
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export default function Financial() {
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [revenueOpen, setRevenueOpen] = useState(false)
   const [subOpen, setSubOpen] = useState(false)
-  const { dailyPnl, expenses, isLoading, addExpense, addRevenue, deleteExpense, mtd, blueRate, toUSD } = useFinancials()
+  const { dailyPnl, expenses, revenues, isLoading, addExpense, addRevenue, deleteExpense, mtd, blueRate, toUSD } = useFinancials()
   const { subscriptions, create: createSub, toggleActive, remove: removeSub, processSubscriptions } = useSubscriptions()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
@@ -158,6 +165,17 @@ export default function Financial() {
       'Inversion Ads': d.ad_spend,
     }))
 
+  // Compute quadrant data (Cambio 13)
+  const mtdSubs = subscriptions
+    .filter(s => s.is_active)
+    .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
+
+  // WA vs Shopify revenue from revenues
+  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const mtdRevenues = revenues.filter(r => r.revenue_date >= mtdFrom)
+  const waRevenue = mtdRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+  const shopifyRevenue = mtdRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0)
+
   if (isLoading) return <LoadingSpinner />
 
   return (
@@ -170,22 +188,99 @@ export default function Financial() {
       {/* Resumen del mes */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <MetricCard title="Ingresos del mes" value={mtd.revenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
-        <MetricCard title="Inversiones del mes" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#EF4444" />
+        <MetricCard title="Inversiones del mes" value={mtd.expenses} format="currency" icon={BarChart3} iconColor="#E8816D" />
         <MetricCard title="Inversion Ads del mes" value={mtd.adSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
         <MetricCard
           title="Profit del mes"
           value={mtd.profit}
           format="currency"
           icon={DollarSign}
-          iconColor={mtd.profit >= 0 ? '#10B981' : '#EF4444'}
+          iconColor={mtd.profit >= 0 ? '#10B981' : '#E8816D'}
         />
-        <MetricCard title="ROAS del mes" value={mtd.roas} format="roas" icon={TrendingUp} iconColor="#0B1A2E" />
+        <MetricCard title="ROAS del mes" value={mtd.roas} format="roas" icon={TrendingUp} iconColor="#6366F1" />
       </div>
 
-      <Tabs defaultValue="daily">
+      {/* 4 Quadrants — Cambio 13 */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Suscripciones */}
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <CreditCard size={16} className="text-purple-500" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Suscripciones</p>
+                <p className="text-[10px] text-slate-400">Apps y tools mensuales</p>
+              </div>
+            </div>
+            <p className="num text-2xl text-purple-600 dark:text-purple-400 mb-2">{formatCurrency(mtdSubs)}<span className="text-xs text-slate-400 font-normal ml-1">/mes</span></p>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {subscriptions.filter(s => s.is_active).slice(0, 5).map(sub => (
+                <div key={sub.id} className="flex items-center justify-between py-1 text-xs">
+                  <span className="text-slate-600 dark:text-slate-300 truncate">{sub.name}</span>
+                  <span className="num text-slate-500">{formatCurrency(sub.amount, sub.currency as 'USD' | 'ARS')}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Inversion Meta Ads */}
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Megaphone size={16} className="text-amber-500" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Inversion en Ads</p>
+                <p className="text-[10px] text-slate-400">Gasto en Meta Ads del mes</p>
+              </div>
+            </div>
+            <p className="num text-2xl text-amber-600 dark:text-amber-400">{formatCurrency(mtd.adSpend)}</p>
+            {mtd.roas != null && (
+              <p className="text-xs text-slate-400 mt-1">ROAS: <span className="num font-semibold" style={{ color: mtd.roas >= 3 ? '#22C55E' : mtd.roas >= 1.5 ? '#F59E0B' : '#E8816D' }}>{formatROAS(mtd.roas)}</span></p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Facturacion WhatsApp */}
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <MessageCircle size={16} className="text-green-500" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Facturacion WhatsApp</p>
+                <p className="text-[10px] text-slate-400">Ingresos canal WA del mes</p>
+              </div>
+            </div>
+            <p className="num text-2xl text-green-600 dark:text-green-400">{formatCurrency(waRevenue)}</p>
+          </CardContent>
+        </Card>
+
+        {/* Facturacion Shopify */}
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                <ShoppingCart size={16} className="text-indigo-500" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Facturacion Shopify</p>
+                <p className="text-[10px] text-slate-400">Ingresos canal landing del mes</p>
+              </div>
+            </div>
+            <p className="num text-2xl text-indigo-600 dark:text-indigo-400">{formatCurrency(shopifyRevenue)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="expenses">
         <div className="flex items-center justify-between mb-4">
           <TabsList>
-            <TabsTrigger value="daily">P&L Diario</TabsTrigger>
             <TabsTrigger value="expenses">Inversiones</TabsTrigger>
             <TabsTrigger value="subscriptions">Suscripciones</TabsTrigger>
             <TabsTrigger value="chart">Grafico</TabsTrigger>
@@ -210,68 +305,6 @@ export default function Financial() {
           </div>
         </div>
 
-        {/* Daily P&L */}
-        <TabsContent value="daily">
-          <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 dark:bg-slate-800">
-                    <TableHead className="text-xs">Fecha</TableHead>
-                    <TableHead className="text-xs text-right">Ingresos</TableHead>
-                    <TableHead className="text-xs text-right">Inversion Ads</TableHead>
-                    <TableHead className="text-xs text-right">Otras inversiones</TableHead>
-                    <TableHead className="text-xs text-right">Total inversiones</TableHead>
-                    <TableHead className="text-xs text-right">Profit</TableHead>
-                    <TableHead className="text-xs text-right">ROAS</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dailyPnl.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7}>
-                        <EmptyState icon={DollarSign} title="Sin datos" description="Registrá un ingreso o gasto para ver el P&L" />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    dailyPnl.slice(0, 30).map(row => {
-                      const revenue = row.total_revenue
-                      const expenses = row.total_expenses
-                      const adSpend = row.ad_spend
-                      const otherExpenses = expenses - adSpend
-                      const profit = row.profit
-                      const roas = adSpend > 0 ? revenue / adSpend : null
-                      return (
-                        <TableRow key={row.date} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
-                          <TableCell className="text-sm font-medium">{formatDate(row.date)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm text-green-700">
-                            {formatCurrency(revenue)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm text-amber-700">
-                            {formatCurrency(adSpend)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm text-slate-600">
-                            {formatCurrency(otherExpenses)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm text-red-600">
-                            {formatCurrency(expenses)}
-                          </TableCell>
-                          <TableCell className={`text-right font-mono text-sm font-semibold ${profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                            {formatCurrency(profit)}
-                          </TableCell>
-                          <TableCell className={`text-right font-mono text-sm font-semibold ${roasColor(roas)}`}>
-                            {formatROAS(roas)}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Expenses list */}
         <TabsContent value="expenses">
           <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
@@ -280,8 +313,8 @@ export default function Financial() {
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Fecha</TableHead>
-                    <TableHead className="text-xs">Categoría</TableHead>
-                    <TableHead className="text-xs">Descripción</TableHead>
+                    <TableHead className="text-xs">Categoria</TableHead>
+                    <TableHead className="text-xs">Descripcion</TableHead>
                     <TableHead className="text-xs text-right">Monto</TableHead>
                     {isAdmin && <TableHead className="w-10" />}
                   </TableRow>
@@ -300,8 +333,8 @@ export default function Financial() {
                         <TableCell>
                           <Badge variant="outline" className="text-xs">{categoryLabel(expense.category)}</Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-slate-500">{expense.description ?? '—'}</TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold text-red-600">
+                        <TableCell className="text-sm text-slate-500 dark:text-slate-400">{expense.description ?? '—'}</TableCell>
+                        <TableCell className="text-right num text-sm font-semibold text-negative dark:text-negative-dark">
                           {formatCurrency(expense.amount, expense.currency)}
                         </TableCell>
                         {isAdmin && (
@@ -338,17 +371,14 @@ export default function Financial() {
               ) : (
                 <ResponsiveContainer width="100%" height={360}>
                   <ComposedChart data={chartData} barGap={0}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}
-                      formatter={(value) => formatCurrency(Number(value ?? 0))}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 20%)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#334155' }} />
+                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                     <Bar dataKey="Ingresos" fill="#10B981" radius={[3, 3, 0, 0]} opacity={0.85} />
                     <Bar dataKey="Inversion Ads" fill="#F59E0B" radius={[3, 3, 0, 0]} opacity={0.7} />
-                    <Line type="monotone" dataKey="Profit" stroke="#0B1A2E" strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="Profit" stroke="#6366F1" strokeWidth={2.5} dot={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
@@ -391,18 +421,18 @@ export default function Financial() {
                     </TableRow>
                   ) : subscriptions.map(sub => (
                     <TableRow key={sub.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-700/30 ${!sub.is_active ? 'opacity-50' : ''}`}>
-                      <TableCell className="text-sm font-medium">{sub.name}</TableCell>
+                      <TableCell className="text-sm font-medium dark:text-slate-200">{sub.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">{categoryLabel(sub.category)}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm font-semibold">
+                      <TableCell className="text-right num text-sm font-semibold dark:text-slate-200">
                         {formatCurrency(sub.amount, sub.currency as 'USD' | 'ARS')}
                       </TableCell>
-                      <TableCell className="text-center font-mono text-sm text-slate-500">
+                      <TableCell className="text-center num text-sm text-slate-500 dark:text-slate-400">
                         {sub.billing_day}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className={`text-xs ${sub.is_active ? 'border-green-200 text-green-700 bg-green-50' : 'border-slate-200 text-slate-400'}`}>
+                        <Badge variant="outline" className={`text-xs ${sub.is_active ? 'border-green-200 text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700/50' : 'border-slate-200 text-slate-400 dark:border-slate-600'}`}>
                           {sub.is_active ? 'Activa' : 'Pausada'}
                         </Badge>
                       </TableCell>
