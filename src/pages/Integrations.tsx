@@ -154,6 +154,41 @@ export default function Integrations() {
     else toast.success('URL MCP actualizada')
   }
 
+  // Push manual — recibe JSON de campañas (desde Claude.ai)
+  const [pushJson, setPushJson] = useState('')
+  const [pushing, setPushing] = useState(false)
+  const [showPush, setShowPush] = useState(false)
+
+  async function handlePush() {
+    if (!pushJson.trim()) return
+    setPushing(true)
+    try {
+      let parsed = JSON.parse(pushJson)
+      // Accept either { campaigns: [...] } or just [...]
+      if (Array.isArray(parsed)) parsed = { campaigns: parsed }
+      if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0]
+
+      const res = await fetch('/api/utmify?action=push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed),
+      })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        toast.success(`Push OK: ${data.synced} campanas — Revenue: US$ ${data.summary?.revenue || 0}`)
+        setPushJson('')
+        setShowPush(false)
+        refreshUtmify()
+      }
+    } catch (err: any) {
+      toast.error('JSON invalido: ' + err.message)
+    } finally {
+      setPushing(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
@@ -245,6 +280,41 @@ export default function Integrations() {
                 <span className="text-[10px] text-slate-400 ml-2">
                   Ultima sync: {new Date(utmifyConfig.last_sync_at).toLocaleString('es-AR')}
                 </span>
+              )}
+            </div>
+
+            {/* Push manual */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+              <button
+                onClick={() => setShowPush(!showPush)}
+                className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 font-medium"
+              >
+                {showPush ? '▾ Cerrar push manual' : '▸ Push manual (desde Claude.ai)'}
+              </button>
+              {showPush && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-[10px] text-slate-400">
+                    Pega el JSON de campañas que te da Claude.ai al consultar UTMify MCP.
+                    Formato: {'{'} "date": "2026-03-27", "campaigns": [...] {'}'}
+                  </p>
+                  <textarea
+                    className="w-full text-xs font-mono bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                    rows={5}
+                    placeholder='{ "date": "2026-03-27", "campaigns": [...] }'
+                    value={pushJson}
+                    onChange={e => setPushJson(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    className="text-xs h-7 text-white gap-1.5"
+                    style={{ backgroundColor: '#8B5CF6' }}
+                    disabled={pushing || !pushJson.trim()}
+                    onClick={handlePush}
+                  >
+                    {pushing ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                    {pushing ? 'Guardando...' : 'Guardar datos'}
+                  </Button>
+                </div>
               )}
             </div>
 
