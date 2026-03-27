@@ -278,7 +278,7 @@ export default function Financial() {
         </Card>
       </div>
 
-      <Tabs defaultValue="expenses">
+      <Tabs defaultValue="chart">
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="expenses">Inversiones</TabsTrigger>

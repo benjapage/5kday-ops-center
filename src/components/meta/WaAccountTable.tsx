@@ -24,7 +24,7 @@ import type { Database } from '@/types/database.types'
 type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
 type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
 
-export function WaAccountTable() {
+export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string> } = {}) {
   const { accounts, isLoading, create, update, setStatus, remove } = useWaAccounts()
   const { profile } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
@@ -170,10 +170,12 @@ export function WaAccountTable() {
                   <TableCell>
                     <WarmingProgress startDate={account.start_date} status={account.status} />
                   </TableCell>
-                  <TableCell className="text-sm text-slate-500">
+                  <TableCell className="text-sm text-slate-500 dark:text-slate-400">
                     {account.bm_id
-                      ? <span className="font-mono text-xs">{account.bm_id.slice(0, 12)}…</span>
-                      : <span className="text-slate-300">—</span>
+                      ? <span className="text-xs truncate max-w-[120px] block" title={account.bm_id}>
+                          {bmLookup?.[account.bm_id] || account.bm_id.slice(0, 12) + '…'}
+                        </span>
+                      : <span className="text-slate-300 dark:text-slate-600">—</span>
                     }
                   </TableCell>
                   <TableCell className="text-sm">

@@ -22,6 +22,7 @@ interface AdAccount {
   status: 'active' | 'disabled' | 'banned'
   currency: string
   channel_type?: string | null
+  bm_id?: string | null
   notes?: string | null
 }
 
@@ -31,6 +32,7 @@ interface BusinessManager {
   bm_id: string
   status: 'active' | 'restricted' | 'banned'
   bm_function?: string | null
+  profile_id?: string | null
   notes?: string | null
 }
 
@@ -212,6 +214,8 @@ function AssetSection<T extends { id: string; name: string; status: string; note
   fields: { key: string; label: string; placeholder: string; required?: boolean; type?: 'text' | 'select'; options?: { value: string; label: string }[] }[]
   getFn?: (item: T) => string | null | undefined
   restrictedBmWarning?: boolean
+  restrictedBmWarningText?: string
+  getLinkedName?: (item: T) => string | null
 }) {
   const [addOpen, setAddOpen] = useState(false)
   const [editItem, setEditItem] = useState<T | null>(null)
@@ -274,7 +278,9 @@ function AssetSection<T extends { id: string; name: string; status: string; note
         {restrictedBmWarning && (
           <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
             <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
-            <p className="text-[11px] text-amber-700 dark:text-amber-400">BM vinculado restringido — activos en riesgo</p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-400">
+              {restrictedBmWarningText || 'BM vinculado restringido — activos en riesgo'}
+            </p>
           </div>
         )}
 
@@ -289,7 +295,12 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               <div key={item.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{item.name}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{idLabel}: {getId(item)}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[10px] text-slate-400 truncate">{idLabel}: {getId(item)}</p>
+                    {getLinkedName && getLinkedName(item) && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">· {getLinkedName(item)}</span>
+                    )}
+                  </div>
                 </div>
                 {getFn && <FunctionBadge fn={getFn(item)} />}
                 <StatusBadge status={item.status} />
@@ -348,7 +359,9 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               status: editItem.status,
               notes: editItem.notes ?? '',
               ...((editItem as any).channel_type ? { channel_type: (editItem as any).channel_type } : {}),
+              ...((editItem as any).bm_id && idField !== 'bm_id' ? { bm_id: (editItem as any).bm_id } : {}),
               ...((editItem as any).bm_function ? { bm_function: (editItem as any).bm_function } : {}),
+              ...((editItem as any).profile_id && idField !== 'profile_id' ? { profile_id: (editItem as any).profile_id } : {}),
               ...((editItem as any).profile_function ? { profile_function: (editItem as any).profile_function } : {}),
             }}
             submitLabel="Guardar"
@@ -371,6 +384,11 @@ export default function MetaAssets() {
 
   // Cambio 12: detect restricted BMs for cascade warning
   const hasRestrictedBm = bms.items.some(b => b.status === 'restricted' || b.status === 'banned')
+  const restrictedBmNames = bms.items.filter(b => b.status === 'restricted' || b.status === 'banned').map(b => b.name)
+
+  // Lookup helpers for relationship chain
+  const bmLookup = Object.fromEntries(bms.items.map(b => [b.bm_id, b.name]))
+  const profileLookup = Object.fromEntries(profiles.items.map(p => [p.profile_id || p.id, p.name]))
 
   async function syncMeta() {
     setSyncing(true)
@@ -406,7 +424,7 @@ export default function MetaAssets() {
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Numeros de WhatsApp</h2>
           <span className="text-[10px] text-slate-400 ml-1">Stock principal</span>
         </div>
-        <WaAccountTable />
+        <WaAccountTable bmLookup={bmLookup} />
       </div>
 
       {/* ─── Bloque 2: Perfiles de Meta (Cambio 11) — prioridad alta ─── */}
@@ -485,7 +503,9 @@ export default function MetaAssets() {
             getId={(item) => item.account_id}
             canWrite={canWrite}
             getFn={(item) => item.channel_type}
+            getLinkedName={(item) => item.bm_id ? (bmLookup[item.bm_id] ? `BM: ${bmLookup[item.bm_id]}` : null) : null}
             restrictedBmWarning={hasRestrictedBm}
+            restrictedBmWarningText={restrictedBmNames.length > 0 ? `${restrictedBmNames.join(', ')} — restringido, activos en riesgo` : undefined}
             fields={[
               { key: 'name', label: 'Nombre', placeholder: 'Ej: Cuenta principal', required: true },
               { key: 'account_id', label: 'Account ID', placeholder: 'Ej: 123456789', required: true },
@@ -494,6 +514,7 @@ export default function MetaAssets() {
                 { value: 'whatsapp', label: 'WhatsApp' },
                 { value: 'landing', label: 'Landing (Shopify)' },
               ]},
+              { key: 'bm_id', label: 'BM vinculado (BM ID)', placeholder: 'ID del Business Manager' },
             ]}
             onAdd={async (data) => {
               const { error } = await adAccounts.create({
@@ -501,6 +522,7 @@ export default function MetaAssets() {
                 status: (data.status as AdAccount['status']) || 'active',
                 currency: data.currency || 'USD',
                 channel_type: data.channel_type || null,
+                bm_id: data.bm_id || null,
                 notes: data.notes || null,
               } as any)
               if (error) toast.error(error)
@@ -512,6 +534,7 @@ export default function MetaAssets() {
                 status: data.status as AdAccount['status'],
                 currency: data.currency,
                 channel_type: data.channel_type || null,
+                bm_id: data.bm_id || null,
                 notes: data.notes || null,
               } as any)
               if (error) toast.error(error)
@@ -535,6 +558,7 @@ export default function MetaAssets() {
             getId={(item) => item.bm_id}
             canWrite={canWrite}
             getFn={(item) => item.bm_function}
+            getLinkedName={(item) => item.profile_id ? (profileLookup[item.profile_id] ? `Perfil: ${profileLookup[item.profile_id]}` : null) : null}
             fields={[
               { key: 'name', label: 'Nombre', placeholder: 'Ej: BM Principal', required: true },
               { key: 'bm_id', label: 'BM ID', placeholder: 'Ej: 123456789', required: true },
@@ -543,12 +567,14 @@ export default function MetaAssets() {
                 { value: 'cuentas', label: 'Para cuentas publicitarias' },
                 { value: 'mixto', label: 'Mixto' },
               ]},
+              { key: 'profile_id', label: 'Perfil vinculado (Profile ID)', placeholder: 'ID del perfil' },
             ]}
             onAdd={async (data) => {
               const { error } = await bms.create({
                 name: data.name, bm_id: data.bm_id,
                 status: (data.status as BusinessManager['status']) || 'active',
                 bm_function: data.bm_function || null,
+                profile_id: data.profile_id || null,
                 notes: data.notes || null,
               } as any)
               if (error) toast.error(error)
@@ -559,6 +585,7 @@ export default function MetaAssets() {
                 name: data.name, bm_id: data.bm_id,
                 status: data.status as BusinessManager['status'],
                 bm_function: data.bm_function || null,
+                profile_id: data.profile_id || null,
                 notes: data.notes || null,
               } as any)
               if (error) toast.error(error)

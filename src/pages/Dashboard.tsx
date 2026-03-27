@@ -95,8 +95,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      {/* ═══════════════════ HEADER ═══════════════════ */}
-      <div className="flex items-start justify-between gap-6">
+      {/* ═══════════════════ HEADER — Corrección 21 ═══════════════════ */}
+      <div className="flex items-center justify-between gap-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
             {greeting()}, {profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'usuario'}
@@ -107,47 +107,28 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Meta del mes — Cambio 7 */}
-        <div className="flex-shrink-0 w-[340px] card-base p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5">
-              <Target size={13} className="text-emerald-500" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Meta del mes</span>
+        {/* Meta del mes — inline, sin box */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="text-right">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Meta del mes</p>
+            <div className="flex items-baseline gap-1.5 justify-end">
+              <Num className="text-lg" style={{ color: '#22C55E' }}>{formatCurrency(metrics.revenueMtd)}</Num>
+              <span className="text-xs text-slate-500/60">/ {formatCurrency(monthlyTarget)}</span>
             </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
             <span className="num text-xs" style={{ color: targetPct >= 80 ? '#22C55E' : targetPct >= 50 ? '#F59E0B' : '#E8816D' }}>
               {targetPct.toFixed(0)}%
             </span>
-          </div>
-          <div className="flex items-baseline gap-2 mb-2">
-            <Num className="text-lg" style={{ color: '#22C55E' }}>{formatCurrency(metrics.revenueMtd)}</Num>
-            <span className="text-xs text-slate-400">/ {formatCurrency(monthlyTarget)}</span>
-          </div>
-          <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700/80 overflow-hidden mb-3">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${targetPct}%`,
-                backgroundColor: targetPct >= 80 ? '#22C55E' : targetPct >= 50 ? '#F59E0B' : '#E8816D',
-              }}
-            />
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: 'Ads', value: metrics.expenseBreakdownMtd.ad_spend },
-              { label: 'Tools', value: metrics.expenseBreakdownMtd.tools_software + metrics.expenseBreakdownMtd.platform_fees },
-              { label: 'Equipo', value: metrics.expenseBreakdownMtd.team_salaries },
-              { label: 'Neto', value: metrics.profitMtd, highlight: true },
-            ].map(item => (
-              <div key={item.label} className="text-center">
-                <Num
-                  className="text-[11px]"
-                  style={{ color: item.highlight ? (metrics.profitMtd >= 0 ? '#22C55E' : '#E8816D') : undefined }}
-                >
-                  {formatCurrency(item.value)}
-                </Num>
-                <p className="text-[9px] text-slate-400 uppercase tracking-wider">{item.label}</p>
-              </div>
-            ))}
+            <div className="h-1.5 w-32 rounded-full bg-slate-200/50 dark:bg-slate-700/60 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${targetPct}%`,
+                  backgroundColor: targetPct >= 80 ? '#22C55E' : targetPct >= 50 ? '#F59E0B' : '#E8816D',
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
