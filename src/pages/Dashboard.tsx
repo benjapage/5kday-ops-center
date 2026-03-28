@@ -489,35 +489,32 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Pipeline activo */}
+          {/* Alertas hoy */}
           <div className="card-base p-5">
-            <div className="flex items-center justify-between mb-3">
-              <SectionLabel icon={TrendingUp}>Pipeline activo</SectionLabel>
-              <span className="num text-xs text-slate-400">{activeOffers.length}</span>
-            </div>
-            {activeOffers.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">Sin ofertas activas</p>
-            ) : (
-              <div className="space-y-1">
-                {activeOffers.slice(0, 6).map(offer => (
-                  <div key={offer.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <span className="text-sm">{countryFlag(offer.country)}</span>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-slate-700 dark:text-slate-200 font-medium truncate block">{offer.name}</span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wider">{offer.channel}</span>
+            <SectionLabel icon={AlertTriangle}>Alertas hoy</SectionLabel>
+            <div className="mt-2">
+              {metrics.alerts.length === 0 ? (
+                <div className="flex items-center gap-2 py-3 text-slate-400">
+                  <CheckCircle2 size={16} className="text-emerald-500" />
+                  <p className="text-xs">Todo en orden</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {metrics.alerts.map((alert, i) => {
+                    const borderColor = alert.type === 'danger' ? '#E8816D' : alert.type === 'warning' ? '#F59E0B' : '#3B82F6'
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-lg px-3 py-2 border-l-3 text-xs font-medium bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300"
+                        style={{ borderLeftColor: borderColor, borderLeftWidth: 3 }}
+                      >
+                        {alert.message}
                       </div>
-                    </div>
-                    {offer.current_roas != null && (
-                      <Num className="text-xs" style={{ color: offer.target_roas != null && offer.current_roas >= offer.target_roas ? '#22C55E' : '#F59E0B' }}>
-                        {formatROAS(offer.current_roas)}
-                      </Num>
-                    )}
-                  </div>
-                ))}
-                {activeOffers.length > 6 && <p className="text-[10px] text-slate-400 text-center pt-1">+{activeOffers.length - 6} mas</p>}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -525,28 +522,43 @@ export default function Dashboard() {
       {/* ═══════════════════ ROW 2 — Pipeline | Tareas | Creativos ═══════════════════ */}
       <div className="grid grid-cols-3 gap-4">
 
-        {/* Alertas hoy */}
+        {/* Pipeline activo — Cambio 8 */}
         <div className="card-base p-5">
-          <SectionLabel icon={AlertTriangle}>Alertas hoy</SectionLabel>
-          <div className="mt-2">
-            {metrics.alerts.length === 0 ? (
-              <div className="flex items-center gap-2 py-3 text-slate-400">
-                <CheckCircle2 size={16} className="text-emerald-500" />
-                <p className="text-xs">Todo en orden</p>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {metrics.alerts.map((alert, i) => {
-                  const borderColor = alert.type === 'danger' ? '#E8816D' : alert.type === 'warning' ? '#F59E0B' : '#3B82F6'
-                  return (
-                    <div key={i} className="rounded-lg px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300" style={{ borderLeftColor: borderColor, borderLeftWidth: 3 }}>
-                      {alert.message}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+          <div className="flex items-center justify-between mb-3">
+            <SectionLabel icon={TrendingUp}>Pipeline activo</SectionLabel>
+            <span className="num text-xs text-slate-400">{activeOffers.length}</span>
           </div>
+          {activeOffers.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-6">Sin ofertas activas</p>
+          ) : (
+            <div className="space-y-1">
+              {activeOffers.slice(0, 6).map(offer => (
+                <div key={offer.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <span className="text-sm">{countryFlag(offer.country)}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-slate-700 dark:text-slate-200 font-medium truncate block">{offer.name}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-wider">{offer.channel}</span>
+                    </div>
+                  </div>
+                  {offer.current_roas != null && (
+                    <Num
+                      className="text-xs"
+                      style={{
+                        color: offer.target_roas != null && offer.current_roas >= offer.target_roas
+                          ? '#22C55E' : '#F59E0B',
+                      }}
+                    >
+                      {formatROAS(offer.current_roas)}
+                    </Num>
+                  )}
+                </div>
+              ))}
+              {activeOffers.length > 6 && (
+                <p className="text-[10px] text-slate-400 text-center pt-1">+{activeOffers.length - 6} mas</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Tareas del dia — Google Calendar */}
