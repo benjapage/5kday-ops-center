@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare, Plus, Square, CheckSquare2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare, Plus, Square, CheckSquare2, ChevronLeft, ChevronRight, CalendarDays, Bell } from 'lucide-react'
 import { useDashboard } from '@/hooks/useDashboard'
 import { useOffers } from '@/hooks/useOffers'
-import { useCalendarTasks } from '@/hooks/useCalendar'
+import { useCalendarTasks, useWeeklyCalendar } from '@/hooks/useCalendar'
 import { useCreatives } from '@/hooks/useCreatives'
 import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
@@ -154,6 +154,186 @@ function DashboardTasks() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+const DAY_NAMES = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
+
+function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccounts: any }) {
+  const { weekDates, tasksByDate, isLoading, calendarConnected, offset, prevWeek, nextWeek, thisWeek, toggleComplete, createTask } = useWeeklyCalendar()
+  const [newTaskDate, setNewTaskDate] = useState<string | null>(null)
+  const [newTaskText, setNewTaskText] = useState('')
+
+  const today = new Date().toISOString().split('T')[0]
+
+  async function handleAddTask() {
+    if (!newTaskText.trim() || !newTaskDate) return
+    await createTask(newTaskText.trim(), newTaskDate)
+    setNewTaskText('')
+    setNewTaskDate(null)
+  }
+
+  // Build pending alerts for the right panel
+  const pendingAlerts: { text: string; type: string }[] = []
+  for (const a of alerts) {
+    pendingAlerts.push({ text: a.message, type: a.type })
+  }
+  // Add incomplete tasks across the week
+  const incompleteTasks = Object.values(tasksByDate).flat().filter(t => !t.completed && t.source !== 'google_calendar')
+  // WA warming numbers close to ready
+  const warmingNumbers = waAccounts.list.filter((a: any) => a.status === 'warming')
+
+  return (
+    <div className="grid grid-cols-12 gap-4">
+      {/* Weekly Calendar — 8 cols */}
+      <div className="col-span-8 card-base p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={15} className="text-blue-500" />
+            <SectionLabel>Calendario semanal</SectionLabel>
+            {!calendarConnected && <span className="text-[9px] text-amber-500 uppercase">Sin Calendar</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={prevWeek} className="h-6 w-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors">
+              <ChevronLeft size={14} />
+            </button>
+            <button onClick={thisWeek} className="text-[10px] px-2 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors">
+              {offset === 0 ? 'Esta semana' : 'Hoy'}
+            </button>
+            <button onClick={nextWeek} className="h-6 w-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors">
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <p className="text-xs text-slate-400 text-center py-12">Cargando semana...</p>
+        ) : (
+          <div className="grid grid-cols-7 gap-px bg-slate-200/30 dark:bg-slate-700/30 rounded-lg overflow-hidden">
+            {weekDates.map((date, i) => {
+              const isToday = date === today
+              const dayTasks = tasksByDate[date] || []
+              const dayNum = date.split('-')[2]
+              const monthDay = `${date.split('-')[2]}/${date.split('-')[1]}`
+
+              return (
+                <div
+                  key={date}
+                  className={`bg-white dark:bg-slate-800/80 p-2 min-h-[180px] ${isToday ? 'ring-1 ring-emerald-500/50 ring-inset' : ''}`}
+                >
+                  {/* Day header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? 'text-emerald-500' : 'text-slate-400'}`}>
+                      {DAY_NAMES[i]}
+                    </span>
+                    <span className={`text-[11px] num ${isToday ? 'bg-emerald-500 text-white rounded-full h-5 w-5 flex items-center justify-center' : 'text-slate-400'}`}>
+                      {dayNum}
+                    </span>
+                  </div>
+
+                  {/* Tasks */}
+                  <div className="space-y-0.5">
+                    {dayTasks.slice(0, 6).map(task => (
+                      <button
+                        key={task.id}
+                        onClick={() => {
+                          if (!task.id.startsWith('gcal_')) toggleComplete(task.id, !task.completed)
+                        }}
+                        className={`flex items-start gap-1 w-full text-left py-0.5 px-1 rounded transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40 ${task.completed ? 'opacity-40' : ''}`}
+                      >
+                        {task.id.startsWith('gcal_') ? (
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-400 mt-1 flex-shrink-0" />
+                        ) : task.completed ? (
+                          <CheckSquare2 size={10} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <Square size={10} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          {task.time && <span className="text-[8px] text-slate-400 num mr-1">{task.time}</span>}
+                          <span className={`text-[10px] leading-tight ${
+                            task.is_urgent || task.source === 'system_wa_ban' ? 'text-red-500 dark:text-red-400 font-semibold' :
+                            task.completed ? 'line-through text-slate-400' :
+                            'text-slate-600 dark:text-slate-300'
+                          }`}>
+                            {task.title}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                    {dayTasks.length > 6 && (
+                      <p className="text-[8px] text-slate-400 text-center">+{dayTasks.length - 6}</p>
+                    )}
+                  </div>
+
+                  {/* Add task button */}
+                  {newTaskDate === date ? (
+                    <div className="mt-1">
+                      <input
+                        autoFocus
+                        className="w-full text-[10px] h-5 px-1 rounded border border-emerald-500/50 bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none"
+                        placeholder="Nueva tarea..."
+                        value={newTaskText}
+                        onChange={e => setNewTaskText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAddTask(); if (e.key === 'Escape') setNewTaskDate(null) }}
+                        onBlur={() => { if (!newTaskText.trim()) setNewTaskDate(null) }}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setNewTaskDate(date)}
+                      className="mt-1 w-full text-[9px] text-slate-400 hover:text-emerald-500 transition-colors py-0.5 rounded hover:bg-slate-50 dark:hover:bg-slate-700/30"
+                    >
+                      + tarea
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Alerts Panel — 4 cols */}
+      <div className="col-span-4 card-base p-5">
+        <SectionLabel icon={Bell}>Proximas alertas</SectionLabel>
+        <div className="mt-3 space-y-2 max-h-[280px] overflow-y-auto">
+          {/* Active alerts */}
+          {pendingAlerts.map((a, i) => (
+            <div
+              key={`alert-${i}`}
+              className="rounded-lg px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300"
+              style={{ borderLeft: `3px solid ${a.type === 'danger' ? '#E8816D' : a.type === 'warning' ? '#F59E0B' : '#3B82F6'}` }}
+            >
+              {a.text}
+            </div>
+          ))}
+
+          {/* WA warming numbers */}
+          {warmingNumbers.map((num: any) => {
+            const days = Math.min(7, Math.max(0, Math.floor((Date.now() - new Date(num.start_date).getTime()) / 86400000)))
+            return (
+              <div key={num.id} className="rounded-lg px-3 py-2 text-xs bg-amber-50 dark:bg-amber-900/15 text-amber-700 dark:text-amber-400" style={{ borderLeft: '3px solid #F59E0B' }}>
+                {num.phone_number} — calentando {days}/7 dias
+              </div>
+            )
+          })}
+
+          {/* Incomplete tasks */}
+          {incompleteTasks.slice(0, 5).map(task => (
+            <div key={task.id} className="rounded-lg px-3 py-2 text-xs bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300" style={{ borderLeft: '3px solid #6366F1' }}>
+              {task.title}
+            </div>
+          ))}
+
+          {pendingAlerts.length === 0 && warmingNumbers.length === 0 && incompleteTasks.length === 0 && (
+            <div className="flex items-center gap-2 py-6 justify-center text-slate-400">
+              <CheckCircle2 size={16} className="text-emerald-500" />
+              <p className="text-xs">Todo en orden</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -418,96 +598,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ═══════════════════ ROW 3 — Activos Meta full width ═══════════════════ */}
-      {(() => {
-        const bmGroups: Record<string, typeof metrics.waAccounts.list> = {}
-        for (const acc of metrics.waAccounts.list) {
-          const key = acc.bm_id ?? '__none__'
-          if (!bmGroups[key]) bmGroups[key] = []
-          bmGroups[key].push(acc)
-        }
-
-        return (
-          <div className="card-base p-5">
-            <SectionLabel icon={Smartphone}>Activos Meta — Business Managers</SectionLabel>
-
-            {Object.keys(bmGroups).length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6 mt-3">Sin cuentas WA registradas</p>
-            ) : (
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
-                {Object.entries(bmGroups).map(([bmKey, accounts]) => {
-                  const isNoBm = bmKey === '__none__'
-                  const manyChatConnected = accounts.some(a => a.manychat_name)
-                  return (
-                    <div key={bmKey} className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">BM</p>
-                          <Num className="text-xs text-slate-700 dark:text-slate-200 truncate">
-                            {isNoBm ? 'Sin BM asignado' : bmKey.slice(0, 14) + (bmKey.length > 14 ? '...' : '')}
-                          </Num>
-                        </div>
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${manyChatConnected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500'}`}>
-                          MC
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1.5">
-                        {accounts.map(acc => (
-                          <div key={acc.id} className="relative group" title={`${acc.phone_number} · ${acc.status}`}>
-                            <div className="h-5 w-5 rounded" style={{ backgroundColor: (STATUS_COLOR[acc.status] ?? '#94A3B8') + '30', border: `2px solid ${STATUS_COLOR[acc.status] ?? '#94A3B8'}` }} />
-                          </div>
-                        ))}
-                        {Array.from({ length: Math.max(0, 5 - accounts.length) }).map((_, i) => (
-                          <div key={`empty-${i}`} className="h-5 w-5 rounded border-2 border-dashed border-slate-200 dark:border-slate-600" />
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1 text-center">
-                        {[
-                          { label: 'Listas', value: accounts.filter(a => a.status === 'ready').length, color: '#22C55E' },
-                          { label: 'Calentando', value: accounts.filter(a => a.status === 'warming').length, color: '#F59E0B' },
-                          { label: 'Baneadas', value: accounts.filter(a => a.status === 'banned').length, color: '#E8816D' },
-                        ].map(s => (
-                          <div key={s.label}>
-                            <Num className="text-base" style={{ color: s.color }}>{s.value}</Num>
-                            <p className="text-[9px] uppercase tracking-wider text-slate-400">{s.label}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {accounts.some(a => a.manychat_name) && (
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-                          {accounts.filter(a => a.manychat_name).map(a => (
-                            <div key={a.id} className="flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-green-400 flex-shrink-0" />
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{a.manychat_name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
-              {[
-                { color: '#22C55E', label: 'Lista' },
-                { color: '#F59E0B', label: 'Calentando' },
-                { color: '#E8816D', label: 'Baneada' },
-              ].map(l => (
-                <div key={l.label} className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 rounded" style={{ backgroundColor: l.color + '30', border: `2px solid ${l.color}` }} />
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">{l.label}</span>
-                </div>
-              ))}
-              <span className="text-[10px] text-slate-400 ml-2">· MC = ManyChat conectado</span>
-            </div>
-          </div>
-        )
-      })()}
+      {/* ═══════════════════ ROW 3 — Weekly Calendar + Alerts ═══════════════════ */}
+      <WeeklyCalendarSection alerts={metrics.alerts} waAccounts={metrics.waAccounts} />
     </div>
   )
 }
