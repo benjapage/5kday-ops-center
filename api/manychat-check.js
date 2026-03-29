@@ -50,8 +50,9 @@ function analyzeStatus(mcStatus) {
     raw: { page, waChannelData },
   }
 
-  // Signal 1: Page status not active
-  if (page.status && page.status !== 'active') {
+  // Signal 1: Page status explicitly deactivated (empty/missing = ignore)
+  const DEACTIVATED_STATUSES = ['deactivated', 'disconnected', 'disabled', 'inactive', 'banned', 'suspended']
+  if (page.status && DEACTIVATED_STATUSES.includes(page.status.toLowerCase())) {
     result.deactivationSignals.push(`page.status="${page.status}"`)
   }
 
@@ -87,15 +88,16 @@ function analyzeStatus(mcStatus) {
   }
 
   // Determine overall: is the WhatsApp channel working?
-  // If we have explicit WA channel info, use that
-  // Otherwise fall back to page status
+  // CRITICAL: If we can't determine status → assume HEALTHY (no action)
+  // Only mark unhealthy when we have EXPLICIT deactivation signals
   if (result.waChannelActive === false) {
     result.isHealthy = false
-  } else if (result.waChannelActive === true) {
-    result.isHealthy = true
+  } else if (result.deactivationSignals.length > 0) {
+    // We found explicit deactivation signals but couldn't confirm WA specifically
+    result.isHealthy = false
   } else {
-    // Can't determine WA specifically, use page status
-    result.isHealthy = page.status === 'active'
+    // Unknown, empty, or no signal → assume healthy, DO NOT BAN
+    result.isHealthy = true
   }
 
   return result
