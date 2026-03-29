@@ -25,6 +25,7 @@ export default function Settings() {
   const [members, setMembers] = useState<any[]>([])
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' })
   const [changingPassword, setChangingPassword] = useState(false)
+  const [welcomeEnabled, setWelcomeEnabled] = useState(localStorage.getItem('5kday-welcome-disabled') !== 'true')
 
   useEffect(() => {
     if (!isLoading) setInputValue(String(monthlyTarget))
@@ -264,6 +265,29 @@ export default function Settings() {
                 </div>
               </button>
             ))}
+          </div>
+
+          {/* Welcome animation toggle */}
+          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
+            <div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Animacion de bienvenida</p>
+              <p className="text-xs text-slate-400">Pantalla animada al abrir la app</p>
+            </div>
+            <button
+              onClick={() => {
+                const current = localStorage.getItem('5kday-welcome-disabled') === 'true'
+                localStorage.setItem('5kday-welcome-disabled', current ? 'false' : 'true')
+                toast.success(current ? 'Animacion activada' : 'Animacion desactivada')
+                setWelcomeEnabled(current)
+              }}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                welcomeEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                welcomeEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
           </div>
         </CardContent>
       </Card>

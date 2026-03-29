@@ -1,10 +1,30 @@
+import { useState, useCallback } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { WelcomeScreen } from './WelcomeScreen'
 import { Toaster } from '@/components/ui/sonner'
+import { useAuth } from '@/contexts/AuthContext'
+
+const WELCOME_KEY = '5kday-welcome-shown'
 
 export function AppShell() {
+  const { profile, user } = useAuth()
+
+  const welcomeDisabled = localStorage.getItem('5kday-welcome-disabled') === 'true'
+  const alreadyShown = sessionStorage.getItem(WELCOME_KEY) === 'true'
+
+  const [showWelcome, setShowWelcome] = useState(!welcomeDisabled && !alreadyShown)
+
+  const handleWelcomeComplete = useCallback(() => {
+    sessionStorage.setItem(WELCOME_KEY, 'true')
+    setShowWelcome(false)
+  }, [])
+
+  const firstName = profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'crack'
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0a0f1a]">
+      {showWelcome && <WelcomeScreen name={firstName} onComplete={handleWelcomeComplete} />}
       <Sidebar />
       <main
         className="min-h-screen transition-all duration-300 pt-14 md:pt-0 md:ml-[68px]"
