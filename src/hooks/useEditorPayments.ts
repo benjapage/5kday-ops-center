@@ -59,7 +59,7 @@ export function useEditorPayments() {
   const fetchWeek = useCallback(async (ws: string) => {
     setIsLoading(true)
     try {
-      const res = await fetch(`/api/editor-payments?action=calculate&week_start=${ws}`)
+      const res = await fetch(`/api/drive-offer-sync?action=ep-calculate&week_start=${ws}`)
       if (res.ok) {
         const data = await res.json()
         setEditors(data.editors || [])
@@ -94,7 +94,7 @@ export function useEditorPayments() {
     const payments = editors
       .filter(e => e.payment)
       .map(e => e.payment!)
-    const res = await fetch('/api/editor-payments?action=save', {
+    const res = await fetch('/api/drive-offer-sync?action=ep-save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payments }),
@@ -108,7 +108,7 @@ export function useEditorPayments() {
   }
 
   async function markPaid() {
-    const res = await fetch('/api/editor-payments?action=mark-paid', {
+    const res = await fetch('/api/drive-offer-sync?action=ep-mark-paid', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ week_start: weekStart }),
@@ -141,7 +141,7 @@ export function useEditorConfig() {
 
   const fetch_ = useCallback(async () => {
     try {
-      const res = await fetch('/api/editor-payments?action=editors')
+      const res = await fetch('/api/drive-offer-sync?action=ep-editors')
       if (res.ok) {
         const data = await res.json()
         setEditors(data.editors || [])
@@ -153,7 +153,7 @@ export function useEditorConfig() {
   useEffect(() => { fetch_() }, [fetch_])
 
   async function updateEditor(id: string, updates: Partial<Editor>) {
-    const res = await fetch('/api/editor-payments?action=update-editor', {
+    const res = await fetch('/api/drive-offer-sync?action=ep-update-editor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...updates }),
@@ -164,7 +164,7 @@ export function useEditorConfig() {
   }
 
   async function addEditor(name: string) {
-    const res = await fetch('/api/editor-payments?action=add-editor', {
+    const res = await fetch('/api/drive-offer-sync?action=ep-add-editor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),

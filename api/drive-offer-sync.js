@@ -371,11 +371,23 @@ async function handleDashboardSummary(supabase) {
   }
 }
 
+// ─── Editor payments handler (shared file to stay within Vercel 12-function limit) ───
+const editorPaymentsHandler = require('./_lib/editor-payments')
+
 // ─── HANDLER ───
 module.exports = async function handler(req, res) {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
     const action = req.query?.action || 'status'
+
+    // Route editor-payment actions to the sub-handler
+    const epActions = ['ep-calculate', 'ep-save', 'ep-mark-paid', 'ep-editors', 'ep-update-editor', 'ep-add-editor']
+    if (epActions.includes(action)) {
+      // Strip 'ep-' prefix and forward
+      req.query.action = action.slice(3)
+      return editorPaymentsHandler(req, res)
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
     // Actions that don't need Drive token
     if (action === 'link' && req.method === 'POST') {
