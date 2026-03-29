@@ -1,12 +1,13 @@
 // api/manychat-check.js — Check ManyChat account status for ban detection
-// GET /api/manychat-check — called hourly via Vercel Cron
-// For each WA account with a manychat_api_key, queries ManyChat API
-// and marks account as banned if status != "Connected"
+// GET /api/manychat-check — called daily via Vercel Cron
+// Smart ban detection: only marks as banned after 3 consecutive failed checks
+// API errors or single failures are logged but do NOT trigger bans
 
 const { createClient } = require('@supabase/supabase-js')
 
+const CONSECUTIVE_FAILURES_TO_BAN = 3
+
 async function getManyChatStatus(apiKey) {
-  // ManyChat API: GET /fb/page/getInfo
   const res = await fetch('https://api.manychat.com/fb/page/getInfo', {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -73,7 +74,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, accounts: all })
     }
 
-    // Get all WA accounts that have a ManyChat API key and are not already banned
+    // --- Normal cron check ---
     const { data: accounts, error: fetchErr } = await supabase
       .from('wa_accounts')
       .select('id, phone_number, manychat_name, manychat_api_key, status')
@@ -84,69 +85,96 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: fetchErr.message })
     }
 
-    const results = { checked: 0, banned: 0, errors: [], details: [] }
+    const results = { checked: 0, banned: 0, restored: 0, flagged: 0, errors: [], details: [] }
 
     for (const account of (accounts || [])) {
+      let mcData, pageData, pageStatus, pageName
+
       try {
-        const mcData = await getManyChatStatus(account.manychat_api_key)
-        results.checked++
+        mcData = await getManyChatStatus(account.manychat_api_key)
+      } catch (err) {
+        // API errors NEVER trigger bans — just log and skip
+        results.errors.push({ phone: account.phone_number, error: err.message })
+        continue
+      }
 
-        // ManyChat returns data.status for the page/account status
-        // The status field can be: "active", "inactive", etc.
-        // We also check data.data.status or nested fields
-        const pageData = mcData.data || mcData
-        const pageStatus = pageData.status || ''
-        const pageName = pageData.name || account.manychat_name || 'Unknown'
+      results.checked++
 
-        // Determine if connected - ManyChat uses "active" for connected accounts
-        const isConnected = pageStatus === 'active'
+      pageData = mcData.data || mcData
+      pageStatus = pageData.status || ''
+      pageName = pageData.name || account.manychat_name || 'Unknown'
 
-        const detail = {
-          phone: account.phone_number,
-          name: pageName,
-          mcStatus: pageStatus,
-          wasStatus: account.status,
-          action: 'none',
-        }
+      const isConnected = pageStatus === 'active'
 
-        // AUTO-BAN DISABLED — only log, do NOT change status automatically.
-        // Re-enable after reviewing ManyChat status mapping with Benja.
-        if (!isConnected && account.status !== 'banned') {
-          // Log the detection but do NOT update status
-          await supabase.from('meta_ban_events').insert({
-            wa_account_id: account.id,
-            phone_number: account.phone_number,
-            source: 'polling',
-            quality_score: pageStatus || 'disconnected',
-            details: { source: 'manychat', page_name: pageName, mc_status: pageStatus, raw: pageData, auto_ban: false },
-          })
+      const detail = {
+        phone: account.phone_number,
+        name: pageName,
+        mcStatus: pageStatus,
+        wasStatus: account.status,
+        action: 'none',
+      }
 
-          detail.action = 'FLAGGED_NOT_BANNED'
-          results.banned++
-        }
+      if (!isConnected && account.status !== 'banned') {
+        // Log this failed check
+        await supabase.from('meta_ban_events').insert({
+          wa_account_id: account.id,
+          phone_number: account.phone_number,
+          source: 'polling',
+          quality_score: pageStatus || 'disconnected',
+          details: { source: 'manychat', page_name: pageName, mc_status: pageStatus, raw: pageData },
+        })
 
-        // If connected and currently banned, restore to ready
-        if (isConnected && account.status === 'banned') {
+        // Count consecutive recent failures for this account (last 7 days)
+        const since = new Date(Date.now() - 7 * 86400000).toISOString()
+        const { count } = await supabase
+          .from('meta_ban_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('wa_account_id', account.id)
+          .gte('detected_at', since)
+
+        const consecutiveFailures = (count || 0)
+
+        if (consecutiveFailures >= CONSECUTIVE_FAILURES_TO_BAN) {
+          // 3+ consecutive failures = real ban, update status
           await supabase
             .from('wa_accounts')
-            .update({ status: 'ready', updated_at: new Date().toISOString() })
+            .update({ status: 'banned', updated_at: new Date().toISOString() })
             .eq('id', account.id)
 
-          detail.action = 'RESTORED'
+          detail.action = 'BANNED'
+          detail.consecutiveFailures = consecutiveFailures
+          results.banned++
+        } else {
+          // Not enough failures yet — flag only
+          detail.action = 'FLAGGED'
+          detail.consecutiveFailures = consecutiveFailures
+          results.flagged++
         }
-
-        results.details.push(detail)
-      } catch (err) {
-        results.errors.push({ phone: account.phone_number, error: err.message })
       }
+
+      // If connected and currently banned, restore
+      if (isConnected && account.status === 'banned') {
+        await supabase
+          .from('wa_accounts')
+          .update({ status: 'ready', updated_at: new Date().toISOString() })
+          .eq('id', account.id)
+
+        // Clear old ban events so counter resets
+        await supabase
+          .from('meta_ban_events')
+          .delete()
+          .eq('wa_account_id', account.id)
+
+        detail.action = 'RESTORED'
+        results.restored++
+      }
+
+      results.details.push(detail)
     }
 
     console.log('[manychat-check] Results:', JSON.stringify(results))
 
-    return res.status(200).json({
-      ok: true,
-      ...results,
-    })
+    return res.status(200).json({ ok: true, ...results })
   } catch (err) {
     console.error('[manychat-check] Error:', err)
     return res.status(500).json({ error: err.message })
