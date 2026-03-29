@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck, Loader2, Wifi } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -15,6 +15,7 @@ import { AddWaAccountDialog } from './AddWaAccountDialog'
 import { EditWaAccountDialog } from './EditWaAccountDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useWaAccounts } from '@/hooks/useWaAccounts'
+import { useWaBanCheck } from '@/hooks/useWaBanCheck'
 import { useAuth } from '@/contexts/AuthContext'
 import { COUNTRIES } from '@/lib/constants'
 import { formatDate } from '@/lib/formatters'
@@ -25,7 +26,8 @@ type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
 type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
 
 export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string> } = {}) {
-  const { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove } = useWaAccounts()
+  const { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove, refresh } = useWaAccounts()
+  const { isChecking, lastCheck, runCheck, flaggedNumbers, newlyBanned } = useWaBanCheck()
   const { profile } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
   const [editAccount, setEditAccount] = useState<WaAccount | null>(null)
@@ -96,18 +98,65 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
             </button>
           ))}
         </div>
-        {canWrite && (
+        <div className="flex items-center gap-2">
           <Button
+            variant="outline"
             size="sm"
-            className="text-white gap-1.5"
-            style={{ backgroundColor: '#10B981' }}
-            onClick={() => setAddOpen(true)}
+            className="gap-1.5 text-xs"
+            onClick={() => runCheck(true).then(() => refresh())}
+            disabled={isChecking}
           >
-            <Plus size={15} />
-            Agregar cuenta
+            {isChecking ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />}
+            {isChecking ? 'Verificando...' : 'Verificar numeros'}
           </Button>
-        )}
+          {lastCheck && <span className="text-[10px] text-slate-400">Ultimo: {lastCheck}</span>}
+          {canWrite && (
+            <Button
+              size="sm"
+              className="text-white gap-1.5"
+              style={{ backgroundColor: '#10B981' }}
+              onClick={() => setAddOpen(true)}
+            >
+              <Plus size={15} />
+              Agregar cuenta
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Auto-ban alerts */}
+      {newlyBanned.length > 0 && (
+        <div className="rounded-lg border-2 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 animate-pulse">
+          <div className="flex items-start gap-2">
+            <ShieldAlert size={18} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-700 dark:text-red-300">Numeros baneados detectados automaticamente</p>
+              {newlyBanned.map(n => (
+                <p key={n.phone} className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                  {n.phone} ({n.name}) — ManyChat status: {n.mcStatus || 'disconnected'}
+                </p>
+              ))}
+              <p className="text-xs text-red-500 mt-1">Se creo tarea urgente y alerta automaticamente.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {flaggedNumbers.length > 0 && newlyBanned.length === 0 && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+          <div className="flex items-start gap-2">
+            <ShieldAlert size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Numeros con problemas de conexion</p>
+              {flaggedNumbers.map(n => (
+                <p key={n.phone} className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                  {n.phone} — ManyChat: {n.mcStatus || 'disconnected'} (fallo {n.consecutiveFailures ?? 1}/2, se banea automaticamente al siguiente)
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm overflow-x-auto">
