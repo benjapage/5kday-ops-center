@@ -89,6 +89,67 @@ export function useWaAccounts() {
     return { error: null }
   }
 
+  async function reportBan(id: string): Promise<{ error: string | null }> {
+    const account = accounts.find(a => a.id === id)
+    if (!account) return { error: 'Cuenta no encontrada' }
+    if (account.status === 'banned') return { error: 'Ya está marcada como baneada' }
+
+    // 1. Update status
+    const { error } = await supabase
+      .from('wa_accounts')
+      .update({ status: 'banned', updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return { error: error.message }
+
+    // 2. Log ban event
+    await supabase.from('meta_ban_events').insert({
+      wa_account_id: id,
+      phone_number: account.phone_number,
+      source: 'manual',
+      quality_score: 'reported',
+      details: { source: 'manual_report', previous_status: account.status },
+    })
+
+    // 3. Create urgent task
+    const today = new Date().toISOString().split('T')[0]
+    await supabase.from('app_tasks').insert({
+      title: `URGENTE: Numero ${account.phone_number} baneado — reemplazar`,
+      scheduled_date: today,
+      scheduled_time: '08:00',
+      source: 'system_wa_ban',
+      is_urgent: true,
+      related_number_id: id,
+    })
+
+    await logAction('wa_account.ban_reported', 'wa_account', id, {
+      phone: account.phone_number,
+      previous_status: account.status,
+    })
+    await fetchAll()
+    return { error: null }
+  }
+
+  async function restoreFromBan(id: string): Promise<{ error: string | null }> {
+    const account = accounts.find(a => a.id === id)
+    if (!account) return { error: 'Cuenta no encontrada' }
+
+    // Update status back to ready
+    const { error } = await supabase
+      .from('wa_accounts')
+      .update({ status: 'ready', updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return { error: error.message }
+
+    // Clear ban events for this account so cron counter resets
+    await supabase.from('meta_ban_events').delete().eq('wa_account_id', id)
+
+    await logAction('wa_account.restored', 'wa_account', id, {
+      phone: account.phone_number,
+    })
+    await fetchAll()
+    return { error: null }
+  }
+
   async function remove(id: string): Promise<{ error: string | null }> {
     const account = accounts.find(a => a.id === id)
     const { error } = await supabase.from('wa_accounts').delete().eq('id', id)
@@ -99,5 +160,5 @@ export function useWaAccounts() {
     return { error: null }
   }
 
-  return { accounts, isLoading, create, update, setStatus, remove, refresh: fetchAll }
+  return { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove, refresh: fetchAll }
 }

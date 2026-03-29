@@ -5,7 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
-const CONSECUTIVE_FAILURES_TO_BAN = 3
+const CONSECUTIVE_FAILURES_TO_BAN = 2
 
 async function getManyChatStatus(apiKey) {
   const res = await fetch('https://api.manychat.com/fb/page/getInfo', {

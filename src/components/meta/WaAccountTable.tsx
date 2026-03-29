@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone } from 'lucide-react'
+import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -25,7 +25,7 @@ type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
 type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
 
 export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string> } = {}) {
-  const { accounts, isLoading, create, update, setStatus, remove } = useWaAccounts()
+  const { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove } = useWaAccounts()
   const { profile } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
   const [editAccount, setEditAccount] = useState<WaAccount | null>(null)
@@ -121,19 +121,20 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
               <TableHead className="text-xs">BM</TableHead>
               <TableHead className="text-xs">ManyChat</TableHead>
               <TableHead className="text-xs">Inicio</TableHead>
+              <TableHead className="text-xs">Acciones</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-slate-400 text-sm">
+                <TableCell colSpan={9} className="text-center py-8 text-slate-400 text-sm">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8}>
+                <TableCell colSpan={9}>
                   <EmptyState
                     icon={Smartphone}
                     title="Sin cuentas WA"
@@ -186,6 +187,36 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
                   </TableCell>
                   <TableCell className="text-xs text-slate-500">
                     {formatDate(account.start_date)}
+                  </TableCell>
+                  <TableCell>
+                    {canWrite && account.status !== 'banned' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                        onClick={async () => {
+                          const { error } = await reportBan(account.id)
+                          if (error) toast.error(error)
+                          else toast.error(`${account.phone_number} reportado como BANEADO`)
+                        }}
+                      >
+                        <ShieldAlert size={13} /> Reportar baneo
+                      </Button>
+                    )}
+                    {canWrite && account.status === 'banned' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+                        onClick={async () => {
+                          const { error } = await restoreFromBan(account.id)
+                          if (error) toast.error(error)
+                          else toast.success(`${account.phone_number} restaurado como ACTIVO`)
+                        }}
+                      >
+                        <ShieldCheck size={13} /> Marcar activo
+                      </Button>
+                    )}
                   </TableCell>
                   <TableCell>
                     {canWrite && (
