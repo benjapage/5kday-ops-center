@@ -1,0 +1,477 @@
+// api/external/[...path].js — Unified handler for external API + chat + dolar-blue
+// Single serverless function to stay within Vercel 12-function limit
+// External endpoints require OPS_API_KEY; chat/dolar-blue are internal
+
+const { createClient } = require('@supabase/supabase-js')
+const dolarBlueHandler = require('../_lib/dolar-blue')
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function getSupabase() {
+  const url = (process.env.VITE_SUPABASE_URL || '').trim()
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing')
+  return createClient(url, key)
+}
+
+function ok(res, data) {
+  return res.status(200).json({ success: true, data, timestamp: new Date().toISOString() })
+}
+
+function err(res, status, message) {
+  return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() })
+}
+
+function checkAuth(req) {
+  const auth = req.headers.authorization || ''
+  const token = auth.replace(/^Bearer\s+/i, '').trim()
+  return token === (process.env.OPS_API_KEY || '').trim()
+}
+
+// Simple in-memory rate limiter for chat
+const chatLimiter = { counts: {}, reset: 0 }
+function checkChatRate(ip) {
+  const now = Date.now()
+  if (now - chatLimiter.reset > 3600000) { chatLimiter.counts = {}; chatLimiter.reset = now }
+  const key = ip || 'unknown'
+  chatLimiter.counts[key] = (chatLimiter.counts[key] || 0) + 1
+  return chatLimiter.counts[key] <= 20
+}
+
+// ── Route handlers ───────────────────────────────────────────
+
+async function handleDashboard(req, res) {
+  const sb = getSupabase()
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+
+  const [offersRes, waRes, tasksRes, utmifyRes, expMtdRes, alertsRes, settingsRes] = await Promise.all([
+    sb.from('offers').select('id, name, country, channel, status, current_roas, start_date').eq('status', 'active'),
+    sb.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name, country'),
+    sb.from('app_tasks').select('id, title, scheduled_date, scheduled_time, completed, is_urgent, source').eq('scheduled_date', today),
+    sb.from('utmify_sync').select('revenue_cents, spend_cents, profit_cents, campaign_name').eq('date', today),
+    sb.from('expenses').select('amount, currency, category').gte('expense_date', mtdFrom),
+    sb.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
+    sb.from('settings').select('value').eq('id', 'monthly_targets').single(),
+  ])
+
+  const todayUtm = (utmifyRes.data || [])
+  const revenueToday = todayUtm.reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
+  const spendToday = todayUtm.reduce((s, r) => s + (r.spend_cents || 0), 0) / 100
+
+  const waList = waRes.data || []
+  const wa = {
+    total: waList.length,
+    active: waList.filter(w => w.status === 'ready').length,
+    warming: waList.filter(w => w.status === 'warming').length,
+    banned: waList.filter(w => w.status === 'banned').length,
+    list: waList,
+  }
+
+  const alerts = (alertsRes.data || []).map(a => ({
+    type: 'danger',
+    message: `Numero ${a.phone_number} fue baneado`,
+  }))
+
+  const tasks = (tasksRes.data || [])
+  const monthlyTarget = settingsRes.data?.value?.revenue_target || 5000
+
+  return ok(res, {
+    revenueToday, spendToday, profitToday: revenueToday - spendToday,
+    monthlyTarget,
+    activeOffers: (offersRes.data || []).length,
+    offers: offersRes.data || [],
+    waAccounts: wa,
+    todayTasks: { total: tasks.length, completed: tasks.filter(t => t.completed).length, list: tasks },
+    alerts,
+    todayCampaigns: todayUtm.length,
+  })
+}
+
+async function handleOffers(req, res, id) {
+  const sb = getSupabase()
+  if (req.method === 'POST') {
+    const { name, product, country, channel, status, drive_folder_id, notes } = req.body || {}
+    if (!name || !country) return err(res, 400, 'name and country are required')
+    const { data, error } = await sb.from('offers').insert({
+      name, country, channel: channel || 'whatsapp', status: status || 'active',
+      start_date: new Date().toISOString().split('T')[0], notes,
+    }).select().single()
+    if (error) return err(res, 500, error.message)
+    return ok(res, data)
+  }
+  if (req.method === 'PUT' && id) {
+    const { error, data } = await sb.from('offers')
+      .update({ ...req.body, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single()
+    if (error) return err(res, 500, error.message)
+    return ok(res, data)
+  }
+  // GET
+  if (id) {
+    const { data: offer } = await sb.from('offers').select('*').eq('id', id).single()
+    if (!offer) return err(res, 404, 'Offer not found')
+    const { data: creatives } = await sb.from('drive_creatives')
+      .select('*, drive_offer_folders!inner(offer_id)')
+      .eq('drive_offer_folders.offer_id', id)
+    return ok(res, { ...offer, creatives: creatives || [] })
+  }
+  const { data } = await sb.from('offers').select('*').order('created_at', { ascending: false })
+  return ok(res, data || [])
+}
+
+async function handleCreatives(req, res, sub) {
+  const sb = getSupabase()
+  if (sub === 'summary') {
+    const { data } = await sb.from('drive_creatives')
+      .select('creative_type, status, offer_folder_id, drive_offer_folders(offer_id, offers(name))')
+    const items = data || []
+    const byOffer = {}
+    for (const c of items) {
+      const name = c.drive_offer_folders?.offers?.name || 'Sin oferta'
+      if (!byOffer[name]) byOffer[name] = { videos: 0, images: 0, subido: 0, publicado: 0 }
+      if (c.creative_type === 'video') byOffer[name].videos++
+      else byOffer[name].images++
+      byOffer[name][c.status]++
+    }
+    return ok(res, {
+      total: items.length,
+      videos: items.filter(c => c.creative_type === 'video').length,
+      images: items.filter(c => c.creative_type === 'imagen').length,
+      pendientes: items.filter(c => c.status === 'subido').length,
+      publicados: items.filter(c => c.status === 'publicado').length,
+      byOffer,
+    })
+  }
+  const { data } = await sb.from('drive_creatives')
+    .select('*, drive_offer_folders(offer_id, drive_folder_name, offers(name))')
+    .order('detected_at', { ascending: false })
+  return ok(res, data || [])
+}
+
+async function handleWhatsapp(req, res, id) {
+  const sb = getSupabase()
+  if (req.method === 'POST') {
+    const { phone_number, country, status, bm_id, manychat_name, notes } = req.body || {}
+    if (!phone_number || !country) return err(res, 400, 'phone_number and country are required')
+    const { data, error } = await sb.from('wa_accounts').insert({
+      phone_number, country, status: status || 'warming',
+      start_date: new Date().toISOString().split('T')[0],
+      bm_id, manychat_name, notes,
+    }).select().single()
+    if (error) return err(res, 500, error.message)
+    return ok(res, data)
+  }
+  if (req.method === 'PUT' && id) {
+    const { error, data } = await sb.from('wa_accounts')
+      .update({ ...req.body, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single()
+    if (error) return err(res, 500, error.message)
+    return ok(res, data)
+  }
+  const { data } = await sb.from('wa_accounts').select('*').order('status').order('start_date', { ascending: false })
+  return ok(res, data || [])
+}
+
+async function handleEditors(req, res, sub, query) {
+  const sb = getSupabase()
+  if (sub === 'payments') {
+    const week = query.week || new Date().toISOString().split('T')[0]
+    const { data } = await sb.from('editor_payments')
+      .select('*, editors(name)')
+      .lte('week_start', week).gte('week_end', week)
+    return ok(res, data || [])
+  }
+  const { data: editors } = await sb.from('editors').select('*').eq('active', true)
+  const { data: payments } = await sb.from('editor_payments')
+    .select('*, editors(name)')
+    .order('week_start', { ascending: false }).limit(20)
+  return ok(res, { editors: editors || [], recentPayments: payments || [] })
+}
+
+async function handleFinancials(req, res, sub, query) {
+  const sb = getSupabase()
+  const now = new Date()
+
+  if (sub === 'daily') {
+    const from = query.from || new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const to = query.to || now.toISOString().split('T')[0]
+    const { data } = await sb.from('utmify_sync')
+      .select('date, campaign_name, revenue_cents, spend_cents, profit_cents, roas, approved_orders')
+      .gte('date', from).lte('date', to).order('date')
+    // Aggregate by date
+    const byDate = {}
+    for (const r of (data || [])) {
+      if (!byDate[r.date]) byDate[r.date] = { date: r.date, revenue: 0, spend: 0, profit: 0, orders: 0 }
+      byDate[r.date].revenue += (r.revenue_cents || 0) / 100
+      byDate[r.date].spend += (r.spend_cents || 0) / 100
+      byDate[r.date].profit += (r.profit_cents || 0) / 100
+      byDate[r.date].orders += (r.approved_orders || 0)
+    }
+    return ok(res, Object.values(byDate))
+  }
+
+  // period-based financials
+  const period = query.period || 'month'
+  let from, to
+  to = now.toISOString().split('T')[0]
+  if (period === 'today') {
+    from = to
+  } else if (period === 'week') {
+    from = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+  } else if (period === 'custom' && query.from) {
+    from = query.from; to = query.to || to
+  } else {
+    from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  }
+
+  const [utmRes, expRes] = await Promise.all([
+    sb.from('utmify_sync').select('revenue_cents, spend_cents, profit_cents, approved_orders').gte('date', from).lte('date', to),
+    sb.from('expenses').select('amount, currency, category').gte('expense_date', from).lte('expense_date', to),
+  ])
+
+  const utmRows = utmRes.data || []
+  const revenue = utmRows.reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
+  const adSpend = utmRows.reduce((s, r) => s + (r.spend_cents || 0), 0) / 100
+  const orders = utmRows.reduce((s, r) => s + (r.approved_orders || 0), 0)
+
+  const expRows = expRes.data || []
+  const nonAdExpenses = expRows.filter(e => e.category !== 'ad_spend').reduce((s, e) => s + Number(e.amount), 0)
+  const totalExpenses = adSpend + nonAdExpenses
+  const profit = revenue - totalExpenses
+  const roas = adSpend > 0 ? revenue / adSpend : null
+
+  return ok(res, {
+    period, from, to, revenue, adSpend, totalExpenses, nonAdExpenses, profit, roas, orders,
+    expenseBreakdown: {
+      ad_spend: adSpend,
+      tools_software: expRows.filter(e => e.category === 'tools_software').reduce((s, e) => s + Number(e.amount), 0),
+      platform_fees: expRows.filter(e => e.category === 'platform_fees').reduce((s, e) => s + Number(e.amount), 0),
+      team_salaries: expRows.filter(e => e.category === 'team_salaries').reduce((s, e) => s + Number(e.amount), 0),
+      creative_production: expRows.filter(e => e.category === 'creative_production').reduce((s, e) => s + Number(e.amount), 0),
+      other: expRows.filter(e => e.category === 'other').reduce((s, e) => s + Number(e.amount), 0),
+    },
+  })
+}
+
+async function handleUtmify(req, res, sub, query) {
+  const sb = getSupabase()
+
+  if (sub === 'import' && req.method === 'POST') {
+    const campaigns = req.body?.campaigns || req.body
+    if (!Array.isArray(campaigns) || campaigns.length === 0) return err(res, 400, 'campaigns array is required')
+    const rows = campaigns.map(c => ({
+      date: c.date, campaign_id: c.campaign_id || c.campaignId,
+      campaign_name: c.campaign_name || c.campaignName || 'Unknown',
+      ad_account_id: c.ad_account_id, ad_account_name: c.ad_account_name,
+      revenue_cents: c.revenue_cents ?? Math.round((c.revenue || 0) * 100),
+      spend_cents: c.spend_cents ?? Math.round((c.spend || 0) * 100),
+      profit_cents: c.profit_cents ?? Math.round((c.profit || 0) * 100),
+      roas: c.roas, profit_margin: c.profit_margin,
+      approved_orders: c.approved_orders || c.orders || 0,
+      total_orders: c.total_orders || 0,
+      impressions: c.impressions || 0, clicks: c.clicks || 0,
+      ctr: c.ctr, hook_rate: c.hook_rate, status: c.status,
+      synced_at: new Date().toISOString(),
+    }))
+    const { data, error } = await sb.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' }).select()
+    if (error) return err(res, 500, error.message)
+    return ok(res, { imported: (data || []).length })
+  }
+
+  // GET campaigns
+  const now = new Date()
+  const dateParam = query.date || 'today'
+  let from, to
+  to = now.toISOString().split('T')[0]
+  if (dateParam === 'today') { from = to }
+  else if (dateParam === 'week') { from = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] }
+  else if (dateParam === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] }
+  else { from = query.from || dateParam; to = query.to || to }
+
+  const { data } = await sb.from('utmify_sync').select('*').gte('date', from).lte('date', to).order('date', { ascending: false })
+  return ok(res, data || [])
+}
+
+async function handleTasks(req, res) {
+  const sb = getSupabase()
+  if (req.method === 'POST') {
+    const { title, scheduled_date, scheduled_time, source, is_urgent, related_offer_id, related_number_id } = req.body || {}
+    if (!title || !scheduled_date) return err(res, 400, 'title and scheduled_date are required')
+    const { data, error } = await sb.from('app_tasks').insert({
+      title, scheduled_date, scheduled_time: scheduled_time || null,
+      source: source || 'external', is_urgent: is_urgent || false,
+      related_offer_id: related_offer_id || null,
+      related_number_id: related_number_id || null,
+    }).select().single()
+    if (error) return err(res, 500, error.message)
+    return ok(res, data)
+  }
+  return err(res, 405, 'POST only')
+}
+
+async function handleChat(req, res) {
+  if (req.method !== 'POST') return err(res, 405, 'POST only')
+
+  const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'local'
+  if (!checkChatRate(ip)) return err(res, 429, 'Rate limit exceeded (20/hour)')
+
+  const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim()
+  if (!apiKey) return err(res, 500, 'ANTHROPIC_API_KEY not configured')
+
+  const { messages } = req.body || {}
+  if (!messages || !Array.isArray(messages)) return err(res, 400, 'messages array is required')
+
+  // Gather business context from Supabase
+  const sb = getSupabase()
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+
+  const [offersRes, waRes, utmTodayRes, utmMtdRes, tasksRes, editorsRes] = await Promise.all([
+    sb.from('offers').select('name, country, channel, status, current_roas').eq('status', 'active'),
+    sb.from('wa_accounts').select('phone_number, status, start_date, manychat_name, country'),
+    sb.from('utmify_sync').select('campaign_name, revenue_cents, spend_cents, profit_cents, roas, approved_orders, impressions, clicks, hook_rate').eq('date', today),
+    sb.from('utmify_sync').select('revenue_cents, spend_cents, profit_cents, approved_orders').gte('date', mtdFrom),
+    sb.from('app_tasks').select('title, completed, is_urgent').eq('scheduled_date', today),
+    sb.from('editors').select('name, active'),
+  ])
+
+  const utmToday = utmTodayRes.data || []
+  const utmMtd = utmMtdRes.data || []
+  const revToday = utmToday.reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
+  const spendToday = utmToday.reduce((s, r) => s + (r.spend_cents || 0), 0) / 100
+  const revMtd = utmMtd.reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
+  const spendMtd = utmMtd.reduce((s, r) => s + (r.spend_cents || 0), 0) / 100
+
+  const systemPrompt = `Sos el asistente de analisis de Benjamin en el 5KDay Ops Center.
+Tenes acceso a los datos en tiempo real del negocio.
+Negocio de infoproductos low ticket ($14.99 USD) via Shopify y WhatsApp.
+Meta Ads como plataforma principal. Objetivo: $5,000 USD/dia.
+ROAS objetivo: >1.5x, CPA objetivo: <$15, Hook rate objetivo: >40%, Margen objetivo: >30%
+Anuncio GANADOR: spend > $100 con ROAS > 1.0x
+Anuncio para MATAR: spend > $50 con 0 ventas
+Responde siempre en espanol. Se directo y practico.
+
+DATOS ACTUALES DEL NEGOCIO:
+
+OFERTAS ACTIVAS:
+${(offersRes.data || []).map(o => `- ${o.name} (${o.country}, ${o.channel}, ROAS: ${o.current_roas ?? 'N/A'})`).join('\n') || 'Sin ofertas activas'}
+
+NUMEROS WHATSAPP:
+${(waRes.data || []).map(w => `- ${w.phone_number} [${w.status}] ${w.manychat_name || ''} (${w.country || ''})`).join('\n') || 'Sin numeros'}
+
+METRICAS HOY (${today}):
+- Revenue: $${revToday.toFixed(2)}
+- Spend: $${spendToday.toFixed(2)}
+- Profit: $${(revToday - spendToday).toFixed(2)}
+- ROAS: ${spendToday > 0 ? (revToday / spendToday).toFixed(2) + 'x' : 'N/A'}
+
+METRICAS MES:
+- Revenue MTD: $${revMtd.toFixed(2)}
+- Spend MTD: $${spendMtd.toFixed(2)}
+- Profit MTD: $${(revMtd - spendMtd).toFixed(2)}
+- ROAS MTD: ${spendMtd > 0 ? (revMtd / spendMtd).toFixed(2) + 'x' : 'N/A'}
+
+CAMPANAS HOY:
+${utmToday.map(c => `- ${c.campaign_name}: Rev $${((c.revenue_cents||0)/100).toFixed(2)}, Spend $${((c.spend_cents||0)/100).toFixed(2)}, ROAS ${c.roas || 'N/A'}, Orders ${c.approved_orders || 0}, Hook ${c.hook_rate ? (c.hook_rate * 100).toFixed(1) + '%' : 'N/A'}`).join('\n') || 'Sin datos de campanas hoy'}
+
+TAREAS HOY:
+${(tasksRes.data || []).map(t => `- [${t.completed ? 'DONE' : t.is_urgent ? 'URGENTE' : 'TODO'}] ${t.title}`).join('\n') || 'Sin tareas'}
+
+EDITORES: ${(editorsRes.data || []).filter(e => e.active).map(e => e.name).join(', ') || 'N/A'}`
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages,
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      console.error('[chat] Anthropic error:', text)
+      return err(res, 502, `Anthropic API error: ${response.status}`)
+    }
+
+    const result = await response.json()
+    return ok(res, {
+      content: result.content?.[0]?.text || '',
+      usage: result.usage,
+    })
+  } catch (e) {
+    console.error('[chat] Error:', e)
+    return err(res, 500, e.message)
+  }
+}
+
+function handleDocs(req, res) {
+  return ok(res, {
+    name: '5KDay Ops Center API',
+    version: '1.0',
+    auth: 'Bearer token via Authorization header (OPS_API_KEY)',
+    endpoints: {
+      'GET /api/external/dashboard': 'Full dashboard snapshot: revenue, profit, WA accounts, tasks, alerts',
+      'GET /api/external/offers': 'All offers with status and metrics',
+      'GET /api/external/offers/:id': 'Single offer with linked creatives',
+      'POST /api/external/offers': 'Create offer. Body: { name, country, channel?, status?, notes? }',
+      'PUT /api/external/offers/:id': 'Update offer fields',
+      'GET /api/external/creatives': 'All creatives from Drive, grouped by offer',
+      'GET /api/external/creatives/summary': 'Creative counts by offer, pending vs published',
+      'GET /api/external/whatsapp': 'All WA numbers with status and warming info',
+      'POST /api/external/whatsapp': 'Add WA number. Body: { phone_number, country, status?, bm_id? }',
+      'PUT /api/external/whatsapp/:id': 'Update WA number status/info',
+      'GET /api/external/editors': 'Editors and recent payment history',
+      'GET /api/external/editors/payments?week=YYYY-MM-DD': 'Payment details for a specific week',
+      'GET /api/external/financials?period=today|week|month|custom&from=X&to=Y': 'Financial summary for period',
+      'GET /api/external/financials/daily?from=X&to=Y': 'Daily financial breakdown',
+      'GET /api/external/utmify/campaigns?date=today|week|month': 'UTMify campaign data',
+      'POST /api/external/utmify/import': 'Import UTMify data. Body: { campaigns: [...] }',
+      'POST /api/external/tasks': 'Create task. Body: { title, scheduled_date, scheduled_time?, is_urgent? }',
+      'GET /api/external/docs': 'This documentation',
+    },
+  })
+}
+
+// ── Main router ──────────────────────────────────────────────
+
+module.exports = async function handler(req, res) {
+  try {
+    const pathParts = req.query.path || []
+    const route = pathParts[0] || ''
+    const sub = pathParts[1] || null
+
+    // Internal routes (no OPS_API_KEY needed)
+    if (route === 'chat') return handleChat(req, res)
+    if (route === 'internal' && sub === 'dolar-blue') return dolarBlueHandler(req, res)
+
+    // External routes — require API key
+    if (!checkAuth(req)) return err(res, 401, 'Invalid or missing API key. Use: Authorization: Bearer <OPS_API_KEY>')
+
+    switch (route) {
+      case 'docs': return handleDocs(req, res)
+      case 'dashboard': return handleDashboard(req, res)
+      case 'offers': return handleOffers(req, res, sub)
+      case 'creatives': return handleCreatives(req, res, sub)
+      case 'whatsapp': return handleWhatsapp(req, res, sub)
+      case 'editors': return handleEditors(req, res, sub, req.query)
+      case 'financials': return handleFinancials(req, res, sub, req.query)
+      case 'utmify': return handleUtmify(req, res, sub, req.query)
+      case 'tasks': return handleTasks(req, res)
+      default: return err(res, 404, `Unknown route: /api/external/${pathParts.join('/')}. Try GET /api/external/docs`)
+    }
+  } catch (e) {
+    console.error('[external] Error:', e)
+    return err(res, 500, e.message)
+  }
+}

@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
   Menu,
   X,
+  Bot,
 } from 'lucide-react'
 import { Logo } from './Logo'
 import { NavItem } from './NavItem'
@@ -32,7 +33,7 @@ const NAV_ITEMS = [
   { to: '/settings', label: 'Configuración', Icon: Settings2 },
 ]
 
-export function Sidebar() {
+export function Sidebar({ onChatToggle }: { onChatToggle?: () => void }) {
   const { profile, user, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(true)
@@ -122,6 +123,24 @@ export function Sidebar() {
             />
           ))}
         </nav>
+
+        {/* Chat button */}
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => { onChatToggle?.(); setMobileOpen(false) }}
+            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all
+              text-slate-300 hover:text-white hover:bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40
+              ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+          >
+            <Bot size={18} style={{ color: '#10B981' }} className="flex-shrink-0" />
+            {(!collapsed || mobileOpen) && (
+              <span className="text-xs font-medium md:hidden">Asistente AI</span>
+            )}
+            {!collapsed && (
+              <span className="text-xs font-medium hidden md:inline">Asistente AI</span>
+            )}
+          </button>
+        </div>
 
         {/* User section */}
         <div className="border-t border-white/10 p-4">

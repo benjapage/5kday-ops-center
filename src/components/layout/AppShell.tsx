@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { WelcomeScreen } from './WelcomeScreen'
+import { ChatPanel } from '@/components/chat/ChatPanel'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -14,6 +15,7 @@ export function AppShell() {
   const alreadyShown = sessionStorage.getItem(WELCOME_KEY) === 'true'
 
   const [showWelcome, setShowWelcome] = useState(!welcomeDisabled && !alreadyShown)
+  const [chatOpen, setChatOpen] = useState(false)
 
   const handleWelcomeComplete = useCallback(() => {
     sessionStorage.setItem(WELCOME_KEY, 'true')
@@ -25,7 +27,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0a0f1a]">
       {showWelcome && <WelcomeScreen name={firstName} onComplete={handleWelcomeComplete} />}
-      <Sidebar />
+      <Sidebar onChatToggle={() => setChatOpen(prev => !prev)} />
       <main
         className="min-h-screen transition-all duration-300 pt-14 md:pt-0 md:ml-[68px]"
         role="main"
@@ -35,6 +37,7 @@ export function AppShell() {
           <Outlet />
         </div>
       </main>
+      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} userName={firstName} />
       <Toaster richColors position="top-right" />
     </div>
   )

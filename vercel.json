@@ -3,6 +3,8 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
+    { "source": "/api/chat", "destination": "/api/external/chat" },
+    { "source": "/api/dolar-blue", "destination": "/api/external/internal/dolar-blue" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
