@@ -64,13 +64,13 @@ export default function Integrations() {
   async function syncDrive() {
     setSyncing(true)
     try {
-      const res = await fetch('/api/google-drive-sync')
+      const res = await fetch('/api/drive-offer-sync?action=sync-all')
       const data = await res.json()
       if (!res.ok) {
         toast.error(data.error || 'Error al sincronizar')
         return
       }
-      toast.success(`Sincronizado: ${data.synced.anuncios} creativos, ${data.synced.ofertas} archivos de ofertas`)
+      toast.success(`Sincronizado: ${data.synced ?? 0} ofertas, ${data.total_detected ?? 0} archivos detectados`)
       refreshFiles()
     } catch (err: any) {
       toast.error(err.message || 'Error de red')
