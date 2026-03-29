@@ -5,8 +5,6 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
-const CONSECUTIVE_FAILURES_TO_BAN = 2
-
 async function getManyChatStatus(apiKey) {
   const res = await fetch('https://api.manychat.com/fb/page/getInfo', {
     headers: {
@@ -115,7 +113,7 @@ module.exports = async function handler(req, res) {
       }
 
       if (!isConnected && account.status !== 'banned') {
-        // Log this failed check
+        // Log detection — NEVER auto-ban, only flag for user to confirm
         await supabase.from('meta_ban_events').insert({
           wa_account_id: account.id,
           phone_number: account.phone_number,
@@ -124,32 +122,8 @@ module.exports = async function handler(req, res) {
           details: { source: 'manychat', page_name: pageName, mc_status: pageStatus, raw: pageData },
         })
 
-        // Count consecutive recent failures for this account (last 7 days)
-        const since = new Date(Date.now() - 7 * 86400000).toISOString()
-        const { count } = await supabase
-          .from('meta_ban_events')
-          .select('id', { count: 'exact', head: true })
-          .eq('wa_account_id', account.id)
-          .gte('detected_at', since)
-
-        const consecutiveFailures = (count || 0)
-
-        if (consecutiveFailures >= CONSECUTIVE_FAILURES_TO_BAN) {
-          // 3+ consecutive failures = real ban, update status
-          await supabase
-            .from('wa_accounts')
-            .update({ status: 'banned', updated_at: new Date().toISOString() })
-            .eq('id', account.id)
-
-          detail.action = 'BANNED'
-          detail.consecutiveFailures = consecutiveFailures
-          results.banned++
-        } else {
-          // Not enough failures yet — flag only
-          detail.action = 'FLAGGED'
-          detail.consecutiveFailures = consecutiveFailures
-          results.flagged++
-        }
+        detail.action = 'FLAGGED'
+        results.flagged++
       }
 
       // If connected and currently banned, restore

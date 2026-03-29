@@ -27,7 +27,7 @@ type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
 
 export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string> } = {}) {
   const { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove, refresh } = useWaAccounts()
-  const { isChecking, lastCheck, runCheck, flaggedNumbers, newlyBanned } = useWaBanCheck()
+  const { isChecking, lastCheck, runCheck, flaggedNumbers } = useWaBanCheck()
   const { profile } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
   const [editAccount, setEditAccount] = useState<WaAccount | null>(null)
@@ -124,35 +124,37 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
         </div>
       </div>
 
-      {/* Auto-ban alerts */}
-      {newlyBanned.length > 0 && (
-        <div className="rounded-lg border-2 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 animate-pulse">
+      {/* Disconnected number alerts — user confirms the ban */}
+      {flaggedNumbers.length > 0 && (
+        <div className="rounded-lg border-2 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
           <div className="flex items-start gap-2">
             <ShieldAlert size={18} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-red-700 dark:text-red-300">Numeros baneados detectados automaticamente</p>
-              {newlyBanned.map(n => (
-                <p key={n.phone} className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                  {n.phone} ({n.name}) — ManyChat status: {n.mcStatus || 'disconnected'}
-                </p>
-              ))}
-              <p className="text-xs text-red-500 mt-1">Se creo tarea urgente y alerta automaticamente.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {flaggedNumbers.length > 0 && newlyBanned.length === 0 && (
-        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
-          <div className="flex items-start gap-2">
-            <ShieldAlert size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Numeros con problemas de conexion</p>
-              {flaggedNumbers.map(n => (
-                <p key={n.phone} className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                  {n.phone} — ManyChat: {n.mcStatus || 'disconnected'} (fallo {n.consecutiveFailures ?? 1}/2, se banea automaticamente al siguiente)
-                </p>
-              ))}
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-300">Numeros desconectados en ManyChat</p>
+              {flaggedNumbers.map(n => {
+                const account = accounts.find(a => a.phone_number === n.phone)
+                return (
+                  <div key={n.phone} className="flex items-center justify-between mt-2 gap-2">
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      <strong>{n.phone}</strong> ({n.name}) — status: "{n.mcStatus || 'disconnected'}"
+                    </p>
+                    {canWrite && account && account.status !== 'banned' && (
+                      <Button
+                        size="sm"
+                        className="h-6 text-[11px] gap-1 bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
+                        onClick={async () => {
+                          const { error } = await reportBan(account.id)
+                          if (error) toast.error(error)
+                          else toast.error(`${n.phone} marcado como BANEADO + tarea urgente creada`)
+                        }}
+                      >
+                        <ShieldAlert size={11} /> Confirmar baneo
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+              <p className="text-[10px] text-red-400 mt-2">Si estos numeros estan funcionando bien, ignora este aviso.</p>
             </div>
           </div>
         </div>

@@ -54,8 +54,7 @@ export function useWaBanCheck() {
   // Auto-check on mount (with cooldown)
   useEffect(() => { runCheck(false) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const flaggedNumbers = result?.details?.filter(d => d.action === 'FLAGGED' || d.action === 'BANNED') ?? []
-  const newlyBanned = result?.details?.filter(d => d.action === 'BANNED') ?? []
+  const flaggedNumbers = result?.details?.filter(d => d.action === 'FLAGGED') ?? []
 
-  return { result, isChecking, lastCheck, runCheck, flaggedNumbers, newlyBanned }
+  return { result, isChecking, lastCheck, runCheck, flaggedNumbers }
 }
