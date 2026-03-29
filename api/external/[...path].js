@@ -350,6 +350,85 @@ async function handleSheets(req, res, sub, query) {
     }
   }
 
+  if (sub === 'migrate') {
+    // One-time migration runner — creates tables if they don't exist
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.sheets_wa_config (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        spreadsheet_id TEXT NOT NULL,
+        sales_sheet_name TEXT DEFAULT 'Ventas WA',
+        contacts_sheet_name TEXT DEFAULT 'Contactos WA',
+        last_sync_at TIMESTAMPTZ,
+        auto_sync BOOLEAN DEFAULT true,
+        sync_interval_minutes INTEGER DEFAULT 15,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS public.wa_sales (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        sale_date DATE NOT NULL,
+        product_name TEXT,
+        amount_cents INTEGER NOT NULL,
+        buyer_phone TEXT,
+        buyer_name TEXT,
+        status TEXT DEFAULT 'pagado',
+        wa_account_phone TEXT,
+        campaign TEXT,
+        sheet_row_number INTEGER,
+        synced_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(sale_date, buyer_phone, amount_cents)
+      );
+      CREATE INDEX IF NOT EXISTS idx_wa_sales_date ON public.wa_sales(sale_date);
+      CREATE INDEX IF NOT EXISTS idx_wa_sales_account ON public.wa_sales(wa_account_phone);
+      CREATE TABLE IF NOT EXISTS public.wa_activity_monitor (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        phone_number TEXT NOT NULL,
+        date DATE NOT NULL,
+        hour INTEGER NOT NULL,
+        contacts_count INTEGER DEFAULT 0,
+        sales_count INTEGER DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(phone_number, date, hour)
+      );
+      CREATE INDEX IF NOT EXISTS idx_wa_activity_phone ON public.wa_activity_monitor(phone_number);
+      CREATE INDEX IF NOT EXISTS idx_wa_activity_date ON public.wa_activity_monitor(date);
+    `
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || '').trim()
+    const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ query: sql }),
+    })
+    // Try direct SQL via the management endpoint if rpc fails
+    if (!response.ok) {
+      // Fallback: create tables individually via supabase client
+      try {
+        for (const stmt of sql.split(';').filter(s => s.trim())) {
+          const { error } = await sb.rpc('exec_sql', { sql: stmt.trim() + ';' })
+          if (error && !error.message.includes('already exists')) {
+            // Try raw fetch to postgrest
+          }
+        }
+      } catch {}
+      // Last resort: use individual table creates
+      const tables = ['sheets_wa_config', 'wa_sales', 'wa_activity_monitor']
+      const existing = []
+      for (const t of tables) {
+        const { error } = await sb.from(t).select('id').limit(1)
+        if (!error) existing.push(t)
+      }
+      if (existing.length === 3) {
+        return ok(res, { message: 'All tables already exist', tables: existing })
+      }
+      return err(res, 500, `Could not verify all tables. Existing: ${existing.join(', ')}. Please run the migration SQL manually in Supabase SQL Editor.`)
+    }
+    return ok(res, { message: 'Migration completed' })
+  }
+
   return err(res, 404, 'Unknown sheets route. Try: sync, test, config, ban-check')
 }
 
