@@ -615,7 +615,9 @@ function handleDocs(req, res) {
 
 module.exports = async function handler(req, res) {
   try {
-    const pathParts = req.query.path || []
+    // Parse path from URL since Vercel catch-all doesn't reliably populate req.query.path
+    const urlPath = (req.url || '').split('?')[0].replace(/^\/api\/external\/?/, '')
+    const pathParts = urlPath.split('/').filter(Boolean)
     const route = pathParts[0] || ''
     const sub = pathParts[1] || null
 
