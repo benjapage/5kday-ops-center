@@ -4,6 +4,7 @@
 
 const { createClient } = require('@supabase/supabase-js')
 const dolarBlueHandler = require('../_lib/dolar-blue')
+const { fullSync, testConnection, checkBanSignals } = require('../_lib/sheets-sync')
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -294,6 +295,94 @@ async function handleUtmify(req, res, sub, query) {
   return ok(res, data || [])
 }
 
+async function handleSheets(req, res, sub, query) {
+  const sb = getSupabase()
+
+  if (sub === 'sync') {
+    try {
+      const result = await fullSync(sb)
+      return ok(res, result)
+    } catch (e) {
+      return err(res, 500, e.message)
+    }
+  }
+
+  if (sub === 'test') {
+    const spreadsheetId = query.spreadsheet_id || query.id
+    if (!spreadsheetId) return err(res, 400, 'spreadsheet_id required')
+    try {
+      const result = await testConnection(sb, spreadsheetId, query.sales || 'Ventas WA', query.contacts || 'Contactos WA')
+      return ok(res, result)
+    } catch (e) {
+      return err(res, 500, e.message)
+    }
+  }
+
+  if (sub === 'config') {
+    if (req.method === 'POST') {
+      const { spreadsheet_id, sales_sheet_name, contacts_sheet_name } = req.body || {}
+      if (!spreadsheet_id) return err(res, 400, 'spreadsheet_id required')
+      // Upsert: only one config row
+      const { data: existing } = await sb.from('sheets_wa_config').select('id').limit(1)
+      if (existing?.length) {
+        const { data, error } = await sb.from('sheets_wa_config')
+          .update({ spreadsheet_id, sales_sheet_name: sales_sheet_name || 'Ventas WA', contacts_sheet_name: contacts_sheet_name || 'Contactos WA' })
+          .eq('id', existing[0].id).select().single()
+        if (error) return err(res, 500, error.message)
+        return ok(res, data)
+      }
+      const { data, error } = await sb.from('sheets_wa_config')
+        .insert({ spreadsheet_id, sales_sheet_name: sales_sheet_name || 'Ventas WA', contacts_sheet_name: contacts_sheet_name || 'Contactos WA' })
+        .select().single()
+      if (error) return err(res, 500, error.message)
+      return ok(res, data)
+    }
+    const { data } = await sb.from('sheets_wa_config').select('*').limit(1)
+    return ok(res, data?.[0] || null)
+  }
+
+  if (sub === 'ban-check') {
+    try {
+      const result = await checkBanSignals(sb)
+      return ok(res, result)
+    } catch (e) {
+      return err(res, 500, e.message)
+    }
+  }
+
+  return err(res, 404, 'Unknown sheets route. Try: sync, test, config, ban-check')
+}
+
+async function handleWaSales(req, res, query) {
+  const sb = getSupabase()
+  const now = new Date()
+  const period = query.period || 'month'
+  let from, to
+  to = now.toISOString().split('T')[0]
+  if (period === 'today') { from = to }
+  else if (period === 'week') { from = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] }
+  else { from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] }
+
+  const { data } = await sb.from('wa_sales').select('*').gte('sale_date', from).lte('sale_date', to).order('sale_date', { ascending: false })
+  const totalCents = (data || []).reduce((s, r) => s + r.amount_cents, 0)
+  return ok(res, { sales: data || [], totalCents, totalUsd: totalCents / 100, period, from, to })
+}
+
+async function handleWaActivity(req, res, query) {
+  const sb = getSupabase()
+  const phone = query.phone
+  if (!phone) return err(res, 400, 'phone query param required')
+
+  const since = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+  const { data } = await sb.from('wa_activity_monitor')
+    .select('*')
+    .eq('phone_number', phone.replace(/[\s\-\(\)]/g, ''))
+    .gte('date', since)
+    .order('date').order('hour')
+
+  return ok(res, data || [])
+}
+
 async function handleTasks(req, res) {
   const sb = getSupabase()
   if (req.method === 'POST') {
@@ -454,6 +543,8 @@ module.exports = async function handler(req, res) {
     // Internal routes (no OPS_API_KEY needed)
     if (route === 'chat') return handleChat(req, res)
     if (route === 'internal' && sub === 'dolar-blue') return dolarBlueHandler(req, res)
+    // Sheets sync — called from frontend (no API key needed)
+    if (route === 'sheets') return handleSheets(req, res, sub, req.query)
 
     // External routes — require API key
     if (!checkAuth(req)) return err(res, 401, 'Invalid or missing API key. Use: Authorization: Bearer <OPS_API_KEY>')
@@ -468,6 +559,8 @@ module.exports = async function handler(req, res) {
       case 'financials': return handleFinancials(req, res, sub, req.query)
       case 'utmify': return handleUtmify(req, res, sub, req.query)
       case 'tasks': return handleTasks(req, res)
+      case 'wa-sales': return handleWaSales(req, res, req.query)
+      case 'wa-activity': return handleWaActivity(req, res, req.query)
       default: return err(res, 404, `Unknown route: /api/external/${pathParts.join('/')}. Try GET /api/external/docs`)
     }
   } catch (e) {

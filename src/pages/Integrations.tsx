@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download, BarChart3, Zap, CalendarDays } from 'lucide-react'
+import { ShoppingBag, CheckCircle2, XCircle, ExternalLink, RefreshCw, Plug, HardDrive, FolderSync, Loader2, Download, BarChart3, Zap, CalendarDays, FileSpreadsheet } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -150,6 +150,75 @@ export default function Integrations() {
     const { error } = await saveUtmifyConfig({ mcp_url: utmifyMcpUrl.trim() } as any)
     if (error) toast.error(error)
     else toast.success('URL MCP actualizada')
+  }
+
+  // Google Sheets WA
+  const [sheetsId, setSheetsId] = useState('')
+  const [sheetsSalesName, setSheetsSalesName] = useState('Ventas WA')
+  const [sheetsContactsName, setSheetsContactsName] = useState('Contactos WA')
+  const [sheetsConfig, setSheetsConfig] = useState<any>(null)
+  const [sheetsLoading, setSheetsLoading] = useState(true)
+  const [sheetsTesting, setSheetsTesting] = useState(false)
+  const [sheetsSyncing, setSheetsSyncing] = useState(false)
+  const [sheetsSaving, setSheetsSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/external/sheets/config').then(r => r.json()).then(d => {
+      if (d.success && d.data) {
+        setSheetsConfig(d.data)
+        setSheetsId(d.data.spreadsheet_id || '')
+        setSheetsSalesName(d.data.sales_sheet_name || 'Ventas WA')
+        setSheetsContactsName(d.data.contacts_sheet_name || 'Contactos WA')
+      }
+      setSheetsLoading(false)
+    }).catch(() => setSheetsLoading(false))
+  }, [])
+
+  async function saveSheetsConfig() {
+    if (!sheetsId.trim()) return
+    setSheetsSaving(true)
+    try {
+      const res = await fetch('/api/external/sheets/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheet_id: sheetsId.trim(), sales_sheet_name: sheetsSalesName, contacts_sheet_name: sheetsContactsName }),
+      })
+      const data = await res.json()
+      if (data.success) { setSheetsConfig(data.data); toast.success('Configuracion guardada') }
+      else toast.error(data.error)
+    } catch (e: any) { toast.error(e.message) }
+    finally { setSheetsSaving(false) }
+  }
+
+  async function testSheetsConnection() {
+    if (!sheetsId.trim()) return
+    setSheetsTesting(true)
+    try {
+      const res = await fetch(`/api/external/sheets/test?id=${encodeURIComponent(sheetsId)}&sales=${encodeURIComponent(sheetsSalesName)}&contacts=${encodeURIComponent(sheetsContactsName)}`)
+      const data = await res.json()
+      if (data.success) {
+        toast.success(`Conexion OK — ${data.data.sales.total} ventas, ${data.data.contacts.total} contactos`)
+      } else {
+        toast.error(data.error)
+      }
+    } catch (e: any) { toast.error(e.message) }
+    finally { setSheetsTesting(false) }
+  }
+
+  async function syncSheets() {
+    setSheetsSyncing(true)
+    try {
+      const res = await fetch('/api/external/sheets/sync')
+      const data = await res.json()
+      if (data.success) {
+        const d = data.data
+        toast.success(`Sync OK — ${d.sales.synced} ventas, ${d.contacts.processed} contactos${d.banCheck.alerts?.length ? `, ${d.banCheck.alerts.length} alertas de baneo` : ''}`)
+        setSheetsConfig((prev: any) => prev ? { ...prev, last_sync_at: d.syncedAt } : prev)
+      } else {
+        toast.error(data.error)
+      }
+    } catch (e: any) { toast.error(e.message) }
+    finally { setSheetsSyncing(false) }
   }
 
   // Push manual — recibe JSON de campañas (desde Claude.ai)
@@ -332,6 +401,96 @@ export default function Integrations() {
                 >
                   <div className={`h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform ${utmifyConfig.auto_sync ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Google Sheets WA section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <FileSpreadsheet size={16} className="text-green-600" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Google Sheets (WhatsApp)</h2>
+          <Badge variant="outline" className="text-xs text-slate-400">
+            {sheetsLoading ? '...' : sheetsConfig ? 'Configurado' : 'No configurado'}
+          </Badge>
+        </div>
+
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <FileSpreadsheet size={17} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Facturacion WA + Deteccion baneos</p>
+                  <p className="text-xs text-slate-400">ManyChat escribe en Sheets, la app lee</p>
+                </div>
+              </div>
+              {sheetsConfig && (
+                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                  <CheckCircle2 size={14} />
+                  <span className="text-xs font-medium">Conectado</span>
+                </div>
+              )}
+            </div>
+
+            {/* Spreadsheet ID */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">ID de la planilla</p>
+              <Input
+                className="text-xs h-8 font-mono"
+                placeholder="Pega el ID de la planilla de Google Sheets"
+                value={sheetsId}
+                onChange={e => setSheetsId(e.target.value)}
+              />
+              <p className="text-[10px] text-slate-400">El ID esta en la URL: docs.google.com/spreadsheets/d/<strong>ESTE_ES_EL_ID</strong>/edit</p>
+            </div>
+
+            {/* Sheet names */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Hoja de ventas</p>
+                <Input className="text-xs h-8" value={sheetsSalesName} onChange={e => setSheetsSalesName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Hoja de contactos</p>
+                <Input className="text-xs h-8" value={sheetsContactsName} onChange={e => setSheetsContactsName(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {isAdmin && sheetsId.trim() && (
+                <Button size="sm" className="text-xs h-7 text-white gap-1.5" style={{ backgroundColor: '#16A34A' }} disabled={sheetsSaving} onClick={saveSheetsConfig}>
+                  {sheetsSaving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                  Guardar
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="text-xs h-7 gap-1.5" disabled={sheetsTesting || !sheetsId.trim()} onClick={testSheetsConnection}>
+                {sheetsTesting ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+                Probar conexion
+              </Button>
+              {sheetsConfig && (
+                <Button size="sm" variant="outline" className="text-xs h-7 gap-1.5" disabled={sheetsSyncing} onClick={syncSheets}>
+                  {sheetsSyncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                  Sincronizar ahora
+                </Button>
+              )}
+              {sheetsConfig?.last_sync_at && (
+                <span className="text-[10px] text-slate-400 ml-2">
+                  Ultima sync: {new Date(sheetsConfig.last_sync_at).toLocaleString('es-AR')}
+                </span>
+              )}
+            </div>
+
+            {sheetsConfig && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  <strong>Deteccion de baneos:</strong> Cada sync analiza la actividad por numero. Si un numero deja de recibir contactos y ventas durante 6+ horas en horario de ads, se genera una alerta automatica.
+                </p>
               </div>
             )}
           </CardContent>
