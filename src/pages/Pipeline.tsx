@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette, Clock, MessageSquare, Save, Zap, DollarSign, FolderOpen } from 'lucide-react'
+import { Plus, MoreHorizontal, Archive, ExternalLink, ImageIcon, Video, FileText, Package, Pencil, Target, Palette, Clock, MessageSquare, Save, Zap, DollarSign, FolderOpen, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,8 @@ import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { COUNTRIES, CHANNELS, ASSET_TYPES } from '@/lib/constants'
 import { formatDate, formatROAS, formatCurrency, getDaysSince } from '@/lib/formatters'
+import { useDriveCreatives } from '@/hooks/useDriveCreatives'
+import type { TesteoGroup } from '@/hooks/useDriveCreatives'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database.types'
 
@@ -454,6 +456,189 @@ interface LogEntry {
   text: string
 }
 
+function TesteoBlock({ group, creativeType, folderId, onPublish, canWrite }: {
+  group: TesteoGroup
+  creativeType: string
+  folderId: string
+  onPublish: (folderId: string, testeo: number, type: string) => Promise<any>
+  canWrite: boolean
+}) {
+  const [publishing, setPublishing] = useState(false)
+  const allPublished = group.subido === 0 && group.publicado > 0
+
+  async function handlePublish() {
+    setPublishing(true)
+    const result = await onPublish(folderId, group.number, creativeType)
+    setPublishing(false)
+    if (result.error) toast.error(result.error)
+    else toast.success(`${result.published} archivos marcados como publicados`)
+  }
+
+  return (
+    <div className="rounded-lg bg-slate-50 dark:bg-slate-700/30 px-3 py-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">{group.testeo}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] num text-slate-400">{group.files.length} archivos</span>
+          {canWrite && group.subido > 0 && (
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors font-semibold uppercase tracking-wider"
+            >
+              {publishing ? '...' : 'Publicar'}
+            </button>
+          )}
+          {allPublished && <CheckCircle2 size={12} className="text-emerald-500" />}
+        </div>
+      </div>
+      <div className="space-y-0.5">
+        {group.files.slice(0, 8).map(f => (
+          <div key={f.drive_file_id} className="flex items-center gap-2 text-[10px]">
+            <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${f.status === 'publicado' ? 'bg-emerald-500' : 'bg-blue-400'}`} />
+            <span className="text-slate-600 dark:text-slate-300 truncate flex-1">{f.file_name}</span>
+            {f.uploaded_by && (
+              <span className="text-[9px] px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 uppercase tracking-wider flex-shrink-0">
+                {f.uploaded_by}
+              </span>
+            )}
+            <span className={`text-[9px] flex-shrink-0 ${f.status === 'publicado' ? 'text-emerald-500' : 'text-slate-400'}`}>
+              {f.status}
+            </span>
+          </div>
+        ))}
+        {group.files.length > 8 && <p className="text-[9px] text-slate-400">+{group.files.length - 8} mas</p>}
+      </div>
+    </div>
+  )
+}
+
+function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrite: boolean }) {
+  const { data, isLoading, syncing, refresh, linkFolder, syncFolder, publishTesteo } = useDriveCreatives(offerId)
+  const [driveUrl, setDriveUrl] = useState('')
+  const [linking, setLinking] = useState(false)
+
+  useEffect(() => { refresh() }, [refresh])
+
+  async function handleLink() {
+    if (!driveUrl.trim()) return
+    setLinking(true)
+    const result = await linkFolder(driveUrl.trim())
+    setLinking(false)
+    if (result.error) toast.error(result.error)
+    else { toast.success('Carpeta vinculada'); setDriveUrl('') }
+  }
+
+  if (isLoading) return <p className="text-[10px] text-slate-400 py-2">Cargando Drive...</p>
+
+  if (!data?.linked) {
+    return canWrite ? (
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Vincular carpeta Drive</p>
+        <div className="flex gap-2">
+          <Input
+            className="text-xs h-7 flex-1"
+            placeholder="https://drive.google.com/drive/folders/..."
+            value={driveUrl}
+            onChange={e => setDriveUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleLink() } }}
+          />
+          <Button
+            size="sm"
+            className="h-7 text-xs text-white px-3 flex-shrink-0"
+            style={{ backgroundColor: '#4285f4' }}
+            disabled={linking || !driveUrl.trim()}
+            onClick={handleLink}
+          >
+            {linking ? '...' : 'Vincular'}
+          </Button>
+        </div>
+      </div>
+    ) : (
+      <p className="text-xs text-slate-400">Sin carpeta de Drive vinculada</p>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header with sync */}
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Creativos Drive</p>
+        <div className="flex items-center gap-2">
+          {data.last_sync && (
+            <span className="text-[9px] text-slate-400">
+              Sync: {new Date(data.last_sync).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={() => syncFolder()}
+            disabled={syncing}
+            className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-600 transition-colors"
+          >
+            <RefreshCw size={10} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
+        </div>
+      </div>
+
+      {/* Daily progress */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-purple-50 dark:bg-purple-900/15 px-3 py-2">
+          <div className="flex items-center gap-1.5">
+            <Video size={12} className="text-purple-500" />
+            <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase">Videos hoy</span>
+          </div>
+          <span className="text-base num font-bold text-purple-600 dark:text-purple-400">{data.today.videos}/5</span>
+        </div>
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/15 px-3 py-2">
+          <div className="flex items-center gap-1.5">
+            <ImageIcon size={12} className="text-blue-500" />
+            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase">Imagenes hoy</span>
+          </div>
+          <span className="text-base num font-bold text-blue-600 dark:text-blue-400">{data.today.images}/10</span>
+        </div>
+      </div>
+
+      {/* Videos by testeo */}
+      {data.videos.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Video size={12} className="text-purple-500" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Videos ({data.totals.videos})</span>
+          </div>
+          <div className="space-y-1.5">
+            {data.videos.map(g => (
+              <TesteoBlock key={`v-${g.number}`} group={g} creativeType="video" folderId={data.folder_id!} onPublish={publishTesteo} canWrite={canWrite} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Images by testeo */}
+      {data.images.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <ImageIcon size={12} className="text-blue-500" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Imagenes ({data.totals.images})</span>
+          </div>
+          <div className="space-y-1.5">
+            {data.images.map(g => (
+              <TesteoBlock key={`i-${g.number}`} group={g} creativeType="imagen" folderId={data.folder_id!} onPublish={publishTesteo} canWrite={canWrite} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Totals */}
+      {data.totals.pendientes > 0 && (
+        <p className="text-[10px] text-amber-500">
+          {data.totals.pendientes} pendientes de publicar
+        </p>
+      )}
+    </div>
+  )
+}
+
 function OfferNoteCard({ offer, creatives, onUpdate, canWrite }: {
   offer: Offer
   creatives: { id: string; offer_id: string | null; status: string; created_at: string; name: string; asset_type: string | null }[]
@@ -667,27 +852,21 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite }: {
           />
         </div>
 
-        {/* Drive folder link — Corrección 24 */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-          {(offer as any).drive_folder_url ? (
+        {/* Drive creatives section */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-700">
+          {(offer as any).drive_folder_url && (
             <a
               href={(offer as any).drive_folder_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+              className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors mb-3"
             >
               <FolderOpen size={13} />
-              Abrir carpeta de creativos en Drive
+              Abrir en Drive
               <ExternalLink size={10} className="opacity-50" />
             </a>
-          ) : canWrite ? (
-            <DrivefolderInput offerId={offer.id} onUpdate={onUpdate} />
-          ) : (
-            <span className="text-xs text-slate-400 flex items-center gap-2">
-              <FolderOpen size={13} />
-              Sin carpeta de Drive vinculada
-            </span>
           )}
+          <DriveCreativesSection offerId={offer.id} canWrite={canWrite} />
         </div>
       </CardContent>
     </Card>
@@ -751,8 +930,8 @@ export default function Pipeline() {
           </div>
 
           <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="min-w-[650px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Oferta</TableHead>

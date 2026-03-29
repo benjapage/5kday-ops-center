@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare, Plus, Square, CheckSquare2, ChevronLeft, ChevronRight, CalendarDays, Bell } from 'lucide-react'
 import { useDashboard } from '@/hooks/useDashboard'
 import { useOffers } from '@/hooks/useOffers'
 import { useCalendarTasks, useWeeklyCalendar } from '@/hooks/useCalendar'
 import { useCreatives } from '@/hooks/useCreatives'
+import { useDashboardCreatives } from '@/hooks/useDriveCreatives'
 import { useSettings } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
@@ -185,9 +186,9 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
   const warmingNumbers = waAccounts.list.filter((a: any) => a.status === 'warming')
 
   return (
-    <div className="grid grid-cols-12 gap-4">
-      {/* Weekly Calendar — 8 cols */}
-      <div className="col-span-8 card-base p-5">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* Weekly Calendar */}
+      <div className="lg:col-span-8 card-base p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <CalendarDays size={15} className="text-blue-500" />
@@ -210,7 +211,8 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
         {isLoading ? (
           <p className="text-xs text-slate-400 text-center py-12">Cargando semana...</p>
         ) : (
-          <div className="grid grid-cols-7 gap-px bg-slate-200/30 dark:bg-slate-700/30 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-2 sm:pb-0">
+          <div className="grid grid-cols-7 gap-px bg-slate-200/30 dark:bg-slate-700/30 rounded-lg overflow-hidden min-w-[600px] sm:min-w-0">
             {weekDates.map((date, i) => {
               const isToday = date === today
               const dayTasks = tasksByDate[date] || []
@@ -291,11 +293,12 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
               )
             })}
           </div>
+          </div>
         )}
       </div>
 
-      {/* Alerts Panel — 4 cols */}
-      <div className="col-span-4 card-base p-5">
+      {/* Alerts Panel */}
+      <div className="lg:col-span-4 card-base p-4 sm:p-5">
         <SectionLabel icon={Bell}>Proximas alertas</SectionLabel>
         <div className="mt-3 space-y-2 max-h-[280px] overflow-y-auto">
           {/* Active alerts */}
@@ -338,6 +341,81 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
   )
 }
 
+function DashboardCreativesCard() {
+  const { data, isLoading, refresh } = useDashboardCreatives()
+
+  useEffect(() => { refresh() }, [refresh])
+
+  return (
+    <div className="card-base p-5">
+      <div className="flex items-center justify-between mb-3">
+        <SectionLabel icon={ImageIcon}>Creativos</SectionLabel>
+      </div>
+
+      {isLoading ? (
+        <p className="text-xs text-slate-400 text-center py-6">Cargando...</p>
+      ) : !data || data.offers.length === 0 ? (
+        <p className="text-xs text-slate-400 text-center py-6">Sin carpetas Drive vinculadas</p>
+      ) : (
+        <div className="space-y-3">
+          {/* Daily progress */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(139,92,246,0.1)' }}>
+              <div className="flex items-center gap-1">
+                <Video size={11} className="text-purple-500" />
+                <span className="text-[9px] font-semibold text-purple-500 uppercase">Videos</span>
+              </div>
+              <Num className="text-base" style={{ color: data.today.videos >= data.targets.videos ? '#22C55E' : '#8B5CF6' }}>
+                {data.today.videos}/{data.targets.videos}
+              </Num>
+            </div>
+            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
+              <div className="flex items-center gap-1">
+                <ImageIcon size={11} className="text-blue-500" />
+                <span className="text-[9px] font-semibold text-blue-500 uppercase">Imagenes</span>
+              </div>
+              <Num className="text-base" style={{ color: data.today.images >= data.targets.images ? '#22C55E' : '#3B82F6' }}>
+                {data.today.images}/{data.targets.images}
+              </Num>
+            </div>
+          </div>
+
+          {/* Per-offer summary */}
+          <div className="space-y-1">
+            {data.offers.map(o => (
+              <div key={o.offer_id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-slate-700 dark:text-slate-200 font-medium truncate block">{o.offer_name}</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {o.today_videos > 0 && (
+                      <span className="text-[9px] text-purple-500">
+                        <span className="num">{o.today_videos}</span> videos nuevos
+                      </span>
+                    )}
+                    {o.today_images > 0 && (
+                      <span className="text-[9px] text-blue-500">
+                        <span className="num">{o.today_images}</span> imgs nuevas
+                      </span>
+                    )}
+                    {o.today_videos === 0 && o.today_images === 0 && (
+                      <span className="text-[9px] text-slate-400">sin novedades hoy</span>
+                    )}
+                  </div>
+                </div>
+                {o.pendientes > 0 && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-semibold num flex-shrink-0">
+                    {o.pendientes} pend
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { metrics, isLoading } = useDashboard()
   const { offers } = useOffers()
@@ -360,10 +438,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      {/* ═══════════════════ HEADER — Corrección 21 ═══════════════════ */}
-      <div className="flex items-center justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+      {/* ═══════════════════ HEADER ═══════════════════ */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate">
             {greeting()}, {profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'usuario'}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5 uppercase tracking-wider">
@@ -399,10 +477,10 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ ROW 1 — Gráfico + WhatsApp ═══════════════════ */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
-        {/* Gráfico de barras — Cambio 3+4 */}
-        <div className="col-span-7 card-base p-5">
+        {/* Gráfico de barras */}
+        <div className="lg:col-span-7 card-base p-4 sm:p-5">
           <div className="flex items-center justify-between mb-1">
             <SectionLabel icon={BarChart3}>Facturacion y Profit — 30 dias</SectionLabel>
             <div className="flex items-center gap-4 text-[10px]">
@@ -430,11 +508,11 @@ export default function Dashboard() {
             ))}
           </div>
           {metrics.dailyChart.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-sm text-slate-400">
+            <div className="flex items-center justify-center h-[150px] text-sm text-slate-400">
               Sin datos de los ultimos 30 dias
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={150}>
               <BarChart data={metrics.dailyChart} barGap={1} barSize={8}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 20%)" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
@@ -447,8 +525,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* WhatsApp + Alertas — Cambio 6 */}
-        <div className="col-span-5 flex flex-col gap-4">
+        {/* WhatsApp + Alertas */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
 
           {/* WhatsApp */}
           <div className="card-base p-5 space-y-3 flex-1">
@@ -520,7 +598,7 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ ROW 2 — Pipeline | Tareas | Creativos ═══════════════════ */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
         {/* Pipeline activo — Cambio 8 */}
         <div className="card-base p-5">
@@ -564,38 +642,8 @@ export default function Dashboard() {
         {/* Tareas del dia — Google Calendar */}
         <DashboardTasks />
 
-        {/* Creativos — Cambio 10 */}
-        <div className="card-base p-5">
-          <div className="flex items-center justify-between mb-3">
-            <SectionLabel icon={ImageIcon}>Creativos</SectionLabel>
-            <span className="num text-xs text-slate-400">{activeCreatives.length}</span>
-          </div>
-          {activeCreatives.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6">Sin creativos activos</p>
-          ) : (
-            <div className="space-y-1">
-              {activeCreatives.slice(0, 6).map(c => {
-                const TypeIcon = c.asset_type === 'video' ? Video : c.asset_type === 'copy' ? FileText : c.asset_type === 'image' ? ImageIcon : Package
-                const linkedOffer = offers.find(o => o.id === c.offer_id)
-                return (
-                  <div key={c.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <TypeIcon size={13} className="text-slate-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-slate-700 dark:text-slate-200 font-medium truncate block">{c.name}</span>
-                      {linkedOffer && <span className="text-[10px] text-slate-400 truncate block">{linkedOffer.name}</span>}
-                    </div>
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-emerald-500/10 text-emerald-500">
-                      Activo
-                    </span>
-                  </div>
-                )
-              })}
-              {activeCreatives.length > 6 && (
-                <p className="text-[10px] text-slate-400 text-center pt-1">+{activeCreatives.length - 6} mas</p>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Creativos Drive */}
+        <DashboardCreativesCard />
       </div>
 
       {/* ═══════════════════ ROW 3 — Weekly Calendar + Alerts ═══════════════════ */}

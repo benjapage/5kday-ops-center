@@ -474,7 +474,7 @@ export default function MetaAssets() {
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Cuentas publicitarias y BMs</h2>
           <span className="text-[10px] text-slate-400 ml-1">Infraestructura</span>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <AssetSection<AdAccount>
             title="Cuentas publicitarias"
             icon={Megaphone}

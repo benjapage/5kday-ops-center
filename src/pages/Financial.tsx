@@ -209,8 +209,8 @@ export default function Financial() {
         <MetricCard title="ROAS del mes" value={mergedRoas} format="roas" icon={TrendingUp} iconColor="#6366F1" />
       </div>
 
-      {/* 4 Quadrants — Cambio 13 */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* 4 Quadrants */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Suscripciones */}
         <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
           <CardContent className="p-5">
@@ -309,8 +309,8 @@ export default function Financial() {
         {/* Expenses list */}
         <TabsContent value="expenses">
           <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Fecha</TableHead>
@@ -401,8 +401,8 @@ export default function Financial() {
           </div>
 
           <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800">
                     <TableHead className="text-xs">Nombre</TableHead>

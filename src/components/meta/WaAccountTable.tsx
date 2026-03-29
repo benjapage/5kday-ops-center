@@ -110,8 +110,8 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm overflow-hidden">
-        <Table>
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow className="bg-slate-50 dark:bg-slate-800">
               <TableHead className="text-xs">Número</TableHead>
