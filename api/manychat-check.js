@@ -34,6 +34,45 @@ module.exports = async function handler(req, res) {
 
     const supabase = createClient(supabaseUrl, serviceKey)
 
+    // ?fix=unban — one-time fix: reset all falsely banned numbers to warming
+    const { fix } = req.query || {}
+    if (fix === 'unban') {
+      const { data: banned } = await supabase
+        .from('wa_accounts')
+        .select('id, phone_number, status')
+        .eq('status', 'banned')
+
+      if (!banned || banned.length === 0) {
+        return res.status(200).json({ ok: true, message: 'No banned accounts found', fixed: 0 })
+      }
+
+      const { error: updateErr } = await supabase
+        .from('wa_accounts')
+        .update({ status: 'warming', updated_at: new Date().toISOString() })
+        .eq('status', 'banned')
+
+      if (updateErr) {
+        return res.status(500).json({ error: updateErr.message })
+      }
+
+      return res.status(200).json({
+        ok: true,
+        message: `Reset ${banned.length} account(s) from banned → warming`,
+        fixed: banned.length,
+        accounts: banned.map(a => a.phone_number),
+      })
+    }
+
+    // ?fix=status — show current status of all WA accounts (diagnostic)
+    if (fix === 'status') {
+      const { data: all } = await supabase
+        .from('wa_accounts')
+        .select('id, phone_number, status, start_date, manychat_name')
+        .order('created_at')
+
+      return res.status(200).json({ ok: true, accounts: all })
+    }
+
     // Get all WA accounts that have a ManyChat API key and are not already banned
     const { data: accounts, error: fetchErr } = await supabase
       .from('wa_accounts')
@@ -70,23 +109,19 @@ module.exports = async function handler(req, res) {
           action: 'none',
         }
 
-        // If not connected and not already banned, mark as banned
+        // AUTO-BAN DISABLED — only log, do NOT change status automatically.
+        // Re-enable after reviewing ManyChat status mapping with Benja.
         if (!isConnected && account.status !== 'banned') {
-          await supabase
-            .from('wa_accounts')
-            .update({ status: 'banned', updated_at: new Date().toISOString() })
-            .eq('id', account.id)
-
-          // Log the ban event
+          // Log the detection but do NOT update status
           await supabase.from('meta_ban_events').insert({
             wa_account_id: account.id,
             phone_number: account.phone_number,
             source: 'polling',
             quality_score: pageStatus || 'disconnected',
-            details: { source: 'manychat', page_name: pageName, mc_status: pageStatus, raw: pageData },
+            details: { source: 'manychat', page_name: pageName, mc_status: pageStatus, raw: pageData, auto_ban: false },
           })
 
-          detail.action = 'BANNED'
+          detail.action = 'FLAGGED_NOT_BANNED'
           results.banned++
         }
 
