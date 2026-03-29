@@ -3,8 +3,8 @@
 // External endpoints require OPS_API_KEY; chat/dolar-blue are internal
 
 const { createClient } = require('@supabase/supabase-js')
-const dolarBlueHandler = require('../_lib/dolar-blue')
-const { fullSync, testConnection, checkBanSignals } = require('../_lib/sheets-sync')
+const dolarBlueHandler = require('./_lib/dolar-blue')
+const { fullSync, testConnection, checkBanSignals } = require('./_lib/sheets-sync')
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -615,9 +615,9 @@ function handleDocs(req, res) {
 
 module.exports = async function handler(req, res) {
   try {
-    // Parse path from URL since Vercel catch-all doesn't reliably populate req.query.path
-    const urlPath = (req.url || '').split('?')[0].replace(/^\/api\/external\/?/, '')
-    const pathParts = urlPath.split('/').filter(Boolean)
+    // Parse path from _path query param (set by Vercel rewrite) or URL fallback
+    const rawPath = req.query._path || (req.url || '').split('?')[0].replace(/^\/api\/external\/?/, '')
+    const pathParts = String(rawPath).split('/').filter(Boolean)
     const route = pathParts[0] || ''
     const sub = pathParts[1] || null
 
