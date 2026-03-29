@@ -477,10 +477,10 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ ROW 1 — Gráfico + WhatsApp ═══════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* Gráfico de barras */}
-        <div className="lg:col-span-7 card-base p-4 sm:p-5">
+        <div className="lg:col-span-7 card-base p-4 sm:p-5 flex flex-col">
           <div className="flex items-center justify-between mb-1">
             <SectionLabel icon={BarChart3}>Facturacion y Profit — 30 dias</SectionLabel>
             <div className="flex items-center gap-4 text-[10px]">
@@ -507,22 +507,25 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          {metrics.dailyChart.length === 0 ? (
-            <div className="flex items-center justify-center h-[150px] text-sm text-slate-400">
-              Sin datos de los ultimos 30 dias
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={150}>
-              <BarChart data={metrics.dailyChart} barGap={1} barSize={8}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 20%)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} width={40} />
-                <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="revenue" name="Facturacion" fill="#6366F1" radius={[3, 3, 0, 0]} opacity={0.85} />
-                <Bar dataKey="profit" name="Profit" fill="#22C55E" radius={[3, 3, 0, 0]} opacity={0.85} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+          {/* Chart fills remaining height */}
+          <div className="flex-1 min-h-[150px]">
+            {metrics.dailyChart.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-sm text-slate-400">
+                Sin datos de los ultimos 30 dias
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metrics.dailyChart} barGap={1} barSize={8}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 20%)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} width={40} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="revenue" name="Facturacion" fill="#6366F1" radius={[3, 3, 0, 0]} opacity={0.85} />
+                  <Bar dataKey="profit" name="Profit" fill="#22C55E" radius={[3, 3, 0, 0]} opacity={0.85} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
 
         {/* WhatsApp + Alertas */}
