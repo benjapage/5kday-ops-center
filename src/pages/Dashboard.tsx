@@ -480,7 +480,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* Gráfico de barras */}
-        <div className="lg:col-span-7 card-base p-4 sm:p-5">
+        <div className="lg:col-span-7 card-base p-4 sm:p-5 self-start">
           <div className="flex items-center justify-between mb-1">
             <SectionLabel icon={BarChart3}>Facturacion y Profit — 30 dias</SectionLabel>
             <div className="flex items-center gap-4 text-[10px]">
