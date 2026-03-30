@@ -477,7 +477,7 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ ROW 1 — Gráfico + WhatsApp ═══════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
         {/* Gráfico de barras */}
         <div className="lg:col-span-7 card-base p-4 sm:p-5">
@@ -544,7 +544,7 @@ export default function Dashboard() {
         <div className="lg:col-span-5 flex flex-col gap-4">
 
           {/* WhatsApp */}
-          <div className="card-base p-5 space-y-3 flex-1">
+          <div className="card-base p-5 space-y-3">
             <SectionLabel icon={Smartphone}>WhatsApp</SectionLabel>
 
             {/* 3 counter badges */}
