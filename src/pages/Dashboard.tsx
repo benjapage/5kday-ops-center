@@ -477,7 +477,7 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ ROW 1 — Gráfico + WhatsApp ═══════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* Gráfico de barras */}
         <div className="lg:col-span-7 card-base p-4 sm:p-5">
@@ -541,10 +541,10 @@ export default function Dashboard() {
         </div>
 
         {/* WhatsApp + Alertas */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        <div className="lg:col-span-5 flex flex-col gap-3">
 
           {/* WhatsApp */}
-          <div className="card-base p-5 space-y-3">
+          <div className="card-base p-4 space-y-3">
             <SectionLabel icon={Smartphone}>WhatsApp</SectionLabel>
 
             {/* 3 counter badges */}
@@ -583,12 +583,12 @@ export default function Dashboard() {
           </div>
 
           {/* Alertas hoy */}
-          <div className="card-base p-5">
+          <div className="card-base p-4">
             <SectionLabel icon={AlertTriangle}>Alertas hoy</SectionLabel>
-            <div className="mt-2">
+            <div className="mt-1.5">
               {metrics.alerts.length === 0 ? (
-                <div className="flex items-center gap-2 py-3 text-slate-400">
-                  <CheckCircle2 size={16} className="text-emerald-500" />
+                <div className="flex items-center gap-2 py-1 text-slate-400">
+                  <CheckCircle2 size={14} className="text-emerald-500" />
                   <p className="text-xs">Todo en orden</p>
                 </div>
               ) : (
