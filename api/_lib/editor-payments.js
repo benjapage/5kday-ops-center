@@ -10,8 +10,9 @@ const { createClient } = require('@supabase/supabase-js')
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-const UTMIFY_MCP_URL = (process.env.UTMIFY_MCP_URL || 'https://mcp.utmify.com.br/mcp/?token=FpTxQLafNzmbDyBktMlYiCO6h3ehha6GkkGNjN7dpCbmRT5EwuuF0rjdbZeranIa').trim()
-const UTMIFY_DASHBOARD_ID = (process.env.UTMIFY_DASHBOARD_ID || '69a78ca2501d38fceac48178').trim()
+const UTMIFY_MCP_URL = 'https://mcp.utmify.com.br/mcp/?token=FpTxQLafNzmbDyBktMlYiCO6h3ehha6GkkGNjN7dpCbmRT5EwuuF0rjdbZeranIa'
+// Search winning ads across testeos + condimentos dashboards
+const AD_DASHBOARD_IDS = ['69a78ca2501d38fceac48178', '69caa2d1fc27d69a9dd2e687']
 
 // ─── Helper: get Monday of a given week ───
 function getWeekBounds(weekStartStr) {
@@ -36,65 +37,47 @@ function getLastMonday(dateStr) {
   return d.toISOString().split('T')[0]
 }
 
-// ─── Call UTMify MCP to get ad-level data ───
+// ─── Call UTMify MCP to get ad-level data (searches multiple dashboards) ───
 async function fetchWinningAds(fromISO, toISO, thresholdCents) {
-  try {
-    // Call UTMify MCP endpoint using JSON-RPC
-    const res = await fetch(UTMIFY_MCP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'tools/call',
-        params: {
-          name: 'get_meta_ad_objects',
-          arguments: {
-            dashboardId: UTMIFY_DASHBOARD_ID,
-            level: 'ad',
-            dateRange: { from: fromISO, to: toISO },
+  const allWinners = []
+  for (const dashboardId of AD_DASHBOARD_IDS) {
+    try {
+      const res = await fetch(UTMIFY_MCP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'tools/call',
+          params: {
+            name: 'get_meta_ad_objects',
+            arguments: { dashboardId, level: 'ad', dateRange: { from: fromISO, to: toISO } },
           },
-        },
-        id: 1,
-      }),
-    })
+          id: Date.now(),
+        }),
+      })
 
-    if (!res.ok) {
-      console.warn('[editor-payments] UTMify HTTP error:', res.status)
-      return []
-    }
+      if (!res.ok) { console.warn(`[editor-payments] UTMify HTTP error for ${dashboardId}:`, res.status); continue }
 
-    const data = await res.json()
-
-    // MCP response: { result: { content: [{ type: "text", text: "..." }] } }
-    let results = []
-    if (data?.result?.content) {
-      for (const block of data.result.content) {
-        if (block.type === 'text') {
-          try {
-            const parsed = JSON.parse(block.text)
-            results = parsed.results || parsed
-          } catch { /* not JSON */ }
+      const data = await res.json()
+      let results = []
+      if (data?.result?.content) {
+        for (const block of data.result.content) {
+          if (block.type === 'text') {
+            try { const parsed = JSON.parse(block.text); results = parsed.results || parsed } catch {}
+          }
         }
-      }
-    } else if (data?.result?.results) {
-      results = data.result.results
-    } else if (Array.isArray(data?.results)) {
-      results = data.results
-    }
+      } else if (data?.result?.results) { results = data.result.results }
+      else if (Array.isArray(data?.results)) { results = data.results }
 
-    // Filter winning ads: spend > threshold
-    return results
-      .filter(ad => ad.spend > thresholdCents)
-      .map(ad => ({
-        ad_name: ad.name,
-        ad_id: ad.adId || ad.id,
-        spend_cents: ad.spend,
-        revenue_cents: ad.revenue || 0,
-      }))
-  } catch (err) {
-    console.error('[editor-payments] UTMify fetch error:', err.message)
-    return []
+      const winners = results
+        .filter(ad => ad.spend > thresholdCents)
+        .map(ad => ({ ad_name: ad.name, ad_id: ad.adId || ad.id, spend_cents: ad.spend, revenue_cents: ad.revenue || 0 }))
+      allWinners.push(...winners)
+    } catch (err) {
+      console.error(`[editor-payments] UTMify fetch error for ${dashboardId}:`, err.message)
+    }
   }
+  return allWinners
 }
 
 // ─── Match winning ads to editors via drive_creatives ───

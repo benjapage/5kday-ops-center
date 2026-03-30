@@ -1,6 +1,6 @@
-// api/utmify.js — UTMify integration via Streamable HTTP MCP
+// api/utmify.js — UTMify integration via Streamable HTTP MCP (multi-dashboard)
 // GET  /api/utmify?action=test-connection
-// GET  /api/utmify?action=sync&days=1
+// GET  /api/utmify?action=sync&days=1&dashboard=testeos|condimentos|whatsapp|all
 // GET  /api/utmify?action=dashboard-data&days=30
 // POST /api/utmify?action=push  — manual push from Claude.ai
 
@@ -9,6 +9,15 @@ const { createClient } = require('@supabase/supabase-js')
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 const MCP_HEADERS = { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' }
+
+// ─── 3 Dashboard configs ───
+const MCP_URL = 'https://mcp.utmify.com.br/mcp/?token=FpTxQLafNzmbDyBktMlYiCO6h3ehha6GkkGNjN7dpCbmRT5EwuuF0rjdbZeranIa'
+
+const DASHBOARDS = [
+  { id: '69a78ca2501d38fceac48178', name: 'TESTEOS - CP 3-4-5', type: 'testeos', useRevenue: true, useSpend: true },
+  { id: '69caa2d1fc27d69a9dd2e687', name: 'CONDI ARG CP 2', type: 'condimentos', useRevenue: true, useSpend: true },
+  { id: '69caa763a4a3b9ab12036d90', name: 'Whatsapp', type: 'whatsapp', useRevenue: false, useSpend: true },
+]
 
 // ─── MCP Streamable HTTP client ───
 async function mcpInitialize(mcpUrl) {
@@ -40,7 +49,6 @@ async function mcpCallTool(mcpUrl, toolName, args) {
   }
   const data = await res.json()
   if (data.error) throw new Error(`MCP error: ${data.error.message || JSON.stringify(data.error)}`)
-  // Extract text content
   const text = data.result?.content?.[0]?.text
   if (text) return JSON.parse(text)
   return data.result
@@ -53,14 +61,15 @@ function formatDateISO(dateStr, time, tz = -3) {
 
 function todayStr() { return new Date().toISOString().split('T')[0] }
 
-function campaignToRow(c, date) {
+function campaignToRow(c, date, dashboardType) {
+  const rawId = c.campaignId || c.id || c.name || `c_${Date.now()}`
   return {
     date,
-    campaign_id: c.campaignId || c.id || c.name || `c_${Date.now()}`,
+    campaign_id: `${dashboardType}:${rawId}`,
     campaign_name: c.name || 'Unknown',
     ad_account_id: c.accountId || c.adAccountId || null,
     ad_account_name: c.ca || c.adAccountName || null,
-    level: 'campaign',
+    level: dashboardType, // Store dashboard type in level field
     revenue_cents: Math.round(parseFloat(c.revenue) || 0),
     spend_cents: Math.round(parseInt(c.spend) || 0),
     profit_cents: Math.round(parseInt(c.profit) || 0),
@@ -95,78 +104,112 @@ function summarize(rows) {
   }
 }
 
+// Get dashboard type from campaign_id prefix
+function getDashType(campaignId) {
+  const colon = (campaignId || '').indexOf(':')
+  return colon > 0 ? campaignId.slice(0, colon) : 'testeos' // default for legacy data
+}
+
 // ─── ACTION: test-connection ───
-async function handleTestConnection(supabase) {
-  const { data: configs } = await supabase.from('utmify_config').select('*').limit(1)
-  if (!configs?.length) return { ok: false, error: 'UTMify not configured' }
+async function handleTestConnection() {
   try {
-    const serverInfo = await mcpInitialize(configs[0].mcp_url)
-    const dashboards = await mcpCallTool(configs[0].mcp_url, 'get_dashboards', {})
-    return { ok: true, serverInfo, dashboards }
+    const serverInfo = await mcpInitialize(MCP_URL)
+    const dashboards = await mcpCallTool(MCP_URL, 'get_dashboards', {})
+    return { ok: true, serverInfo, dashboards, configured: DASHBOARDS.map(d => d.name) }
   } catch (err) {
     return { ok: false, error: err.message }
   }
 }
 
-// ─── ACTION: sync ───
+// ─── ACTION: sync (one or all dashboards) ───
 async function handleSync(supabase, query) {
-  const { data: configs } = await supabase.from('utmify_config').select('*').limit(1)
-  if (!configs?.length) return { error: 'UTMify not configured' }
-  const config = configs[0]
+  const targetType = query.dashboard || 'all'
+  const dashboardsToSync = targetType === 'all'
+    ? DASHBOARDS
+    : DASHBOARDS.filter(d => d.type === targetType)
+
+  if (!dashboardsToSync.length) return { error: `Unknown dashboard: ${targetType}` }
 
   const days = parseInt(query.days || '1')
   const now = new Date()
   const toDate = query.to || todayStr()
   const fromD = new Date(now); fromD.setDate(fromD.getDate() - (days - 1))
   const fromDate = query.from || fromD.toISOString().split('T')[0]
-  const dateFrom = formatDateISO(fromDate, '00:00:00', config.timezone)
-  const dateTo = formatDateISO(toDate, '23:59:59', config.timezone)
+  const dateFrom = formatDateISO(fromDate, '00:00:00')
+  const dateTo = formatDateISO(toDate, '23:59:59')
 
-  // Initialize MCP
-  await mcpInitialize(config.mcp_url)
+  await mcpInitialize(MCP_URL)
 
-  // Call get_meta_ad_objects
-  const response = await mcpCallTool(config.mcp_url, 'get_meta_ad_objects', {
-    dashboardId: config.dashboard_id,
-    level: 'campaign',
-    dateRange: { from: dateFrom, to: dateTo },
-    orderBy: 'greater_profit',
-  })
+  // Migrate legacy data (one-time: prefix old campaign_ids with 'testeos:')
+  const { data: legacyRows } = await supabase
+    .from('utmify_sync')
+    .select('id, campaign_id')
+    .not('campaign_id', 'like', '%:%')
+    .limit(500)
 
-  // Data is in response.results
-  const list = response?.results || []
-
-  if (!list.length) {
-    await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).eq('id', config.id)
-    return { synced: 0, dateRange: { from: fromDate, to: toDate }, message: 'No campaigns found' }
+  if (legacyRows?.length) {
+    for (const row of legacyRows) {
+      await supabase.from('utmify_sync')
+        .update({ campaign_id: `testeos:${row.campaign_id}`, level: 'testeos' })
+        .eq('id', row.id)
+    }
   }
 
-  const rows = list.map(c => campaignToRow(c, toDate))
-  const { error: upsertErr } = await supabase.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' })
-  if (upsertErr) return { error: `DB upsert: ${upsertErr.message}` }
+  const results = []
+  let totalSynced = 0
 
-  await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).eq('id', config.id)
+  for (const db of dashboardsToSync) {
+    try {
+      const response = await mcpCallTool(MCP_URL, 'get_meta_ad_objects', {
+        dashboardId: db.id,
+        level: 'campaign',
+        dateRange: { from: dateFrom, to: dateTo },
+        orderBy: 'greater_profit',
+      })
 
-  return { synced: rows.length, dateRange: { from: fromDate, to: toDate }, summary: summarize(rows) }
+      const list = response?.results || []
+      if (!list.length) {
+        results.push({ dashboard: db.name, type: db.type, synced: 0 })
+        continue
+      }
+
+      const rows = list.map(c => campaignToRow(c, toDate, db.type))
+      const { error: upsertErr } = await supabase.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' })
+      if (upsertErr) {
+        results.push({ dashboard: db.name, type: db.type, error: upsertErr.message })
+        continue
+      }
+
+      totalSynced += rows.length
+      results.push({ dashboard: db.name, type: db.type, synced: rows.length, summary: summarize(rows) })
+    } catch (err) {
+      results.push({ dashboard: db.name, type: db.type, error: err.message })
+    }
+  }
+
+  // Update last_sync in old config table (backwards compat)
+  await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
+
+  return { synced: totalSynced, dateRange: { from: fromDate, to: toDate }, dashboards: results }
 }
 
 // ─── ACTION: push ───
 async function handlePush(supabase, body) {
   if (!body?.campaigns && !body?.results) {
-    return { error: 'Body must contain { date, campaigns: [...] } or { date, results: [...] }' }
+    return { error: 'Body must contain { date, campaigns: [...], dashboard?: "testeos" }' }
   }
   const date = body.date || todayStr()
+  const dashType = body.dashboard || 'testeos'
   const list = body.campaigns || body.results || []
   if (!list.length) return { error: 'No campaigns in body' }
 
-  const rows = list.map(c => campaignToRow(c, date))
+  const rows = list.map(c => campaignToRow(c, date, dashType))
   const { error: upsertErr } = await supabase.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' })
   if (upsertErr) return { error: `DB upsert: ${upsertErr.message}` }
 
-  const { data: configs } = await supabase.from('utmify_config').select('id').limit(1)
-  if (configs?.length) await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).eq('id', configs[0].id)
+  await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
 
-  return { synced: rows.length, date, summary: summarize(rows) }
+  return { synced: rows.length, date, dashboard: dashType, summary: summarize(rows) }
 }
 
 // ─── ACTION: dashboard-data ───
@@ -181,13 +224,27 @@ async function handleDashboardData(supabase, query) {
   const { data: rows, error } = await supabase.from('utmify_sync').select('*').gte('date', fromDate).order('date')
   if (error) return { error: error.message }
 
+  // Categorize rows by dashboard type
+  const allRows = rows || []
+
   const byDate = {}
-  for (const r of (rows || [])) {
+  for (const r of allRows) {
+    const type = getDashType(r.campaign_id)
     if (!byDate[r.date]) byDate[r.date] = { date: r.date, revenue: 0, spend: 0, profit: 0, orders: 0 }
-    byDate[r.date].revenue += r.revenue_cents
+
+    // Revenue: only testeos + condimentos (NOT whatsapp — WA revenue comes from Sheets)
+    if (type === 'testeos' || type === 'condimentos') {
+      byDate[r.date].revenue += r.revenue_cents
+    }
+    // Spend: ALL 3 dashboards
     byDate[r.date].spend += r.spend_cents
-    byDate[r.date].profit += r.profit_cents
+    // Profit recalculated
     byDate[r.date].orders += r.approved_orders
+  }
+
+  // Recalculate profit per day
+  for (const d of Object.values(byDate)) {
+    d.profit = d.revenue - d.spend
   }
 
   const dailyChart = Object.values(byDate).map(d => ({
@@ -195,31 +252,68 @@ async function handleDashboardData(supabase, query) {
     revenue: d.revenue / 100, spend: d.spend / 100, profit: d.profit / 100, orders: d.orders,
   }))
 
-  const mtd = (rows || []).filter(r => r.date >= mtdFrom)
-  const mtdRev = mtd.reduce((s, r) => s + r.revenue_cents, 0) / 100
-  const mtdSpend = mtd.reduce((s, r) => s + r.spend_cents, 0) / 100
-  const todayR = (rows || []).filter(r => r.date === today)
+  // MTD calculations
+  const mtdRows = allRows.filter(r => r.date >= mtdFrom)
+  let mtdShopifyRev = 0, mtdSpend = 0, mtdOrders = 0, mtdWaSpend = 0
+  for (const r of mtdRows) {
+    const type = getDashType(r.campaign_id)
+    if (type === 'testeos' || type === 'condimentos') mtdShopifyRev += r.revenue_cents
+    mtdSpend += r.spend_cents
+    mtdOrders += r.approved_orders
+    if (type === 'whatsapp') mtdWaSpend += r.spend_cents
+  }
+
+  // Today
+  const todayRows = allRows.filter(r => r.date === today)
+  let todayRev = 0, todaySpend = 0
+  for (const r of todayRows) {
+    const type = getDashType(r.campaign_id)
+    if (type === 'testeos' || type === 'condimentos') todayRev += r.revenue_cents
+    todaySpend += r.spend_cents
+  }
+
+  // Per-dashboard breakdown
+  const byDashboard = {}
+  for (const db of DASHBOARDS) {
+    const dbRows = mtdRows.filter(r => getDashType(r.campaign_id) === db.type)
+    byDashboard[db.type] = {
+      name: db.name,
+      revenue: dbRows.reduce((s, r) => s + r.revenue_cents, 0) / 100,
+      spend: dbRows.reduce((s, r) => s + r.spend_cents, 0) / 100,
+      campaigns: dbRows.length,
+    }
+  }
 
   const { data: configs } = await supabase.from('utmify_config').select('last_sync_at').limit(1)
 
   return {
     dailyChart,
     mtd: {
-      revenue: mtdRev, spend: mtdSpend,
-      profit: mtd.reduce((s, r) => s + r.profit_cents, 0) / 100,
-      roas: mtdSpend > 0 ? mtdRev / mtdSpend : null,
-      orders: mtd.reduce((s, r) => s + r.approved_orders, 0),
-      waRevenue: mtd.filter(r => r.conversations > 0).reduce((s, r) => s + r.revenue_cents, 0) / 100,
-      landingRevenue: mtd.filter(r => r.conversations === 0).reduce((s, r) => s + r.revenue_cents, 0) / 100,
+      revenue: mtdShopifyRev / 100,
+      spend: mtdSpend / 100,
+      profit: (mtdShopifyRev - mtdSpend) / 100,
+      roas: mtdSpend > 0 ? mtdShopifyRev / mtdSpend : null,
+      orders: mtdOrders,
+      waSpend: mtdWaSpend / 100,
+      // Legacy compat fields
+      waRevenue: 0, // WA revenue comes from Sheets, not UTMify
+      landingRevenue: mtdShopifyRev / 100,
     },
     today: {
-      revenue: todayR.reduce((s, r) => s + r.revenue_cents, 0) / 100,
-      spend: todayR.reduce((s, r) => s + r.spend_cents, 0) / 100,
-      profit: todayR.reduce((s, r) => s + r.profit_cents, 0) / 100,
+      revenue: todayRev / 100,
+      spend: todaySpend / 100,
+      profit: (todayRev - todaySpend) / 100,
     },
+    byDashboard,
+    dashboards: DASHBOARDS.map(d => ({ ...d })),
     lastSync: configs?.[0]?.last_sync_at || null,
-    totalRows: (rows || []).length,
+    totalRows: allRows.length,
   }
+}
+
+// ─── ACTION: dashboards (list configured dashboards) ───
+function handleDashboards() {
+  return { dashboards: DASHBOARDS.map(d => ({ ...d, mcp_url: MCP_URL })) }
 }
 
 // ─── HANDLER ───
@@ -229,12 +323,13 @@ module.exports = async function handler(req, res) {
     const action = req.query?.action || 'dashboard-data'
 
     switch (action) {
-      case 'test-connection': return res.json(await handleTestConnection(supabase))
+      case 'test-connection': return res.json(await handleTestConnection())
       case 'sync': return res.json(await handleSync(supabase, req.query || {}))
       case 'push':
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' })
         return res.json(await handlePush(supabase, req.body))
       case 'dashboard-data': return res.json(await handleDashboardData(supabase, req.query || {}))
+      case 'dashboards': return res.json(handleDashboards())
       default: return res.status(400).json({ error: `Unknown action: ${action}` })
     }
   } catch (err) {

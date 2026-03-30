@@ -127,15 +127,16 @@ export default function Integrations() {
     }
   }
 
-  async function syncUtmify(days = 30) {
+  async function syncUtmify(days = 30, dashboard = 'all') {
     setUtmifySyncing(true)
     try {
-      const res = await fetch(`/api/utmify?action=sync&days=${days}`)
+      const res = await fetch(`/api/utmify?action=sync&days=${days}&dashboard=${dashboard}`)
       const data = await res.json()
       if (data.error) {
         toast.error(data.error)
       } else {
-        toast.success(`Sincronizado: ${data.synced} campanas — Revenue: US$ ${data.summary?.revenue || 0}`)
+        const dbResults = (data.dashboards || []).map((d: any) => `${d.dashboard}: ${d.synced || 0}`).join(', ')
+        toast.success(`Sincronizado ${data.synced} campanas (${dbResults})`)
         refreshUtmify()
       }
     } catch (err: any) {
@@ -268,9 +269,7 @@ export default function Integrations() {
         <div className="flex items-center gap-2">
           <BarChart3 size={16} className="text-violet-500" />
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">UTMify</h2>
-          <Badge variant="outline" className="text-xs text-slate-400">
-            {utmifyLoading ? '...' : utmifyConfig ? 'Configurado' : 'No configurado'}
-          </Badge>
+          <Badge variant="outline" className="text-xs text-slate-400">3 dashboards</Badge>
         </div>
 
         <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
@@ -282,66 +281,56 @@ export default function Integrations() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tracking financiero</p>
-                  <p className="text-xs text-slate-400">Fuente unica de datos financieros</p>
+                  <p className="text-xs text-slate-400">3 dashboards — testeos, condimentos, whatsapp</p>
                 </div>
               </div>
-              {utmifyConfig && (
-                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                  <CheckCircle2 size={14} />
-                  <span className="text-xs font-medium">Conectado</span>
-                </div>
-              )}
+              <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <CheckCircle2 size={14} />
+                <span className="text-xs font-medium">Conectado</span>
+              </div>
             </div>
 
-            {/* MCP URL */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">URL MCP</p>
-              <div className="flex gap-2">
-                <Input
-                  className="text-xs h-8 flex-1 font-mono"
-                  placeholder="https://mcp.utmify.com.br/mcp/?token=..."
-                  value={utmifyMcpUrl}
-                  onChange={e => setUtmifyMcpUrl(e.target.value)}
-                />
-                {isAdmin && utmifyMcpUrl !== (utmifyConfig?.mcp_url || '') && (
-                  <Button size="sm" className="h-8 text-xs text-white" style={{ backgroundColor: '#8B5CF6' }} onClick={saveUtmifyUrl}>
-                    Guardar
+            {/* 3 Dashboard cards */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Dashboards</p>
+              {[
+                { name: 'TESTEOS - CP 3-4-5', type: 'testeos', desc: 'CP1, CP3, CP4, CP5 — facturacion + gasto', color: 'violet' },
+                { name: 'CONDI ARG CP 2', type: 'condimentos', desc: 'CP2 BPF LLC — facturacion + gasto', color: 'emerald' },
+                { name: 'Whatsapp', type: 'whatsapp', desc: 'CP1/CP2 BM Romina — solo gasto (facturacion via Sheets)', color: 'blue' },
+              ].map(db => (
+                <div key={db.type} className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-slate-700/50 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full bg-${db.color}-500`} />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{db.name}</p>
+                      <p className="text-[10px] text-slate-400">{db.desc}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm" variant="outline" className="text-[10px] h-6 gap-1 px-2"
+                    disabled={utmifySyncing}
+                    onClick={() => syncUtmify(1, db.type)}
+                  >
+                    <RefreshCw size={9} className={utmifySyncing ? 'animate-spin' : ''} />
+                    Sync
                   </Button>
-                )}
-              </div>
+                </div>
+              ))}
             </div>
 
-            {/* Actions */}
+            {/* Global actions */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-7 gap-1.5"
-                disabled={utmifyTesting}
-                onClick={testUtmifyConnection}
-              >
+              <Button size="sm" variant="outline" className="text-xs h-7 gap-1.5" disabled={utmifyTesting} onClick={testUtmifyConnection}>
                 {utmifyTesting ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
                 Probar conexion
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-7 gap-1.5"
-                disabled={utmifySyncing}
-                onClick={() => syncUtmify(1)}
-              >
+              <Button size="sm" variant="outline" className="text-xs h-7 gap-1.5" disabled={utmifySyncing} onClick={() => syncUtmify(1)}>
                 {utmifySyncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                Sync hoy
+                Sync todos hoy
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-7 gap-1.5"
-                disabled={utmifySyncing}
-                onClick={() => syncUtmify(30)}
-              >
+              <Button size="sm" variant="outline" className="text-xs h-7 gap-1.5" disabled={utmifySyncing} onClick={() => syncUtmify(30)}>
                 {utmifySyncing ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
-                Sync 30 dias
+                Sync todos 30d
               </Button>
               {utmifyConfig?.last_sync_at && (
                 <span className="text-[10px] text-slate-400 ml-2">
@@ -352,32 +341,16 @@ export default function Integrations() {
 
             {/* Push manual */}
             <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-              <button
-                onClick={() => setShowPush(!showPush)}
-                className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 font-medium"
-              >
+              <button onClick={() => setShowPush(!showPush)} className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 font-medium">
                 {showPush ? '▾ Cerrar push manual' : '▸ Push manual (desde Claude.ai)'}
               </button>
               {showPush && (
                 <div className="mt-2 space-y-2">
                   <p className="text-[10px] text-slate-400">
-                    Pega el JSON de campañas que te da Claude.ai al consultar UTMify MCP.
-                    Formato: {'{'} "date": "2026-03-27", "campaigns": [...] {'}'}
+                    Formato: {'{'} "date": "2026-03-27", "dashboard": "testeos|condimentos|whatsapp", "campaigns": [...] {'}'}
                   </p>
-                  <textarea
-                    className="w-full text-xs font-mono bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/30"
-                    rows={5}
-                    placeholder='{ "date": "2026-03-27", "campaigns": [...] }'
-                    value={pushJson}
-                    onChange={e => setPushJson(e.target.value)}
-                  />
-                  <Button
-                    size="sm"
-                    className="text-xs h-7 text-white gap-1.5"
-                    style={{ backgroundColor: '#8B5CF6' }}
-                    disabled={pushing || !pushJson.trim()}
-                    onClick={handlePush}
-                  >
+                  <textarea className="w-full text-xs font-mono bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/30" rows={5} placeholder='{ "date": "2026-03-27", "dashboard": "testeos", "campaigns": [...] }' value={pushJson} onChange={e => setPushJson(e.target.value)} />
+                  <Button size="sm" className="text-xs h-7 text-white gap-1.5" style={{ backgroundColor: '#8B5CF6' }} disabled={pushing || !pushJson.trim()} onClick={handlePush}>
                     {pushing ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
                     {pushing ? 'Guardando...' : 'Guardar datos'}
                   </Button>
@@ -390,13 +363,10 @@ export default function Integrations() {
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
                 <div>
                   <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Auto-sync</p>
-                  <p className="text-[10px] text-slate-400">Sincronizar automaticamente cada {utmifyConfig.sync_interval_minutes} minutos</p>
+                  <p className="text-[10px] text-slate-400">Sincronizar los 3 dashboards cada {utmifyConfig.sync_interval_minutes} min</p>
                 </div>
                 <button
-                  onClick={async () => {
-                    const { error } = await saveUtmifyConfig({ auto_sync: !utmifyConfig.auto_sync } as any)
-                    if (error) toast.error(error)
-                  }}
+                  onClick={async () => { const { error } = await saveUtmifyConfig({ auto_sync: !utmifyConfig.auto_sync } as any); if (error) toast.error(error) }}
                   className={`h-6 w-10 rounded-full relative cursor-pointer transition-colors ${utmifyConfig.auto_sync ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-600'}`}
                 >
                   <div className={`h-5 w-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform ${utmifyConfig.auto_sync ? 'translate-x-4' : 'translate-x-0.5'}`} />

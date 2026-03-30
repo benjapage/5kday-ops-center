@@ -291,7 +291,13 @@ async function handleUtmify(req, res, sub, query) {
   else if (dateParam === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] }
   else { from = query.from || dateParam; to = query.to || to }
 
-  const { data } = await sb.from('utmify_sync').select('*').gte('date', from).lte('date', to).order('date', { ascending: false })
+  let q = sb.from('utmify_sync').select('*').gte('date', from).lte('date', to).order('date', { ascending: false })
+  // Filter by dashboard type if specified
+  const dashFilter = query.dashboard
+  if (dashFilter && dashFilter !== 'all') {
+    q = q.like('campaign_id', `${dashFilter}:%`)
+  }
+  const { data } = await q
   return ok(res, data || [])
 }
 
