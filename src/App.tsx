@@ -10,6 +10,7 @@ import Financial from '@/pages/Financial'
 import Pipeline from '@/pages/Pipeline'
 import Team from '@/pages/Team'
 import Settings from '@/pages/Settings'
+import Creativos from '@/pages/Creativos'
 import Integrations from '@/pages/Integrations'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/meta" element={<MetaAssets />} />
         <Route path="/financial" element={<Financial />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/creativos" element={<Creativos />} />
         <Route path="/team" element={<Team />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/integrations" element={<Integrations />} />

@@ -70,20 +70,30 @@ function extractFolderId(input) {
   return null
 }
 
-// Guess uploaded_by from file owner email or filename
-function guessUploader(file) {
+// Guess uploaded_by from file owner email or filename — uses editor names from DB
+let _editorNamesCache = null
+let _editorNamesCacheAt = 0
+async function loadEditorNames(supabase) {
+  // Cache for 5 min to avoid spamming DB during bulk sync
+  if (_editorNamesCache && Date.now() - _editorNamesCacheAt < 300000) return _editorNamesCache
+  const { data } = await supabase.from('editors').select('name').eq('active', true)
+  _editorNamesCache = (data || []).map(e => e.name.toLowerCase())
+  _editorNamesCacheAt = Date.now()
+  return _editorNamesCache
+}
+
+function guessUploaderSync(file, editorNames) {
   const owners = file.owners || []
   for (const o of owners) {
     const email = (o.emailAddress || '').toLowerCase()
-    if (email.includes('janne')) return 'janne'
-    if (email.includes('facu')) return 'facu'
-    if (email.includes('benja') || email.includes('pagella')) return 'benjamin'
+    for (const name of editorNames) {
+      if (email.includes(name)) return name
+    }
   }
-  // Try from filename
-  const name = (file.name || '').toLowerCase()
-  if (name.includes('janne')) return 'janne'
-  if (name.includes('facu')) return 'facu'
-  if (name.includes('benja')) return 'benjamin'
+  const fileName = (file.name || '').toLowerCase()
+  for (const name of editorNames) {
+    if (fileName.includes(name)) return name
+  }
   return null
 }
 
@@ -99,6 +109,7 @@ function getFileType(mimeType) {
 async function syncOfferFolder(supabase, token, offerFolder) {
   const { id: offerFolderId, drive_folder_id } = offerFolder
   let detected = 0
+  const editorNames = await loadEditorNames(supabase)
 
   // List top-level items in the offer folder
   const topItems = await driveList(token, drive_folder_id)
@@ -109,7 +120,7 @@ async function syncOfferFolder(supabase, token, offerFolder) {
 
   if (!anunciosFolder) {
     // Try to scan directly (maybe user pointed to the Anuncios folder itself)
-    await scanAnunciosFolder(supabase, token, offerFolderId, drive_folder_id)
+    await scanAnunciosFolder(supabase, token, offerFolderId, drive_folder_id, editorNames)
     await supabase.from('drive_offer_folders').update({ last_sync_at: new Date().toISOString() }).eq('id', offerFolderId)
     return { detected: 0, message: 'No Anuncios/ folder found, scanned root' }
   }
@@ -167,7 +178,7 @@ async function syncOfferFolder(supabase, token, offerFolder) {
 }
 
 // Fallback: scan folder directly if it IS the Anuncios folder
-async function scanAnunciosFolder(supabase, token, offerFolderId, folderId) {
+async function scanAnunciosFolder(supabase, token, offerFolderId, folderId, editorNames) {
   const items = await driveList(token, folderId)
   for (const subfolder of items) {
     if (subfolder.mimeType !== 'application/vnd.google-apps.folder') continue
@@ -193,7 +204,7 @@ async function scanAnunciosFolder(supabase, token, offerFolderId, folderId) {
           file_name: file.name,
           file_type: getFileType(file.mimeType),
           drive_file_id: file.id,
-          uploaded_by: guessUploader(file),
+          uploaded_by: guessUploaderSync(file, editorNames),
           detected_at: new Date().toISOString(),
         }, { onConflict: 'drive_file_id' })
       }
@@ -371,6 +382,63 @@ async function handleDashboardSummary(supabase) {
   }
 }
 
+// ─── WEEKLY CREATIVES: all creatives grouped by offer + testeo for the week ───
+async function handleWeeklyCreatives(supabase, query) {
+  const testeoNum = query.testeo ? parseInt(query.testeo) : null
+
+  // Get all linked folders with offer names
+  const { data: folders } = await supabase
+    .from('drive_offer_folders')
+    .select('id, offer_id, last_sync_at, offers(name)')
+
+  if (!folders?.length) return { offers: [] }
+
+  const offers = []
+  for (const folder of folders) {
+    let q = supabase
+      .from('drive_creatives')
+      .select('*')
+      .eq('offer_folder_id', folder.id)
+      .order('testeo_number', { ascending: true })
+      .order('file_name', { ascending: true })
+
+    if (testeoNum) q = q.eq('testeo_number', testeoNum)
+
+    const { data: creatives } = await q
+
+    // Group by type + testeo
+    const groups = {}
+    for (const c of (creatives || [])) {
+      const key = `${c.creative_type}-${c.testeo_number}`
+      if (!groups[key]) groups[key] = {
+        creative_type: c.creative_type,
+        testeo: c.testeo_folder_name,
+        testeo_number: c.testeo_number,
+        files: [], subido: 0, publicado: 0,
+      }
+      groups[key].files.push(c)
+      if (c.status === 'subido') groups[key].subido++
+      else groups[key].publicado++
+    }
+
+    offers.push({
+      offer_id: folder.offer_id,
+      offer_folder_id: folder.id,
+      offer_name: folder.offers?.name || '?',
+      last_sync: folder.last_sync_at,
+      groups: Object.values(groups),
+      totals: {
+        videos: (creatives || []).filter(c => c.creative_type === 'video').length,
+        images: (creatives || []).filter(c => c.creative_type === 'imagen').length,
+        subido: (creatives || []).filter(c => c.status === 'subido').length,
+        publicado: (creatives || []).filter(c => c.status === 'publicado').length,
+      },
+    })
+  }
+
+  return { offers }
+}
+
 // ─── Editor payments handler (shared file to stay within Vercel 12-function limit) ───
 const editorPaymentsHandler = require('./_lib/editor-payments')
 
@@ -403,6 +471,9 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'dashboard-summary') {
       return res.json(await handleDashboardSummary(supabase))
+    }
+    if (action === 'weekly-creatives') {
+      return res.json(await handleWeeklyCreatives(supabase, req.query))
     }
 
     // Actions that need Drive token
