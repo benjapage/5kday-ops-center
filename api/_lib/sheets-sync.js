@@ -58,7 +58,7 @@ async function syncSales(supabase, token, config) {
     const saleDate = parseDate(fecha)
     if (!saleDate) { skipped++; continue }
 
-    const amountCents = Math.round(parseFloat(monto) * 100)
+    const amountCents = Math.round(parseFloat(String(monto).replace(',', '.')) * 100)
     if (isNaN(amountCents) || amountCents <= 0) { skipped++; continue }
 
     const { error } = await supabase.from('wa_sales').upsert({
