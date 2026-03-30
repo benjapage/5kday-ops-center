@@ -71,19 +71,27 @@ function extractFolderId(input) {
 }
 
 // Guess uploaded_by from file owner email or filename — uses editor names from DB
-let _editorNamesCache = null
-let _editorNamesCacheAt = 0
+// Editor matching: { name, aliases[] } — aliases include email keywords
+let _editorMatchCache = null
+let _editorMatchCacheAt = 0
+async function loadEditorMatchers(supabase) {
+  if (_editorMatchCache && Date.now() - _editorMatchCacheAt < 300000) return _editorMatchCache
+  const { data } = await supabase.from('editors').select('name, email_pattern').eq('active', true)
+  _editorMatchCache = (data || []).map(e => ({
+    name: e.name.toLowerCase(),
+    patterns: [e.name.toLowerCase(), ...(e.email_pattern || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)],
+  }))
+  _editorMatchCacheAt = Date.now()
+  return _editorMatchCache
+}
+// Backward compat wrapper
 async function loadEditorNames(supabase) {
-  // Cache for 5 min to avoid spamming DB during bulk sync
-  if (_editorNamesCache && Date.now() - _editorNamesCacheAt < 300000) return _editorNamesCache
-  const { data } = await supabase.from('editors').select('name').eq('active', true)
-  _editorNamesCache = (data || []).map(e => e.name.toLowerCase())
-  _editorNamesCacheAt = Date.now()
-  return _editorNamesCache
+  const matchers = await loadEditorMatchers(supabase)
+  return matchers.map(m => m.name)
 }
 
-function guessUploaderSync(file, editorNames) {
-  // Check all possible user fields: owners, lastModifyingUser, sharingUser
+function guessUploaderSync(file, editorMatchers) {
+  // Collect all candidate strings from Drive file metadata
   const candidates = []
   for (const o of (file.owners || [])) {
     if (o.emailAddress) candidates.push(o.emailAddress.toLowerCase())
@@ -95,16 +103,21 @@ function guessUploaderSync(file, editorNames) {
   }
   if (file.sharingUser?.emailAddress) candidates.push(file.sharingUser.emailAddress.toLowerCase())
 
+  // Match against editor patterns (name + email_pattern aliases)
   for (const candidate of candidates) {
-    for (const name of editorNames) {
-      if (candidate.includes(name)) return name
+    for (const editor of editorMatchers) {
+      for (const pattern of editor.patterns) {
+        if (candidate.includes(pattern)) return editor.name
+      }
     }
   }
 
   // Fallback: check filename
   const fileName = (file.name || '').toLowerCase()
-  for (const name of editorNames) {
-    if (fileName.includes(name)) return name
+  for (const editor of editorMatchers) {
+    for (const pattern of editor.patterns) {
+      if (fileName.includes(pattern)) return editor.name
+    }
   }
   return null
 }
@@ -121,7 +134,7 @@ function getFileType(mimeType) {
 async function syncOfferFolder(supabase, token, offerFolder) {
   const { id: offerFolderId, drive_folder_id } = offerFolder
   let detected = 0
-  const editorNames = await loadEditorNames(supabase)
+  const editorMatchers = await loadEditorMatchers(supabase)
 
   // List top-level items in the offer folder
   const topItems = await driveList(token, drive_folder_id)
@@ -132,7 +145,7 @@ async function syncOfferFolder(supabase, token, offerFolder) {
 
   if (!anunciosFolder) {
     // Try to scan directly (maybe user pointed to the Anuncios folder itself)
-    await scanAnunciosFolder(supabase, token, offerFolderId, drive_folder_id, editorNames)
+    await scanAnunciosFolder(supabase, token, offerFolderId, drive_folder_id, editorMatchers)
     await supabase.from('drive_offer_folders').update({ last_sync_at: new Date().toISOString() }).eq('id', offerFolderId)
     return { detected: 0, message: 'No Anuncios/ folder found, scanned root' }
   }
@@ -155,7 +168,7 @@ async function syncOfferFolder(supabase, token, offerFolder) {
     for (const testeoFolder of testeoFolders) {
       if (testeoFolder.mimeType !== 'application/vnd.google-apps.folder') continue
 
-      const testeoMatch = testeoFolder.name.match(/testeo\s*(\d+)/i)
+      const testeoMatch = testeoFolder.name.match(/(?:testeo|tt)\s*(\d+)/i)
       const testeoNumber = testeoMatch ? parseInt(testeoMatch[1]) : null
 
       // List files inside testeo folder
@@ -164,7 +177,7 @@ async function syncOfferFolder(supabase, token, offerFolder) {
       for (const file of files) {
         if (file.mimeType === 'application/vnd.google-apps.folder') continue
 
-        const uploader = guessUploader(file)
+        const uploader = guessUploaderSync(file, editorMatchers)
         const fileType = getFileType(file.mimeType)
 
         // Upsert into drive_creatives
@@ -190,7 +203,7 @@ async function syncOfferFolder(supabase, token, offerFolder) {
 }
 
 // Fallback: scan folder directly if it IS the Anuncios folder
-async function scanAnunciosFolder(supabase, token, offerFolderId, folderId, editorNames) {
+async function scanAnunciosFolder(supabase, token, offerFolderId, folderId, editorMatchers) {
   const items = await driveList(token, folderId)
   for (const subfolder of items) {
     if (subfolder.mimeType !== 'application/vnd.google-apps.folder') continue
@@ -216,7 +229,7 @@ async function scanAnunciosFolder(supabase, token, offerFolderId, folderId, edit
           file_name: file.name,
           file_type: getFileType(file.mimeType),
           drive_file_id: file.id,
-          uploaded_by: guessUploaderSync(file, editorNames),
+          uploaded_by: guessUploaderSync(file, editorMatchers),
           detected_at: new Date().toISOString(),
         }, { onConflict: 'drive_file_id' })
       }
@@ -506,7 +519,7 @@ module.exports = async function handler(req, res) {
       if (!offerId) return res.status(400).json({ error: 'offer_id required' })
       const { data: folder } = await supabase.from('drive_offer_folders').select('*').eq('offer_id', offerId).single()
       if (!folder) return res.json({ error: 'No folder linked' })
-      const editorNames = await loadEditorNames(supabase)
+      const editorMatchers = await loadEditorMatchers(supabase)
       const topItems = await driveList(token, folder.drive_folder_id)
       const anunciosFolder = topItems.find(f => f.mimeType === 'application/vnd.google-apps.folder' && f.name.toLowerCase().startsWith('anuncio'))
       const targetId = anunciosFolder ? anunciosFolder.id : folder.drive_folder_id
@@ -524,12 +537,12 @@ module.exports = async function handler(req, res) {
             owners: (f.owners || []).map(o => ({ email: o.emailAddress, displayName: o.displayName })),
             lastModifyingUser: f.lastModifyingUser ? { email: f.lastModifyingUser.emailAddress, displayName: f.lastModifyingUser.displayName } : null,
             sharingUser: f.sharingUser ? { email: f.sharingUser.emailAddress } : null,
-            detectedUploader: guessUploaderSync(f, editorNames),
+            detectedUploader: guessUploaderSync(f, editorMatchers),
             testeoFolder: tf.name,
           })))
         }
       }
-      return res.json({ editor_names_in_db: editorNames, folder_structure: items.map(f => f.name), sample_files: sampleFiles })
+      return res.json({ editor_matchers: editorMatchers, folder_structure: items.map(f => f.name), sample_files: sampleFiles })
     }
 
     return res.status(400).json({ error: `Unknown action: ${action}` })

@@ -7,6 +7,7 @@ export interface Editor {
   rate_per_winner_cents: number
   winner_threshold_cents: number
   active: boolean
+  email_pattern?: string
 }
 
 export interface WinnerAd {
