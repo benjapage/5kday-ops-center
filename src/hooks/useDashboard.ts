@@ -27,6 +27,8 @@ export interface DailyChartPoint {
 export interface DashboardMetrics {
   revenueToday: number
   shopifyRevenueToday: number
+  waRevenueToday: number
+  waRevenueMtd: number
   expensesToday: number
   adSpendToday: number
   profitToday: number
@@ -93,6 +95,8 @@ export function useDashboard() {
           // WA
           waRes, bannedRes, readyRes,
           blueRate,
+          // WA Sales (from Google Sheets via ManyChat)
+          waSalesTodayRes, waSalesMtdRes,
         ] = await Promise.all([
           fetch('/api/utmify?action=dashboard-data&days=30').then(r => r.ok ? r.json() : null).catch(() => null),
           // Meta revenue for MTD before cutoff
@@ -106,6 +110,9 @@ export function useDashboard() {
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
           supabase.from('wa_accounts').select('id, phone_number, start_date').eq('status', 'warming').lte('start_date', readyCutoff),
           fetchDolarBlue(),
+          // WA Sales from Sheets
+          supabase.from('wa_sales').select('amount_cents').eq('sale_date', today),
+          supabase.from('wa_sales').select('amount_cents').gte('sale_date', mtdFrom),
         ])
 
         const sumUSD = (rows: { amount: unknown; currency?: unknown }[] | null) =>
@@ -141,14 +148,18 @@ export function useDashboard() {
         const utmRevToday = utmify?.today?.revenue ?? 0
         const utmSpendToday = utmify?.today?.spend ?? 0
 
-        // ── MERGED totals ──
-        const revenueMtd = histRevMtd + utmRevMtd
+        // ── WA Sales (from Google Sheets) ──
+        const waRevenueToday = (waSalesTodayRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100
+        const waRevenueMtd = (waSalesMtdRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100
+
+        // ── MERGED totals (UTMify/Shopify + WA Sales) ──
+        const revenueMtd = histRevMtd + utmRevMtd + waRevenueMtd
         const adSpendMtd = histAdSpendMtd + utmSpendMtd
         const expensesMtd = adSpendMtd + nonAdsExpensesMtd
         const profitMtd = revenueMtd - expensesMtd
         const roasMtd = adSpendMtd > 0 ? revenueMtd / adSpendMtd : null
 
-        const revenueToday = utmRevToday
+        const revenueToday = utmRevToday + waRevenueToday
         const adSpendToday = utmSpendToday
         const expensesToday = adSpendToday + nonAdsExpensesToday
         const profitToday = revenueToday - expensesToday
@@ -226,7 +237,7 @@ export function useDashboard() {
         }
 
         setMetrics({
-          revenueToday, shopifyRevenueToday: revenueToday, expensesToday, adSpendToday, profitToday,
+          revenueToday, shopifyRevenueToday: utmRevToday, waRevenueToday, waRevenueMtd, expensesToday, adSpendToday, profitToday,
           revenueMtd, expensesMtd, adSpendMtd, profitMtd, roasMtd,
           expenseBreakdownMtd: expBreakdown,
           roas30d, waAccounts, alerts, dolarBlue: blueRate, dailyChart,

@@ -506,6 +506,18 @@ export default function Dashboard() {
                 <p className="text-[9px] text-slate-400 uppercase tracking-wider">{kpi.label}</p>
               </div>
             ))}
+            {(metrics.waRevenueMtd > 0 || metrics.shopifyRevenueToday > 0) && (
+              <div className="flex items-center gap-3 ml-2 pl-3 border-l border-slate-200 dark:border-slate-700">
+                <div>
+                  <Num className="text-xs" style={{ color: '#8B5CF6' }}>{formatCurrency(metrics.revenueMtd - metrics.waRevenueMtd)}</Num>
+                  <p className="text-[8px] text-slate-400 uppercase">Shopify</p>
+                </div>
+                <div>
+                  <Num className="text-xs" style={{ color: '#10B981' }}>{formatCurrency(metrics.waRevenueMtd)}</Num>
+                  <p className="text-[8px] text-slate-400 uppercase">WhatsApp</p>
+                </div>
+              </div>
+            )}
           </div>
           {/* Chart fills remaining height */}
           <div className="flex-1 min-h-[150px]">
