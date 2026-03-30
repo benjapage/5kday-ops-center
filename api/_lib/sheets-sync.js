@@ -161,13 +161,52 @@ async function syncContacts(supabase, token, config) {
   return { processed, totalRows: rows.length - 1 }
 }
 
-// Check for ban signals based on activity drop
+// Send alert email via Gmail API
+async function sendAlertEmail(supabase, subject, body) {
+  const token = await getValidToken(supabase)
+  if (!token) return { sent: false, reason: 'no_token' }
+
+  // Get user email
+  const { data: tokens } = await supabase.from('google_tokens').select('email').eq('is_active', true).limit(1)
+  const email = tokens?.[0]?.email
+  if (!email) return { sent: false, reason: 'no_email' }
+
+  // Build RFC 2822 email
+  const raw = Buffer.from(
+    `From: 5KDay Ops Center <${email}>\r\n` +
+    `To: ${email}\r\n` +
+    `Subject: ${subject}\r\n` +
+    `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+    body
+  ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('[alert-email] Failed:', text.slice(0, 300))
+    return { sent: false, reason: `gmail_error_${res.status}` }
+  }
+  return { sent: true, to: email }
+}
+
+// Check for ban signals: 40 min without activity during 6am-11:30pm ARG
 async function checkBanSignals(supabase) {
   const now = new Date()
-  const currentHour = now.getHours()
+  const utcHour = now.getUTCHours()
+  const utcMin = now.getUTCMinutes()
+  // Argentina = UTC-3
+  const argHour = (utcHour - 3 + 24) % 24
+  const argMin = utcMin
 
-  // Only check during ad hours (8am - 11pm)
-  // Ads run 24/7 — always check
+  // Only check during ad window: 6:00am - 11:30pm Argentina
+  if (argHour < 6 || (argHour === 23 && argMin > 30) || argHour >= 24) {
+    return { checked: 0, alerts: [], reason: 'outside_ad_hours' }
+  }
 
   // Get active WA numbers (not already banned)
   const { data: waAccounts } = await supabase
@@ -177,9 +216,9 @@ async function checkBanSignals(supabase) {
 
   if (!waAccounts?.length) return { checked: 0, alerts: [] }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = now.toISOString().split('T')[0]
   const since3d = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0]
-  const since6h = new Date(Date.now() - 6 * 3600000)
+  const fortyMinAgo = new Date(Date.now() - 40 * 60 * 1000)
 
   const alerts = []
 
@@ -187,41 +226,43 @@ async function checkBanSignals(supabase) {
     const phone = cleanPhone(account.phone_number)
     if (!phone) continue
 
-    // Get average hourly activity over last 3 days
+    // Get historical activity (last 3 days) to know if this number normally has traffic
     const { data: history } = await supabase
       .from('wa_activity_monitor')
       .select('contacts_count, sales_count')
       .eq('phone_number', phone)
       .gte('date', since3d)
-      .lt('date', today)
 
     const totalHistorical = (history || []).reduce((s, r) => s + r.contacts_count + r.sales_count, 0)
-    const hoursTracked = (history || []).length || 1
-    const avgPerHour = totalHistorical / hoursTracked
+    if (totalHistorical < 3) continue // Not enough data yet
 
-    // If average is less than 1 per hour, not enough data to detect
-    if (avgPerHour < 1) continue
-
-    // Get activity in last 6 hours
-    const sixHoursAgo = since6h.toISOString().split('T')[0]
-    const sixHoursAgoHour = since6h.getHours()
-
-    const { data: recent } = await supabase
+    // Find last contact from the sheet data (most recent activity for this number)
+    const { data: lastActivity } = await supabase
       .from('wa_activity_monitor')
-      .select('contacts_count, sales_count, date, hour')
+      .select('date, hour, contacts_count, sales_count, updated_at')
       .eq('phone_number', phone)
-      .or(`date.gt.${sixHoursAgo},and(date.eq.${sixHoursAgo},hour.gte.${sixHoursAgoHour})`)
+      .gt('contacts_count', 0)
+      .order('date', { ascending: false })
+      .order('hour', { ascending: false })
+      .limit(1)
 
-    const recentTotal = (recent || []).reduce((s, r) => s + r.contacts_count + r.sales_count, 0)
+    let lastActiveAt = null
+    if (lastActivity?.length) {
+      const la = lastActivity[0]
+      lastActiveAt = new Date(`${la.date}T${String(la.hour).padStart(2, '0')}:00:00Z`)
+    }
 
-    // Zero activity in last 6 hours but normal average > 1/hour → suspicious
-    if (recentTotal === 0) {
+    // If last activity was more than 40 minutes ago → alert
+    const minutesSinceActivity = lastActiveAt
+      ? Math.floor((Date.now() - lastActiveAt.getTime()) / 60000)
+      : 9999
+
+    if (minutesSinceActivity >= 40) {
       alerts.push({
         phone: account.phone_number,
         accountId: account.id,
-        avgPerHour: Math.round(avgPerHour * 10) / 10,
-        lastActivity: recent?.length ? `${recent[0].date} ${recent[0].hour}:00` : 'unknown',
-        hoursInactive: 6,
+        minutesInactive: minutesSinceActivity,
+        lastActivity: lastActiveAt ? lastActiveAt.toISOString() : 'never',
       })
 
       // Create urgent task if not already created today
@@ -235,13 +276,30 @@ async function checkBanSignals(supabase) {
 
       if (!existingTask?.length) {
         await supabase.from('app_tasks').insert({
-          title: `POSIBLE BANEO: ${account.phone_number} — 0 actividad en 6 horas`,
+          title: `POSIBLE BANEO: ${account.phone_number} — 0 actividad en ${minutesSinceActivity} min`,
           scheduled_date: today,
-          scheduled_time: `${String(currentHour).padStart(2, '0')}:00`,
+          scheduled_time: `${String(argHour).padStart(2, '0')}:${String(argMin).padStart(2, '0')}`,
           source: 'system_wa_activity',
           is_urgent: true,
           related_number_id: account.id,
         })
+
+        // Send email alert
+        await sendAlertEmail(supabase,
+          `🚨 POSIBLE BANEO: ${account.phone_number}`,
+          `<div style="font-family:sans-serif;max-width:500px">
+            <h2 style="color:#EF4444">Posible baneo detectado</h2>
+            <p><strong>Numero:</strong> ${account.phone_number}</p>
+            <p><strong>Tiempo sin actividad:</strong> ${minutesSinceActivity} minutos</p>
+            <p><strong>Ultima actividad:</strong> ${lastActiveAt ? lastActiveAt.toLocaleString('es-AR') : 'Sin datos'}</p>
+            <p style="margin-top:20px">
+              <a href="https://5kday-ops-center.vercel.app/meta" style="background:#EF4444;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold">
+                Ver en Ops Center
+              </a>
+            </p>
+            <p style="color:#999;font-size:12px;margin-top:20px">5KDay Ops Center — Alerta automatica</p>
+          </div>`
+        )
       }
     }
   }
@@ -320,4 +378,4 @@ function parseHour(val) {
   return 12
 }
 
-module.exports = { fullSync, testConnection, checkBanSignals, syncSales, syncContacts, getValidToken }
+module.exports = { fullSync, testConnection, checkBanSignals, sendAlertEmail, syncSales, syncContacts, getValidToken }
