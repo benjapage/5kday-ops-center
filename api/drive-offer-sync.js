@@ -553,6 +553,28 @@ module.exports = async function handler(req, res) {
     if (action === 'schedule' && req.method === 'POST') {
       return res.json(await handleSchedule(supabase, req.body))
     }
+    if (action === 'migrate') {
+      // Run pending migrations via raw SQL on the database
+      const pgUrl = process.env.SUPABASE_DB_URL || `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD}@db.${(process.env.VITE_SUPABASE_URL || '').match(/https:\/\/(.+?)\.supabase/)?.[1]}.supabase.co:5432/postgres`
+      try {
+        // Use supabase's built-in SQL execution via service role
+        const projectRef = (process.env.VITE_SUPABASE_URL || '').match(/https:\/\/(.+?)\.supabase/)?.[1]
+        const sql = `
+          ALTER TABLE public.drive_creatives ADD COLUMN IF NOT EXISTS scheduled_at date;
+          ALTER TABLE public.drive_creatives DROP CONSTRAINT IF EXISTS drive_creatives_status_check;
+          ALTER TABLE public.drive_creatives ADD CONSTRAINT drive_creatives_status_check CHECK (status IN ('subido', 'programado', 'publicado'));
+        `
+        // Execute via PostgREST RPC if a helper function exists, or return SQL for manual run
+        const { data, error } = await supabase.rpc('run_sql', { sql })
+        if (!error) return res.json({ ok: true, result: data })
+        // Fallback: check if column already exists
+        const { error: colErr } = await supabase.from('drive_creatives').select('scheduled_at').limit(1)
+        if (!colErr) return res.json({ ok: true, message: 'scheduled_at column already exists. Run constraint SQL manually if needed.' })
+        return res.json({ needs_manual: true, sql: sql.trim() })
+      } catch (err) {
+        return res.json({ error: err.message })
+      }
+    }
     if (action === 'status') {
       const offerId = req.query?.offer_id
       if (!offerId) return res.status(400).json({ error: 'offer_id required' })
