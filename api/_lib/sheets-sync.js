@@ -72,7 +72,7 @@ async function syncSales(supabase, token, config) {
       campaign: campana || null,
       sheet_row_number: i + 1,
       synced_at: new Date().toISOString(),
-    }, { onConflict: 'sale_date,buyer_phone,amount_cents' })
+    }, { onConflict: 'sheet_row_number' })
 
     if (error) skipped++
     else synced++
