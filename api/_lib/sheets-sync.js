@@ -216,9 +216,12 @@ async function checkBanSignals(supabase) {
 
   if (!waAccounts?.length) return { checked: 0, alerts: [] }
 
+  // Load priority numbers (lower threshold: 20 min instead of 40)
+  const { data: prioritySettings } = await supabase.from('settings').select('value').eq('id', 'wa_priority_numbers').single()
+  const priorityIds = new Set((prioritySettings?.value || []))
+
   const today = now.toISOString().split('T')[0]
   const since3d = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0]
-  const fortyMinAgo = new Date(Date.now() - 40 * 60 * 1000)
 
   const alerts = []
 
@@ -252,12 +255,15 @@ async function checkBanSignals(supabase) {
       lastActiveAt = new Date(`${la.date}T${String(la.hour).padStart(2, '0')}:00:00Z`)
     }
 
-    // If last activity was more than 40 minutes ago → alert
+    // Priority numbers: 20 min threshold, normal: 40 min
+    const isPriority = priorityIds.has(account.id)
+    const threshold = isPriority ? 20 : 40
+
     const minutesSinceActivity = lastActiveAt
       ? Math.floor((Date.now() - lastActiveAt.getTime()) / 60000)
       : 9999
 
-    if (minutesSinceActivity >= 40) {
+    if (minutesSinceActivity >= threshold) {
       alerts.push({
         phone: account.phone_number,
         accountId: account.id,

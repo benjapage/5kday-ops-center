@@ -93,7 +93,7 @@ export function useDashboard() {
           // Expenses (all dates — subs, team, tools, ad_spend)
           expTodayRes, expMtdRes, adSpend30dRes,
           // WA
-          waRes, bannedRes, readyRes,
+          waRes, waPriorityRes, bannedRes, readyRes,
           blueRate,
           // WA Sales (from Google Sheets via ManyChat)
           waSalesTodayRes, waSalesMtdRes,
@@ -107,6 +107,7 @@ export function useDashboard() {
           supabase.from('expenses').select('amount, currency, category, expense_date').gte('expense_date', mtdFrom),
           supabase.from('expenses').select('amount, currency, expense_date').eq('category', 'ad_spend').gte('expense_date', since30d).lt('expense_date', UTMIFY_CUTOFF),
           supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name, country').order('status').order('start_date', { ascending: false }),
+          supabase.from('settings').select('value').eq('id', 'wa_priority_numbers').single(),
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
           supabase.from('wa_accounts').select('id, phone_number, start_date').eq('status', 'warming').lte('start_date', readyCutoff),
           fetchDolarBlue(),
@@ -216,7 +217,10 @@ export function useDashboard() {
           other: sumUSD(expMtdAll.filter((e: any) => e.category === 'other')),
         }
 
-        const waList = (waRes.data ?? []) as WaAccountSummary[]
+        const prioritySet = new Set(((waPriorityRes as any)?.data?.value as string[]) || [])
+        const waList = ((waRes.data ?? []) as WaAccountSummary[]).map(w => ({ ...w, is_priority: prioritySet.has(w.id) }))
+        // Sort: priority first, then by status
+        waList.sort((a, b) => (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0))
         const waAccounts = {
           total: waList.length,
           active: waList.filter(w => w.status === 'ready').length,

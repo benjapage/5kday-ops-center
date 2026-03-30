@@ -582,9 +582,10 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-0.5 max-h-32 overflow-y-auto pr-1">
               {metrics.waAccounts.list.map(acc => (
-                <div key={acc.id} className="flex items-center gap-2 py-1 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <div key={acc.id} className={`flex items-center gap-2 py-1 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${(acc as any).is_priority ? 'ring-1 ring-amber-300 dark:ring-amber-700 bg-amber-50/30 dark:bg-amber-900/10' : ''}`}>
+                  {(acc as any).is_priority && <span className="text-amber-400 flex-shrink-0" title="Escalando">★</span>}
                   <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLOR[acc.status] }} />
-                  <Num className="text-xs font-medium text-slate-700 dark:text-slate-300 flex-1 truncate">{acc.phone_number}</Num>
+                  <Num className={`text-xs font-medium flex-1 truncate ${(acc as any).is_priority ? 'text-amber-700 dark:text-amber-300 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>{acc.phone_number}</Num>
                   {acc.bm_id ? (
                     <span className="text-[10px] text-slate-400 truncate max-w-[70px] num">{acc.bm_id.slice(0, 8)}...</span>
                   ) : (

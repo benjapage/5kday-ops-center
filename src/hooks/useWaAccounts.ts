@@ -11,20 +11,33 @@ type WaUpdate = Database['public']['Tables']['wa_accounts']['Update']
 
 export function useWaAccounts() {
   const [accounts, setAccounts] = useState<WaAccount[]>([])
+  const [priorityIds, setPriorityIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const { logAction } = useActivityLog()
   const { profile } = useAuth()
 
   async function fetchAll() {
     setIsLoading(true)
-    const { data, error } = await supabase
-      .from('wa_accounts')
-      .select('*')
-      .order('status')
-      .order('start_date', { ascending: false })
-
+    const [{ data, error }, { data: settings }] = await Promise.all([
+      supabase.from('wa_accounts').select('*').order('status').order('start_date', { ascending: false }),
+      supabase.from('settings').select('value').eq('id', 'wa_priority_numbers').single(),
+    ])
     if (!error) setAccounts(data ?? [])
+    setPriorityIds(new Set((settings?.value as string[]) || []))
     setIsLoading(false)
+  }
+
+  function isPriority(id: string) { return priorityIds.has(id) }
+
+  async function togglePriority(id: string) {
+    const next = new Set(priorityIds)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    setPriorityIds(next)
+    await supabase.from('settings').upsert({
+      id: 'wa_priority_numbers',
+      value: [...next],
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -160,5 +173,5 @@ export function useWaAccounts() {
     return { error: null }
   }
 
-  return { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove, refresh: fetchAll }
+  return { accounts, isLoading, priorityIds, isPriority, togglePriority, create, update, setStatus, reportBan, restoreFromBan, remove, refresh: fetchAll }
 }

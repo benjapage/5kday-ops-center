@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck, Loader2, Wifi } from 'lucide-react'
+import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck, Loader2, Wifi, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -26,7 +26,7 @@ type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
 type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
 
 export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string> } = {}) {
-  const { accounts, isLoading, create, update, setStatus, reportBan, restoreFromBan, remove, refresh } = useWaAccounts()
+  const { accounts, isLoading, isPriority, togglePriority, create, update, setStatus, reportBan, restoreFromBan, remove, refresh } = useWaAccounts()
   const { isChecking, lastCheck, runCheck, flaggedNumbers } = useWaBanCheck()
   const { profile } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
@@ -208,7 +208,13 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
               filtered.map(account => (
                 <TableRow key={account.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                   <TableCell className="font-mono text-sm font-medium">
-                    {account.phone_number}
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => togglePriority(account.id)} className="flex-shrink-0" title={isPriority(account.id) ? 'Quitar prioridad' : 'Marcar como prioritario (escalando)'}>
+                        <Star size={14} className={isPriority(account.id) ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600 hover:text-amber-400 transition-colors'} />
+                      </button>
+                      <span>{account.phone_number}</span>
+                      {isPriority(account.id) && <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider">escalando</span>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm">
                     <span className="flex items-center gap-1.5">
