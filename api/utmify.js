@@ -135,8 +135,6 @@ async function handleSync(supabase, query) {
   const toDate = query.to || todayStr()
   const fromD = new Date(now); fromD.setDate(fromD.getDate() - (days - 1))
   const fromDate = query.from || fromD.toISOString().split('T')[0]
-  const dateFrom = formatDateISO(fromDate, '00:00:00')
-  const dateTo = formatDateISO(toDate, '23:59:59')
 
   await mcpInitialize(MCP_URL)
 
@@ -155,37 +153,53 @@ async function handleSync(supabase, query) {
     }
   }
 
+  // Build list of dates to sync (day by day)
+  const dates = []
+  const d = new Date(fromDate + 'T12:00:00Z')
+  const end = new Date(toDate + 'T12:00:00Z')
+  while (d <= end) {
+    dates.push(d.toISOString().split('T')[0])
+    d.setDate(d.getDate() + 1)
+  }
+
   const results = []
   let totalSynced = 0
 
   for (const db of dashboardsToSync) {
-    try {
-      const response = await mcpCallTool(MCP_URL, 'get_meta_ad_objects', {
-        dashboardId: db.id,
-        level: 'campaign',
-        dateRange: { from: dateFrom, to: dateTo },
-        orderBy: 'greater_profit',
-      })
+    let dbSynced = 0
+    let dbError = null
 
-      const list = response?.results || []
-      if (!list.length) {
-        results.push({ dashboard: db.name, type: db.type, synced: 0 })
-        continue
+    for (const date of dates) {
+      try {
+        const dateFrom = formatDateISO(date, '00:00:00')
+        const dateTo = formatDateISO(date, '23:59:59')
+
+        const response = await mcpCallTool(MCP_URL, 'get_meta_ad_objects', {
+          dashboardId: db.id,
+          level: 'campaign',
+          dateRange: { from: dateFrom, to: dateTo },
+          orderBy: 'greater_profit',
+        })
+
+        const list = response?.results || []
+        if (!list.length) continue
+
+        const rows = list.map(c => campaignToRow(c, date, db.type))
+        const { error: upsertErr } = await supabase.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' })
+        if (upsertErr) { dbError = upsertErr.message; break }
+
+        dbSynced += rows.length
+      } catch (err) {
+        dbError = err.message
+        break
       }
-
-      const rows = list.map(c => campaignToRow(c, toDate, db.type))
-      const { error: upsertErr } = await supabase.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' })
-      if (upsertErr) {
-        results.push({ dashboard: db.name, type: db.type, error: upsertErr.message })
-        continue
-      }
-
-      totalSynced += rows.length
-      results.push({ dashboard: db.name, type: db.type, synced: rows.length, summary: summarize(rows) })
-    } catch (err) {
-      results.push({ dashboard: db.name, type: db.type, error: err.message })
     }
-  }
+
+    totalSynced += dbSynced
+    results.push({
+      dashboard: db.name, type: db.type, synced: dbSynced, days: dates.length,
+      ...(dbError ? { error: dbError } : {}),
+    })
 
   // Update last_sync in old config table (backwards compat)
   await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
@@ -325,6 +339,13 @@ module.exports = async function handler(req, res) {
     switch (action) {
       case 'test-connection': return res.json(await handleTestConnection())
       case 'sync': return res.json(await handleSync(supabase, req.query || {}))
+      case 'wipe-resync': {
+        // Delete all utmify_sync data and re-sync from scratch
+        const daysToSync = parseInt(req.query?.days || '7')
+        await supabase.from('utmify_sync').delete().neq('id', '')
+        const result = await handleSync(supabase, { days: String(daysToSync), dashboard: 'all' })
+        return res.json({ wiped: true, ...result })
+      }
       case 'push':
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' })
         return res.json(await handlePush(supabase, req.body))
