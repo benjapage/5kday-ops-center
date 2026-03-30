@@ -2,6 +2,7 @@
 // GET  /api/calendar?action=events&date=2026-03-27  — get day's events
 // POST /api/calendar?action=create — create event { title, date, time, duration_minutes, source, related_offer_id, related_number_id }
 // POST /api/calendar?action=complete — mark task complete { taskId }
+// POST /api/calendar?action=delete — delete task { taskId }
 // GET  /api/calendar?action=auto-tasks — generate system tasks from WA/pipeline state
 // GET  /api/calendar?action=status — check calendar connection
 
@@ -200,6 +201,32 @@ async function handleComplete(supabase, body) {
   return { ok: true }
 }
 
+// ─── ACTION: delete ───
+async function handleDelete(supabase, body) {
+  const { taskId } = body
+  if (!taskId) return { error: 'taskId is required' }
+
+  // Get task to check if it has a Google Calendar event
+  const { data: task } = await supabase.from('app_tasks').select('google_event_id').eq('id', taskId).single()
+
+  // Delete from Google Calendar if linked
+  if (task?.google_event_id) {
+    const token = await getGoogleToken(supabase)
+    if (token) {
+      try {
+        const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.google_event_id}`
+        await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      } catch (err) {
+        console.warn('Failed to delete calendar event:', err.message)
+      }
+    }
+  }
+
+  const { error } = await supabase.from('app_tasks').delete().eq('id', taskId)
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
 // ─── ACTION: auto-tasks ───
 async function handleAutoTasks(supabase) {
   const today = new Date().toISOString().split('T')[0]
@@ -316,6 +343,9 @@ module.exports = async function handler(req, res) {
       case 'complete':
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' })
         return res.json(await handleComplete(supabase, req.body))
+      case 'delete':
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' })
+        return res.json(await handleDelete(supabase, req.body))
       case 'auto-tasks': return res.json(await handleAutoTasks(supabase))
       default: return res.status(400).json({ error: `Unknown action: ${action}` })
     }

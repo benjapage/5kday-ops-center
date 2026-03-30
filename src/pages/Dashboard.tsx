@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare, Plus, Square, CheckSquare2, ChevronLeft, ChevronRight, CalendarDays, Bell } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Smartphone, AlertTriangle, Info, Target, ImageIcon, Video, FileText, Package, Zap, CheckCircle2, Circle, CheckSquare, Plus, Square, CheckSquare2, ChevronLeft, ChevronRight, CalendarDays, Bell, X } from 'lucide-react'
 import { useDashboard } from '@/hooks/useDashboard'
 import { useOffers } from '@/hooks/useOffers'
 import { useCalendarTasks, useWeeklyCalendar } from '@/hooks/useCalendar'
@@ -77,7 +77,7 @@ function ChartTooltip({ active, payload, label }: any) {
 }
 
 function DashboardTasks() {
-  const { tasks, isLoading, calendarConnected, toggleComplete, createTask } = useCalendarTasks()
+  const { tasks, isLoading, calendarConnected, toggleComplete, createTask, deleteTask } = useCalendarTasks()
   const [newTask, setNewTask] = useState('')
   const [adding, setAdding] = useState(false)
 
@@ -135,7 +135,7 @@ function DashboardTasks() {
                 if (task.id.startsWith('gcal_')) return // Can't complete pure calendar events
                 toggleComplete(task.id, !task.completed)
               }}
-              className={`flex items-center gap-2 w-full text-left py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${task.completed ? 'opacity-50' : ''}`}
+              className={`group flex items-center gap-2 w-full text-left py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${task.completed ? 'opacity-50' : ''}`}
             >
               {task.completed ? (
                 <CheckSquare2 size={14} className="text-emerald-500 flex-shrink-0" />
@@ -151,6 +151,15 @@ function DashboardTasks() {
                   auto
                 </span>
               )}
+              {!task.id.startsWith('gcal_') && (
+                <span
+                  role="button"
+                  onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }}
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                >
+                  <X size={12} />
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -162,7 +171,7 @@ function DashboardTasks() {
 const DAY_NAMES = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
 
 function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccounts: any }) {
-  const { weekDates, tasksByDate, isLoading, calendarConnected, offset, prevWeek, nextWeek, thisWeek, toggleComplete, createTask } = useWeeklyCalendar()
+  const { weekDates, tasksByDate, isLoading, calendarConnected, offset, prevWeek, nextWeek, thisWeek, toggleComplete, createTask, deleteTask } = useWeeklyCalendar()
   const [newTaskDate, setNewTaskDate] = useState<string | null>(null)
   const [newTaskText, setNewTaskText] = useState('')
 
@@ -242,7 +251,7 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
                         onClick={() => {
                           if (!task.id.startsWith('gcal_')) toggleComplete(task.id, !task.completed)
                         }}
-                        className={`flex items-start gap-1 w-full text-left py-0.5 px-1 rounded transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40 ${task.completed ? 'opacity-40' : ''}`}
+                        className={`group/wk flex items-start gap-1 w-full text-left py-0.5 px-1 rounded transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40 ${task.completed ? 'opacity-40' : ''}`}
                       >
                         {task.id.startsWith('gcal_') ? (
                           <span className="h-1.5 w-1.5 rounded-full bg-blue-400 mt-1 flex-shrink-0" />
@@ -261,6 +270,15 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
                             {task.title}
                           </span>
                         </div>
+                        {!task.id.startsWith('gcal_') && (
+                          <span
+                            role="button"
+                            onClick={(e) => { e.stopPropagation(); deleteTask(task.id) }}
+                            className="opacity-0 group-hover/wk:opacity-100 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                          >
+                            <X size={10} />
+                          </span>
+                        )}
                       </button>
                     ))}
                     {dayTasks.length > 6 && (

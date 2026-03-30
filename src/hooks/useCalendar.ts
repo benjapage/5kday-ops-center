@@ -74,7 +74,18 @@ export function useCalendarTasks(date?: string) {
     return { error: data.error || null, googleEventCreated: data.googleEventCreated }
   }
 
-  return { tasks, isLoading, calendarConnected, refresh: fetchTasks, toggleComplete, createTask }
+  async function deleteTask(taskId: string) {
+    setTasks(prev => prev.filter(t => t.id !== taskId))
+    const res = await fetch('/api/calendar?action=delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId }),
+    })
+    if (!res.ok) await fetchTasks() // revert on failure
+    return { error: res.ok ? null : 'Failed' }
+  }
+
+  return { tasks, isLoading, calendarConnected, refresh: fetchTasks, toggleComplete, createTask, deleteTask }
 }
 
 export function useWeeklyCalendar(weekOffset = 0) {
@@ -141,6 +152,22 @@ export function useWeeklyCalendar(weekOffset = 0) {
     return { error: data.error || null }
   }
 
+  async function deleteTask(taskId: string) {
+    setTasksByDate(prev => {
+      const next = { ...prev }
+      for (const date of Object.keys(next)) {
+        next[date] = next[date].filter(t => t.id !== taskId)
+      }
+      return next
+    })
+    const res = await fetch('/api/calendar?action=delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId }),
+    })
+    if (!res.ok) await fetchWeek()
+  }
+
   return {
     weekDates,
     tasksByDate,
@@ -153,6 +180,7 @@ export function useWeeklyCalendar(weekOffset = 0) {
     refresh: fetchWeek,
     toggleComplete,
     createTask,
+    deleteTask,
   }
 }
 
