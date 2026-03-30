@@ -168,9 +168,9 @@ async function syncOfferFolder(supabase, token, offerFolder) {
     for (const testeoFolder of testeoFolders) {
       if (testeoFolder.mimeType !== 'application/vnd.google-apps.folder') continue
 
-      const testeoMatch = testeoFolder.name.match(/^(?:testeo|tt)\s*(\d+)/i)
+      const testeoMatch = testeoFolder.name.trim().match(/^(?:testeo|tt)\s*(\d+)\s*$/i)
       const testeoNumber = testeoMatch ? parseInt(testeoMatch[1]) : null
-      if (testeoNumber === null) continue // Skip non-testeo folders
+      if (testeoNumber === null) continue // Skip non-testeo folders (e.g. "TT5 HECHO")
 
       // List files inside testeo folder
       const files = await driveList(token, testeoFolder.id)
@@ -276,8 +276,8 @@ async function handleSync(supabase, token, offerId) {
     .from('drive_creatives')
     .select('id, testeo_folder_name')
     .eq('offer_folder_id', folder.id)
-  const testeoPattern = /^(?:testeo|tt)\s*\d+/i
-  const toDelete = (oldCreatives || []).filter(c => !testeoPattern.test(c.testeo_folder_name || ''))
+  const testeoPattern = /^(?:testeo|tt)\s*\d+\s*$/i
+  const toDelete = (oldCreatives || []).filter(c => !testeoPattern.test((c.testeo_folder_name || '').trim()))
   if (toDelete.length > 0) {
     await supabase.from('drive_creatives').delete().in('id', toDelete.map(c => c.id))
   }
