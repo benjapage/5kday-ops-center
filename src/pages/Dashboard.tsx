@@ -90,8 +90,8 @@ function DashboardTasks() {
   }
 
   return (
-    <div className="card-base p-5">
-      <div className="flex items-center justify-between mb-3">
+    <div className="card-base p-4">
+      <div className="flex items-center justify-between mb-2">
         <SectionLabel icon={CheckSquare}>Tareas del dia</SectionLabel>
         {!calendarConnected && (
           <span className="text-[9px] text-amber-500 uppercase tracking-wider">Sin Calendar</span>
@@ -188,8 +188,8 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
       {/* Weekly Calendar */}
-      <div className="lg:col-span-8 card-base p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-4">
+      <div className="lg:col-span-8 card-base p-3 sm:p-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <CalendarDays size={15} className="text-blue-500" />
             <SectionLabel>Calendario semanal</SectionLabel>
@@ -222,7 +222,7 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
               return (
                 <div
                   key={date}
-                  className={`bg-white dark:bg-slate-800/80 p-2 min-h-[180px] ${isToday ? 'ring-1 ring-emerald-500/50 ring-inset' : ''}`}
+                  className={`bg-white dark:bg-slate-800/80 p-2 min-h-[120px] ${isToday ? 'ring-1 ring-emerald-500/50 ring-inset' : ''}`}
                 >
                   {/* Day header */}
                   <div className="flex items-center justify-between mb-2">
@@ -347,8 +347,8 @@ function DashboardCreativesCard() {
   useEffect(() => { refresh() }, [refresh])
 
   return (
-    <div className="card-base p-5">
-      <div className="flex items-center justify-between mb-3">
+    <div className="card-base p-4">
+      <div className="flex items-center justify-between mb-2">
         <SectionLabel icon={ImageIcon}>Creativos</SectionLabel>
       </div>
 
@@ -437,7 +437,7 @@ export default function Dashboard() {
   const targetPct = monthlyTarget > 0 ? Math.min((metrics.revenueMtd / monthlyTarget) * 100, 100) : 0
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* ═══════════════════ HEADER ═══════════════════ */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
@@ -493,7 +493,7 @@ export default function Dashboard() {
             </div>
           </div>
           {/* Mini KPIs */}
-          <div className="flex items-center gap-6 mb-3">
+          <div className="flex items-center gap-6 mb-2">
             {[
               { label: 'Profit mes', value: metrics.profitMtd, color: metrics.profitMtd >= 0 ? '#22C55E' : '#E8816D' },
               { label: 'Facturacion', value: metrics.revenueMtd, color: '#6366F1' },
@@ -519,8 +519,8 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          {/* Chart — fixed height, no stretching */}
-          <div className="h-[220px]">
+          {/* Chart */}
+          <div className="h-[180px]">
             {metrics.dailyChart.length === 0 ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400">
                 Sin datos de los ultimos 30 dias
@@ -616,8 +616,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
         {/* Pipeline activo — Cambio 8 */}
-        <div className="card-base p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="card-base p-4">
+          <div className="flex items-center justify-between mb-2">
             <SectionLabel icon={TrendingUp}>Pipeline activo</SectionLabel>
             <span className="num text-xs text-slate-400">{activeOffers.length}</span>
           </div>
