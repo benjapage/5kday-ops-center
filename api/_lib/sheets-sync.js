@@ -167,7 +167,9 @@ async function checkBanSignals(supabase) {
   const currentHour = now.getHours()
 
   // Only check during ad hours (8am - 11pm)
-  if (currentHour < 8 || currentHour > 23) {
+  // Ad hours: 5am - 11:30pm Argentina (UTC-3)
+  const argHour = (currentHour - 3 + 24) % 24
+  if (argHour < 5) {
     return { checked: 0, alerts: [], reason: 'outside_ad_hours' }
   }
 
