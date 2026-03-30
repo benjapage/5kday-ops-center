@@ -327,16 +327,18 @@ async function handlePublishOne(supabase, body) {
   return { ok: true }
 }
 
-// ─── SCHEDULE creative ───
+// ─── SCHEDULE creative(s) ───
 async function handleSchedule(supabase, body) {
-  const { creative_id, scheduled_at } = body
-  if (!creative_id || !scheduled_at) return { error: 'creative_id and scheduled_at required' }
+  const { creative_id, creative_ids, scheduled_at } = body
+  if (!scheduled_at) return { error: 'scheduled_at required' }
+  const ids = creative_ids || (creative_id ? [creative_id] : [])
+  if (!ids.length) return { error: 'creative_id or creative_ids required' }
   const { error } = await supabase.from('drive_creatives').update({
     status: 'programado',
     scheduled_at,
-  }).eq('id', creative_id)
+  }).in('id', ids)
   if (error) return { error: error.message }
-  return { ok: true }
+  return { ok: true, scheduled: ids.length }
 }
 
 // ─── PUBLISH testeo ───
