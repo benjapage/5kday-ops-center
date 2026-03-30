@@ -28,7 +28,7 @@ export function WelcomeScreen({ name, onComplete }: WelcomeScreenProps) {
 
   if (phase === 'done') return null
 
-  const motto = 'Vamos por los $5K \u{1F680}'
+  const motto = 'Felicidades por los $5K de hoy rey \u{1F451}'
 
   return (
     <div

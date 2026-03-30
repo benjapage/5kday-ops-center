@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { useOffers } from '@/hooks/useOffers'
 import { useCreatives } from '@/hooks/useCreatives'
-import { useSettings } from '@/hooks/useSettings'
+import { useSettings, useCurrentTesteo } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { COUNTRIES, CHANNELS, ASSET_TYPES } from '@/lib/constants'
 import { formatDate, formatROAS, formatCurrency, getDaysSince } from '@/lib/formatters'
@@ -515,6 +515,8 @@ function TesteoBlock({ group, creativeType, folderId, onPublish, canWrite }: {
 
 function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrite: boolean }) {
   const { data, isLoading, syncing, refresh, linkFolder, syncFolder, publishTesteo } = useDriveCreatives(offerId)
+  const { testeo: currentTesteo, setCurrentTesteo } = useCurrentTesteo()
+  const [showAll, setShowAll] = useState(false)
   const [driveUrl, setDriveUrl] = useState('')
   const [linking, setLinking] = useState(false)
 
@@ -581,6 +583,35 @@ function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrit
         </div>
       </div>
 
+      {/* Current Testeo selector */}
+      <div className="flex items-center justify-between rounded-lg bg-indigo-50 dark:bg-indigo-900/15 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <Target size={12} className="text-indigo-500" />
+          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase">Testeo actual</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setCurrentTesteo(Math.max(1, currentTesteo - 1))}
+            className="h-5 w-5 rounded flex items-center justify-center text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-800/30 transition-colors text-xs font-bold"
+          >
+            -
+          </button>
+          <span className="text-sm num font-bold text-indigo-600 dark:text-indigo-400 min-w-[40px] text-center">TT{currentTesteo}</span>
+          <button
+            onClick={() => setCurrentTesteo(currentTesteo + 1)}
+            className="h-5 w-5 rounded flex items-center justify-center text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-800/30 transition-colors text-xs font-bold"
+          >
+            +
+          </button>
+        </div>
+        <button
+          onClick={() => setShowAll(v => !v)}
+          className="text-[9px] px-2 py-0.5 rounded text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-800/30 transition-colors font-semibold"
+        >
+          {showAll ? 'Solo TT' + currentTesteo : 'Ver todos'}
+        </button>
+      </div>
+
       {/* Daily progress */}
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-lg bg-purple-50 dark:bg-purple-900/15 px-3 py-2">
@@ -600,14 +631,16 @@ function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrit
       </div>
 
       {/* Videos by testeo */}
-      {data.videos.length > 0 && (
+      {data.videos.filter(g => showAll || g.number === currentTesteo).length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 mb-1.5">
             <Video size={12} className="text-purple-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Videos ({data.totals.videos})</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Videos ({showAll ? data.totals.videos : data.videos.filter(g => g.number === currentTesteo).reduce((s, g) => s + g.files.length, 0)})
+            </span>
           </div>
           <div className="space-y-1.5">
-            {data.videos.map(g => (
+            {data.videos.filter(g => showAll || g.number === currentTesteo).map(g => (
               <TesteoBlock key={`v-${g.number}`} group={g} creativeType="video" folderId={data.folder_id!} onPublish={publishTesteo} canWrite={canWrite} />
             ))}
           </div>
@@ -615,14 +648,16 @@ function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrit
       )}
 
       {/* Images by testeo */}
-      {data.images.length > 0 && (
+      {data.images.filter(g => showAll || g.number === currentTesteo).length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 mb-1.5">
             <ImageIcon size={12} className="text-blue-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Imagenes ({data.totals.images})</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Imagenes ({showAll ? data.totals.images : data.images.filter(g => g.number === currentTesteo).reduce((s, g) => s + g.files.length, 0)})
+            </span>
           </div>
           <div className="space-y-1.5">
-            {data.images.map(g => (
+            {data.images.filter(g => showAll || g.number === currentTesteo).map(g => (
               <TesteoBlock key={`i-${g.number}`} group={g} creativeType="imagen" folderId={data.folder_id!} onPublish={publishTesteo} canWrite={canWrite} />
             ))}
           </div>
