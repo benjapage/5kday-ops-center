@@ -349,6 +349,18 @@ async function handleDashboardData(supabase, query) {
   }
 }
 
+// ─── ACTION: wa-check (debug wa_sales data) ───
+async function handleWaCheck(supabase) {
+  const today = todayStr()
+  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const { data: allSales, count } = await supabase.from('wa_sales').select('sale_date, amount_cents, product_name', { count: 'exact' }).order('sale_date', { ascending: false }).limit(10)
+  const { data: mtdSales } = await supabase.from('wa_sales').select('amount_cents').gte('sale_date', mtdFrom)
+  const { data: todaySales } = await supabase.from('wa_sales').select('amount_cents').eq('sale_date', today)
+  const mtdTotal = (mtdSales || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
+  const todayTotal = (todaySales || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
+  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, lastSales: allSales }
+}
+
 // ─── ACTION: dashboards (list configured dashboards) ───
 function handleDashboards() {
   return { dashboards: DASHBOARDS.map(d => ({ ...d, mcp_url: MCP_URL })) }
@@ -372,6 +384,7 @@ module.exports = async function handler(req, res) {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' })
         return res.json(await handlePush(supabase, req.body))
       case 'dashboard-data': return res.json(await handleDashboardData(supabase, req.query || {}))
+      case 'wa-check': return res.json(await handleWaCheck(supabase))
       case 'dashboards': return res.json(handleDashboards())
       default: return res.status(400).json({ error: `Unknown action: ${action}` })
     }
