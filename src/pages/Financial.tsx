@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect as useEff } from 'react'
 import { DollarSign, TrendingUp, BarChart3, Plus, Trash2, RefreshCw, Pause, Play, CreditCard, ShoppingCart, MessageCircle, Megaphone } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { useFinancials } from '@/hooks/useFinancials'
 import { useSubscriptions, type Subscription } from '@/hooks/useSubscriptions'
 import { useUtmifyData } from '@/hooks/useUtmify'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -149,6 +150,16 @@ export default function Financial() {
   const isAdmin = profile?.role === 'admin'
   const utm = utmifyData && utmifyData.totalRows > 0 ? utmifyData : null
 
+  // WA Sales from Google Sheets
+  const [waSalesMtd, setWaSalesMtd] = useState(0)
+  useEff(() => {
+    const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+    supabase.from('wa_sales').select('amount_cents').gte('sale_date', mtdFrom)
+      .then(({ data }) => {
+        setWaSalesMtd((data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100)
+      })
+  }, [])
+
   async function handleDeleteExpense(id: string) {
     if (!confirm('Eliminar esta inversion?')) return
     const { error } = await deleteExpense(id)
@@ -174,7 +185,7 @@ export default function Financial() {
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
   // mtd from useFinancials reads from meta_ad_stats (historical, correct numbers)
   // Add UTMify data on top for cutoff period
-  const mergedRevenue = mtd.revenue + (utm?.mtd?.revenue ?? 0)
+  const mergedRevenue = mtd.revenue + (utm?.mtd?.revenue ?? 0) + waSalesMtd
   const mergedAdSpend = mtd.adSpend + (utm?.mtd?.spend ?? 0)
   const mergedProfit = mergedRevenue - mergedAdSpend - mtdSubs
   const mergedRoas = mergedAdSpend > 0 ? mergedRevenue / mergedAdSpend : null
@@ -182,7 +193,7 @@ export default function Financial() {
   // WA vs Landing for quadrants
   const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const histRevenues = revenues.filter(r => r.revenue_date >= mtdFrom && r.revenue_date < CUTOFF)
-  const waRevenue = histRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.waRevenue ?? 0)
+  const waRevenue = histRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.waRevenue ?? 0) + waSalesMtd
   const shopifyRevenue = histRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.landingRevenue ?? 0)
 
   if (isLoading) return <LoadingSpinner />
