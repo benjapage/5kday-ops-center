@@ -186,9 +186,9 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
   const warmingNumbers = waAccounts.list.filter((a: any) => a.status === 'warming')
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <div className="space-y-4">
       {/* Weekly Calendar */}
-      <div className="lg:col-span-8 card-base p-3 sm:p-4">
+      <div className="card-base p-3 sm:p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <CalendarDays size={15} className="text-blue-500" />
@@ -298,7 +298,7 @@ function WeeklyCalendarSection({ alerts, waAccounts }: { alerts: any[]; waAccoun
       </div>
 
       {/* Alerts Panel */}
-      <div className="lg:col-span-4 card-base p-4 sm:p-5">
+      <div className="card-base p-3 sm:p-4">
         <SectionLabel icon={Bell}>Proximas alertas</SectionLabel>
         <div className="mt-3 space-y-2 max-h-[280px] overflow-y-auto">
           {/* Active alerts */}
@@ -540,89 +540,57 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* WhatsApp + Alertas */}
-        <div className="lg:col-span-5 flex flex-col gap-3">
+        {/* WhatsApp */}
+        <div className="lg:col-span-5 card-base p-4 space-y-3 self-start">
+          <SectionLabel icon={Smartphone}>WhatsApp</SectionLabel>
 
-          {/* WhatsApp */}
-          <div className="card-base p-4 space-y-3">
-            <SectionLabel icon={Smartphone}>WhatsApp</SectionLabel>
+          {/* 3 counter badges */}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Listas', count: metrics.waAccounts.active, bg: 'rgba(34,197,94,0.12)', color: '#22C55E' },
+              { label: 'Calentando', count: metrics.waAccounts.warming, bg: 'rgba(245,158,11,0.12)', color: '#F59E0B' },
+              { label: 'Baneadas', count: metrics.waAccounts.banned, bg: 'rgba(232,129,109,0.12)', color: '#E8816D' },
+            ].map(item => (
+              <div key={item.label} className="rounded-lg px-3 py-2 text-center" style={{ backgroundColor: item.bg }}>
+                <Num className="text-lg" style={{ color: item.color }}>{item.count}</Num>
+                <p className="text-[9px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: item.color }}>{item.label}</p>
+              </div>
+            ))}
+          </div>
 
-            {/* 3 counter badges */}
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'Listas', count: metrics.waAccounts.active, bg: 'rgba(34,197,94,0.12)', color: '#22C55E' },
-                { label: 'Calentando', count: metrics.waAccounts.warming, bg: 'rgba(245,158,11,0.12)', color: '#F59E0B' },
-                { label: 'Baneadas', count: metrics.waAccounts.banned, bg: 'rgba(232,129,109,0.12)', color: '#E8816D' },
-              ].map(item => (
-                <div key={item.label} className="rounded-lg px-3 py-2.5 text-center" style={{ backgroundColor: item.bg }}>
-                  <Num className="text-xl" style={{ color: item.color }}>{item.count}</Num>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: item.color }}>{item.label}</p>
+          {/* WA accounts list */}
+          {metrics.waAccounts.list.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-2">Sin cuentas WA registradas</p>
+          ) : (
+            <div className="space-y-0.5 max-h-32 overflow-y-auto pr-1">
+              {metrics.waAccounts.list.map(acc => (
+                <div key={acc.id} className="flex items-center gap-2 py-1 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLOR[acc.status] }} />
+                  <Num className="text-xs font-medium text-slate-700 dark:text-slate-300 flex-1 truncate">{acc.phone_number}</Num>
+                  {acc.bm_id ? (
+                    <span className="text-[10px] text-slate-400 truncate max-w-[70px] num">{acc.bm_id.slice(0, 8)}...</span>
+                  ) : (
+                    <span className="text-[10px] text-slate-500">Sin BM</span>
+                  )}
+                  <WarmingBar startDate={acc.start_date} status={acc.status} />
                 </div>
               ))}
             </div>
-
-            {/* WA accounts list */}
-            {metrics.waAccounts.list.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-3">Sin cuentas WA registradas</p>
-            ) : (
-              <div className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
-                {metrics.waAccounts.list.map(acc => (
-                  <div key={acc.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLOR[acc.status] }} />
-                    <Num className="text-xs font-medium text-slate-700 dark:text-slate-300 flex-1 truncate">{acc.phone_number}</Num>
-                    {acc.bm_id ? (
-                      <span className="text-[10px] text-slate-400 truncate max-w-[70px] num">{acc.bm_id.slice(0, 8)}...</span>
-                    ) : (
-                      <span className="text-[10px] text-slate-500">Sin BM</span>
-                    )}
-                    <WarmingBar startDate={acc.start_date} status={acc.status} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Alertas hoy */}
-          <div className="card-base p-4">
-            <SectionLabel icon={AlertTriangle}>Alertas hoy</SectionLabel>
-            <div className="mt-1.5">
-              {metrics.alerts.length === 0 ? (
-                <div className="flex items-center gap-2 py-1 text-slate-400">
-                  <CheckCircle2 size={14} className="text-emerald-500" />
-                  <p className="text-xs">Todo en orden</p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {metrics.alerts.map((alert, i) => {
-                    const borderColor = alert.type === 'danger' ? '#E8816D' : alert.type === 'warning' ? '#F59E0B' : '#3B82F6'
-                    return (
-                      <div
-                        key={i}
-                        className="rounded-lg px-3 py-2 border-l-3 text-xs font-medium bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300"
-                        style={{ borderLeftColor: borderColor, borderLeftWidth: 3 }}
-                      >
-                        {alert.message}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ═══════════════════ ROW 2 — Pipeline | Tareas | Creativos ═══════════════════ */}
+      {/* ═══════════════════ ROW 2 — Pipeline | Tareas | Alertas ═══════════════════ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-        {/* Pipeline activo — Cambio 8 */}
+        {/* Pipeline activo */}
         <div className="card-base p-4">
           <div className="flex items-center justify-between mb-2">
             <SectionLabel icon={TrendingUp}>Pipeline activo</SectionLabel>
             <span className="num text-xs text-slate-400">{activeOffers.length}</span>
           </div>
           {activeOffers.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6">Sin ofertas activas</p>
+            <p className="text-xs text-slate-400 text-center py-4">Sin ofertas activas</p>
           ) : (
             <div className="space-y-1">
               {activeOffers.slice(0, 6).map(offer => (
@@ -654,15 +622,47 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Tareas del dia — Google Calendar */}
+        {/* Tareas del dia */}
         <DashboardTasks />
 
-        {/* Creativos Drive */}
-        <DashboardCreativesCard />
+        {/* Alertas hoy */}
+        <div className="card-base p-4">
+          <SectionLabel icon={AlertTriangle}>Alertas hoy</SectionLabel>
+          <div className="mt-1.5">
+            {metrics.alerts.length === 0 ? (
+              <div className="flex items-center gap-2 py-1 text-slate-400">
+                <CheckCircle2 size={14} className="text-emerald-500" />
+                <p className="text-xs">Todo en orden</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {metrics.alerts.map((alert, i) => {
+                  const borderColor = alert.type === 'danger' ? '#E8816D' : alert.type === 'warning' ? '#F59E0B' : '#3B82F6'
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-lg px-3 py-2 border-l-3 text-xs font-medium bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300"
+                      style={{ borderLeftColor: borderColor, borderLeftWidth: 3 }}
+                    >
+                      {alert.message}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* ═══════════════════ ROW 3 — Weekly Calendar + Alerts ═══════════════════ */}
-      <WeeklyCalendarSection alerts={metrics.alerts} waAccounts={metrics.waAccounts} />
+      {/* ═══════════════════ ROW 3 — Creativos + Weekly Calendar ═══════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-4">
+          <DashboardCreativesCard />
+        </div>
+        <div className="lg:col-span-8">
+          <WeeklyCalendarSection alerts={metrics.alerts} waAccounts={metrics.waAccounts} />
+        </div>
+      </div>
     </div>
   )
 }
