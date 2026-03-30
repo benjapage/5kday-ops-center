@@ -321,10 +321,26 @@ async function handlePublishOne(supabase, body) {
   const { error } = await supabase.from('drive_creatives').update({
     status: 'publicado',
     published_at: new Date().toISOString(),
-    scheduled_at: null,
   }).eq('id', creative_id)
   if (error) return { error: error.message }
+  // Clean up schedule
+  const schedules = await getSchedules(supabase)
+  if (schedules[creative_id]) { delete schedules[creative_id]; await saveSchedules(supabase, schedules) }
   return { ok: true }
+}
+
+// ─── Schedule storage: uses settings table (no DDL needed) ───
+async function getSchedules(supabase) {
+  const { data } = await supabase.from('settings').select('value').eq('id', 'creative_schedules').single()
+  return (data?.value || {})  // { [creative_id]: "YYYY-MM-DD" }
+}
+
+async function saveSchedules(supabase, schedules) {
+  await supabase.from('settings').upsert({
+    id: 'creative_schedules',
+    value: schedules,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'id' })
 }
 
 // ─── SCHEDULE creative(s) ───
@@ -333,12 +349,22 @@ async function handleSchedule(supabase, body) {
   if (!scheduled_at) return { error: 'scheduled_at required' }
   const ids = creative_ids || (creative_id ? [creative_id] : [])
   if (!ids.length) return { error: 'creative_id or creative_ids required' }
-  const { error } = await supabase.from('drive_creatives').update({
-    status: 'programado',
-    scheduled_at,
-  }).in('id', ids)
-  if (error) return { error: error.message }
+
+  const schedules = await getSchedules(supabase)
+  for (const id of ids) schedules[id] = scheduled_at
+  await saveSchedules(supabase, schedules)
+
   return { ok: true, scheduled: ids.length }
+}
+
+// ─── UNSCHEDULE ───
+async function handleUnschedule(supabase, body) {
+  const { creative_ids } = body
+  if (!creative_ids?.length) return { error: 'creative_ids required' }
+  const schedules = await getSchedules(supabase)
+  for (const id of creative_ids) delete schedules[id]
+  await saveSchedules(supabase, schedules)
+  return { ok: true }
 }
 
 // ─── PUBLISH testeo ───
@@ -379,10 +405,18 @@ async function handleStatus(supabase, offerId) {
     .order('testeo_number', { ascending: true })
     .order('detected_at', { ascending: false })
 
+  // Merge schedule data
+  const schedules = await getSchedules(supabase)
+  const merged = (creatives || []).map(c => ({
+    ...c,
+    scheduled_at: schedules[c.id] || null,
+    status: schedules[c.id] && c.status === 'subido' ? 'programado' : c.status,
+  }))
+
   // Group by type and testeo
   const videos = {}
   const images = {}
-  for (const c of (creatives || [])) {
+  for (const c of merged) {
     const target = c.creative_type === 'video' ? videos : images
     const key = c.testeo_number
     if (!target[key]) target[key] = { testeo: c.testeo_folder_name, number: key, files: [], subido: 0, programado: 0, publicado: 0 }
@@ -470,6 +504,8 @@ async function handleWeeklyCreatives(supabase, query) {
 
   if (!folders?.length) return { offers: [] }
 
+  const schedules = await getSchedules(supabase)
+
   const offers = []
   for (const folder of folders) {
     let q = supabase
@@ -484,9 +520,16 @@ async function handleWeeklyCreatives(supabase, query) {
 
     const { data: creatives } = await q
 
+    // Merge schedule data
+    const merged = (creatives || []).map(c => ({
+      ...c,
+      scheduled_at: schedules[c.id] || null,
+      status: schedules[c.id] && c.status === 'subido' ? 'programado' : c.status,
+    }))
+
     // Group by type + testeo
     const groups = {}
-    for (const c of (creatives || [])) {
+    for (const c of merged) {
       const key = `${c.creative_type}-${c.testeo_number}`
       if (!groups[key]) groups[key] = {
         creative_type: c.creative_type,
@@ -552,28 +595,6 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'schedule' && req.method === 'POST') {
       return res.json(await handleSchedule(supabase, req.body))
-    }
-    if (action === 'migrate') {
-      // Run pending migrations via raw SQL on the database
-      const pgUrl = process.env.SUPABASE_DB_URL || `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD}@db.${(process.env.VITE_SUPABASE_URL || '').match(/https:\/\/(.+?)\.supabase/)?.[1]}.supabase.co:5432/postgres`
-      try {
-        // Use supabase's built-in SQL execution via service role
-        const projectRef = (process.env.VITE_SUPABASE_URL || '').match(/https:\/\/(.+?)\.supabase/)?.[1]
-        const sql = `
-          ALTER TABLE public.drive_creatives ADD COLUMN IF NOT EXISTS scheduled_at date;
-          ALTER TABLE public.drive_creatives DROP CONSTRAINT IF EXISTS drive_creatives_status_check;
-          ALTER TABLE public.drive_creatives ADD CONSTRAINT drive_creatives_status_check CHECK (status IN ('subido', 'programado', 'publicado'));
-        `
-        // Execute via PostgREST RPC if a helper function exists, or return SQL for manual run
-        const { data, error } = await supabase.rpc('run_sql', { sql })
-        if (!error) return res.json({ ok: true, result: data })
-        // Fallback: check if column already exists
-        const { error: colErr } = await supabase.from('drive_creatives').select('scheduled_at').limit(1)
-        if (!colErr) return res.json({ ok: true, message: 'scheduled_at column already exists. Run constraint SQL manually if needed.' })
-        return res.json({ needs_manual: true, sql: sql.trim() })
-      } catch (err) {
-        return res.json({ error: err.message })
-      }
     }
     if (action === 'status') {
       const offerId = req.query?.offer_id
