@@ -238,36 +238,37 @@ export default function Creativos() {
 
             return (
               <Card key={offer.offer_id}>
-                <CardHeader className={`p-3 cursor-pointer ${expanded[offer.offer_id] === false ? '' : 'pb-1'}`} onClick={() => toggleExpand(offer.offer_id)}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {expanded[offer.offer_id] ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                      <CardTitle className="text-sm font-semibold">{offer.offer_name}</CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <OfferTesteoSelector
-                        offerId={offer.offer_id}
-                        offerName={offer.offer_name}
-                        testeo={tt}
-                        onChange={(n) => setOfferTesteo(offer.offer_id, n)}
-                      />
-                      <Badge variant="outline" className="text-[10px] gap-1">
-                        <Video size={10} /> {totals.videos}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px] gap-1">
-                        <ImageIcon size={10} /> {totals.images}
-                      </Badge>
-                      {totals.subido > 0 && (
-                        <Badge className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200">
-                          {totals.subido} por publicar
-                        </Badge>
-                      )}
-                    </div>
+                <div
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors rounded-t-lg"
+                  onClick={() => toggleExpand(offer.offer_id)}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {(expanded[offer.offer_id] ?? true) ? <ChevronDown size={14} className="text-slate-400 flex-shrink-0" /> : <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />}
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{offer.offer_name}</span>
                   </div>
-                </CardHeader>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <OfferTesteoSelector
+                      offerId={offer.offer_id}
+                      offerName={offer.offer_name}
+                      testeo={tt}
+                      onChange={(n) => setOfferTesteo(offer.offer_id, n)}
+                    />
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Video size={10} /> {totals.videos}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <ImageIcon size={10} /> {totals.images}
+                    </Badge>
+                    {totals.subido > 0 && (
+                      <Badge className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200">
+                        {totals.subido} por publicar
+                      </Badge>
+                    )}
+                  </div>
+                </div>
 
                 {(expanded[offer.offer_id] ?? true) && (
-                  <CardContent className="p-3 pt-2 space-y-2">
+                  <CardContent className="px-3 pb-3 pt-0 space-y-2">
                     {filtered.length === 0 ? (
                       <p className="text-xs text-slate-400 text-center py-2">Sin creativos en TT{tt} — total en carpeta: {offer.totals.videos + offer.totals.images} archivos</p>
                     ) : (
