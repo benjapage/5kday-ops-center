@@ -5,4 +5,5 @@ ALTER TABLE public.editors ADD COLUMN IF NOT EXISTS email_pattern text DEFAULT '
 
 -- Set initial patterns for known editors
 UPDATE public.editors SET email_pattern = 'fcndmosqueda' WHERE name = 'Facu';
+UPDATE public.editors SET email_pattern = 'janetedicion' WHERE name = 'Janne';
 UPDATE public.editors SET email_pattern = 'pagella,benja' WHERE name = 'Benjamin';
