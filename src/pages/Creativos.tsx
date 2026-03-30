@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Video, ImageIcon, Target, RefreshCw, CheckCircle2, Clock, ChevronDown, ChevronRight, Palette, X } from 'lucide-react'
+import { Video, ImageIcon, Target, RefreshCw, CheckCircle2, Clock, ChevronDown, ChevronRight, Palette, X, CalendarClock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,8 +16,9 @@ interface CreativeFile {
   file_name: string
   file_type: string | null
   drive_file_id: string
-  status: 'subido' | 'publicado'
+  status: 'subido' | 'programado' | 'publicado'
   published_at: string | null
+  scheduled_at: string | null
   uploaded_by: string | null
   detected_at: string
 }
@@ -28,6 +29,7 @@ interface CreativeGroup {
   testeo_number: number
   files: CreativeFile[]
   subido: number
+  programado: number
   publicado: number
 }
 
@@ -37,7 +39,7 @@ interface OfferCreatives {
   offer_name: string
   last_sync: string | null
   groups: CreativeGroup[]
-  totals: { videos: number; images: number; subido: number; publicado: number }
+  totals: { videos: number; images: number; subido: number; programado: number; publicado: number }
 }
 
 function useAllCreatives() {
@@ -81,6 +83,32 @@ function useAllCreatives() {
     }
   }
 
+  async function publishOne(creativeId: string) {
+    setOffers(prev => prev.map(o => ({
+      ...o,
+      groups: o.groups.map(g => ({ ...g, files: g.files.map(f => f.id === creativeId ? { ...f, status: 'publicado' as const, published_at: new Date().toISOString(), scheduled_at: null } : f) })),
+    })))
+    const res = await fetch('/api/drive-offer-sync?action=publish-one', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creative_id: creativeId }),
+    })
+    if (!res.ok) await fetch_()
+  }
+
+  async function scheduleCreative(creativeId: string, date: string) {
+    setOffers(prev => prev.map(o => ({
+      ...o,
+      groups: o.groups.map(g => ({ ...g, files: g.files.map(f => f.id === creativeId ? { ...f, status: 'programado' as const, scheduled_at: date } : f) })),
+    })))
+    const res = await fetch('/api/drive-offer-sync?action=schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creative_id: creativeId, scheduled_at: date }),
+    })
+    if (!res.ok) await fetch_()
+  }
+
   async function deleteCreative(creativeId: string) {
     setOffers(prev => prev.map(o => ({
       ...o,
@@ -94,7 +122,7 @@ function useAllCreatives() {
     if (!res.ok) await fetch_()
   }
 
-  return { offers, isLoading, syncing, syncAll, publishGroup, deleteCreative, refresh: fetch_ }
+  return { offers, isLoading, syncing, syncAll, publishGroup, publishOne, scheduleCreative, deleteCreative, refresh: fetch_ }
 }
 
 const UPLOADER_COLORS: Record<string, string> = {
@@ -130,7 +158,9 @@ function OfferTesteoSelector({ offerId, offerName, testeo, onChange }: {
 
 export default function Creativos() {
   const { getTesteo, setOfferTesteo } = useOfferTesteos()
-  const { offers, isLoading, syncing, syncAll, publishGroup, deleteCreative } = useAllCreatives()
+  const { offers, isLoading, syncing, syncAll, publishGroup, publishOne, scheduleCreative, deleteCreative } = useAllCreatives()
+  const [schedulingFile, setSchedulingFile] = useState<string | null>(null)
+  const [scheduleDate, setScheduleDate] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const toggleExpand = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }))
@@ -147,14 +177,15 @@ export default function Creativos() {
       videos: groups.filter(g => g.creative_type === 'video').reduce((s, g) => s + g.files.length, 0),
       images: groups.filter(g => g.creative_type === 'imagen').reduce((s, g) => s + g.files.length, 0),
       subido: groups.reduce((s, g) => s + g.subido, 0),
+      programado: groups.reduce((s, g) => s + g.programado, 0),
       publicado: groups.reduce((s, g) => s + g.publicado, 0),
     }
   }
 
   const globalTotals = offers.reduce((acc, o) => {
     const t = getFilteredTotals(o)
-    return { videos: acc.videos + t.videos, images: acc.images + t.images, subido: acc.subido + t.subido, publicado: acc.publicado + t.publicado }
-  }, { videos: 0, images: 0, subido: 0, publicado: 0 })
+    return { videos: acc.videos + t.videos, images: acc.images + t.images, subido: acc.subido + t.subido, programado: acc.programado + t.programado, publicado: acc.publicado + t.publicado }
+  }, { videos: 0, images: 0, subido: 0, programado: 0, publicado: 0 })
 
   return (
     <div className="space-y-4">
@@ -181,7 +212,7 @@ export default function Creativos() {
       </div>
 
       {/* Global stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <Card>
           <CardContent className="p-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
@@ -207,6 +238,15 @@ export default function Creativos() {
               <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase">Pendientes</span>
             </div>
             <span className="text-xl num font-bold text-amber-600 dark:text-amber-400">{globalTotals.subido}</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-0.5">
+              <CalendarClock size={12} className="text-indigo-500" />
+              <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase">Programados</span>
+            </div>
+            <span className="text-xl num font-bold text-indigo-600 dark:text-indigo-400">{globalTotals.programado}</span>
           </CardContent>
         </Card>
         <Card>
@@ -308,7 +348,7 @@ export default function Creativos() {
                             {group.files.map(file => (
                               <div key={file.id} className="group/file flex items-center gap-2 px-3 py-1.5 text-xs">
                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                  file.status === 'publicado' ? 'bg-emerald-500' : 'bg-amber-400'
+                                  file.status === 'publicado' ? 'bg-emerald-500' : file.status === 'programado' ? 'bg-indigo-500' : 'bg-amber-400'
                                 }`} />
                                 <span className="flex-1 truncate text-slate-600 dark:text-slate-300 min-w-0">
                                   {file.file_name}
@@ -318,19 +358,64 @@ export default function Creativos() {
                                     {file.uploaded_by}
                                   </span>
                                 )}
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-                                  file.status === 'publicado'
-                                    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
-                                    : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
-                                }`}>
-                                  {file.status}
-                                </span>
-                                <button
-                                  onClick={() => deleteCreative(file.id)}
-                                  className="opacity-0 group-hover/file:opacity-100 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
-                                >
-                                  <X size={12} />
-                                </button>
+                                {/* Schedule date inline picker */}
+                                {schedulingFile === file.id ? (
+                                  <span className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      type="date"
+                                      value={scheduleDate}
+                                      onChange={e => setScheduleDate(e.target.value)}
+                                      className="text-[10px] h-5 px-1 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => { if (scheduleDate) { scheduleCreative(file.id, scheduleDate); setSchedulingFile(null); setScheduleDate('') } }}
+                                      className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500 text-white hover:bg-indigo-600 font-semibold"
+                                    >OK</button>
+                                    <button
+                                      onClick={() => { setSchedulingFile(null); setScheduleDate('') }}
+                                      className="text-slate-400 hover:text-slate-600 p-0.5"
+                                    ><X size={10} /></button>
+                                  </span>
+                                ) : (
+                                  <>
+                                    {/* Status badge */}
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                                      file.status === 'publicado'
+                                        ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+                                        : file.status === 'programado'
+                                        ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400'
+                                        : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
+                                    }`}>
+                                      {file.status === 'programado' && file.scheduled_at
+                                        ? `${new Date(file.scheduled_at + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}`
+                                        : file.status}
+                                    </span>
+                                    {/* Action buttons on hover */}
+                                    {file.status !== 'publicado' && (
+                                      <button
+                                        onClick={() => publishOne(file.id)}
+                                        className="opacity-0 group-hover/file:opacity-100 text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold transition-all flex-shrink-0"
+                                      >
+                                        Pub
+                                      </button>
+                                    )}
+                                    {file.status !== 'publicado' && (
+                                      <button
+                                        onClick={() => { setSchedulingFile(file.id); setScheduleDate(file.scheduled_at || new Date().toISOString().split('T')[0]) }}
+                                        className="opacity-0 group-hover/file:opacity-100 text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-semibold transition-all flex-shrink-0"
+                                      >
+                                        <CalendarClock size={10} />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => deleteCreative(file.id)}
+                                      className="opacity-0 group-hover/file:opacity-100 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             ))}
                           </div>

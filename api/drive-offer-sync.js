@@ -314,6 +314,31 @@ async function handleDeleteCreative(supabase, body) {
   return { ok: true }
 }
 
+// ─── PUBLISH single creative ───
+async function handlePublishOne(supabase, body) {
+  const { creative_id } = body
+  if (!creative_id) return { error: 'creative_id required' }
+  const { error } = await supabase.from('drive_creatives').update({
+    status: 'publicado',
+    published_at: new Date().toISOString(),
+    scheduled_at: null,
+  }).eq('id', creative_id)
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
+// ─── SCHEDULE creative ───
+async function handleSchedule(supabase, body) {
+  const { creative_id, scheduled_at } = body
+  if (!creative_id || !scheduled_at) return { error: 'creative_id and scheduled_at required' }
+  const { error } = await supabase.from('drive_creatives').update({
+    status: 'programado',
+    scheduled_at,
+  }).eq('id', creative_id)
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
 // ─── PUBLISH testeo ───
 async function handlePublish(supabase, body) {
   const { offer_folder_id, testeo_number, creative_type } = body
@@ -358,9 +383,10 @@ async function handleStatus(supabase, offerId) {
   for (const c of (creatives || [])) {
     const target = c.creative_type === 'video' ? videos : images
     const key = c.testeo_number
-    if (!target[key]) target[key] = { testeo: c.testeo_folder_name, number: key, files: [], subido: 0, publicado: 0 }
+    if (!target[key]) target[key] = { testeo: c.testeo_folder_name, number: key, files: [], subido: 0, programado: 0, publicado: 0 }
     target[key].files.push(c)
     if (c.status === 'subido') target[key].subido++
+    else if (c.status === 'programado') target[key].programado++
     else target[key].publicado++
   }
 
@@ -381,6 +407,7 @@ async function handleStatus(supabase, offerId) {
       videos: (creatives || []).filter(c => c.creative_type === 'video').length,
       images: (creatives || []).filter(c => c.creative_type === 'imagen').length,
       pendientes: (creatives || []).filter(c => c.status === 'subido').length,
+      programados: (creatives || []).filter(c => c.status === 'programado').length,
       publicados: (creatives || []).filter(c => c.status === 'publicado').length,
     },
   }
@@ -463,10 +490,11 @@ async function handleWeeklyCreatives(supabase, query) {
         creative_type: c.creative_type,
         testeo: c.testeo_folder_name,
         testeo_number: c.testeo_number,
-        files: [], subido: 0, publicado: 0,
+        files: [], subido: 0, programado: 0, publicado: 0,
       }
       groups[key].files.push(c)
       if (c.status === 'subido') groups[key].subido++
+      else if (c.status === 'programado') groups[key].programado++
       else groups[key].publicado++
     }
 
@@ -480,6 +508,7 @@ async function handleWeeklyCreatives(supabase, query) {
         videos: (creatives || []).filter(c => c.creative_type === 'video').length,
         images: (creatives || []).filter(c => c.creative_type === 'imagen').length,
         subido: (creatives || []).filter(c => c.status === 'subido').length,
+        programado: (creatives || []).filter(c => c.status === 'programado').length,
         publicado: (creatives || []).filter(c => c.status === 'publicado').length,
       },
     })
@@ -515,6 +544,12 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'delete-creative' && req.method === 'POST') {
       return res.json(await handleDeleteCreative(supabase, req.body))
+    }
+    if (action === 'publish-one' && req.method === 'POST') {
+      return res.json(await handlePublishOne(supabase, req.body))
+    }
+    if (action === 'schedule' && req.method === 'POST') {
+      return res.json(await handleSchedule(supabase, req.body))
     }
     if (action === 'status') {
       const offerId = req.query?.offer_id
