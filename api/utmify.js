@@ -339,12 +339,10 @@ module.exports = async function handler(req, res) {
     switch (action) {
       case 'test-connection': return res.json(await handleTestConnection())
       case 'sync': return res.json(await handleSync(supabase, req.query || {}))
-      case 'wipe-resync': {
-        // Delete all utmify_sync data and re-sync from scratch
-        const daysToSync = parseInt(req.query?.days || '7')
-        await supabase.from('utmify_sync').delete().neq('id', '')
-        const result = await handleSync(supabase, { days: String(daysToSync), dashboard: 'all' })
-        return res.json({ wiped: true, ...result })
+      case 'wipe': {
+        // Delete all utmify_sync data
+        const { error: delErr } = await supabase.from('utmify_sync').delete().neq('id', '')
+        return res.json({ wiped: true, error: delErr?.message || null })
       }
       case 'push':
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' })
