@@ -480,7 +480,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* Gráfico de barras */}
-        <div className="lg:col-span-7 card-base p-4 sm:p-5 flex flex-col">
+        <div className="lg:col-span-7 card-base p-4 sm:p-5">
           <div className="flex items-center justify-between mb-1">
             <SectionLabel icon={BarChart3}>Facturacion y Profit — 30 dias</SectionLabel>
             <div className="flex items-center gap-4 text-[10px]">
@@ -519,8 +519,8 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          {/* Chart fills remaining height */}
-          <div className="flex-1 min-h-[150px]">
+          {/* Chart — fixed height, no stretching */}
+          <div className="h-[220px]">
             {metrics.dailyChart.length === 0 ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400">
                 Sin datos de los ultimos 30 dias

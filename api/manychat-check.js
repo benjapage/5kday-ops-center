@@ -338,17 +338,8 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // Healthy but currently banned → restore
-      if (analysis.isHealthy && account.status === 'banned') {
-        await supabase.from('wa_accounts')
-          .update({ status: 'ready', updated_at: new Date().toISOString() })
-          .eq('id', account.id)
-
-        await supabase.from('meta_ban_events').delete().eq('wa_account_id', account.id)
-
-        detail.action = 'RESTORED'
-        results.restored++
-      }
+      // NEVER auto-restore banned numbers — only manual restore via UI
+      // A banned number stays banned until the user explicitly clicks "Marcar activo"
 
       results.details.push(detail)
     }

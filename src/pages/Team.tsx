@@ -568,16 +568,8 @@ export default function Team() {
         <p className="text-sm text-slate-500 mt-0.5">Miembros, checklists y recursos internos</p>
       </div>
 
-      <Tabs defaultValue="members">
-        <TabsList>
-          <TabsTrigger value="members"><Users size={14} className="mr-1.5" /> Miembros</TabsTrigger>
-          <TabsTrigger value="payments"><DollarSign size={14} className="mr-1.5" /> Pago editores</TabsTrigger>
-          <TabsTrigger value="checklists"><CheckSquare size={14} className="mr-1.5" /> Checklists</TabsTrigger>
-          <TabsTrigger value="drive"><Link size={14} className="mr-1.5" /> Recursos</TabsTrigger>
-        </TabsList>
-
-        {/* Members */}
-        <TabsContent value="members" className="mt-4">
+      {/* Members — always visible */}
+      <div>
           <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardContent className="p-0 overflow-x-auto">
               <Table className="min-w-[550px]">
@@ -652,14 +644,18 @@ export default function Team() {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
+      </div>
 
-        {/* Pago a editores */}
-        <TabsContent value="payments" className="mt-4">
-          <EditorPaymentsSection isAdmin={isAdmin} />
-        </TabsContent>
+      {/* Editor Payments — always visible */}
+      <EditorPaymentsSection isAdmin={isAdmin} />
 
-        {/* Checklists */}
+      {/* Checklists & Resources */}
+      <Tabs defaultValue="checklists">
+        <TabsList>
+          <TabsTrigger value="checklists"><CheckSquare size={14} className="mr-1.5" /> Checklists</TabsTrigger>
+          <TabsTrigger value="drive"><Link size={14} className="mr-1.5" /> Recursos</TabsTrigger>
+        </TabsList>
+
         <TabsContent value="checklists" className="mt-4">
           <div className="flex justify-end mb-4">
             {isAdmin && (
