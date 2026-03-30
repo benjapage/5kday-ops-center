@@ -122,6 +122,7 @@ async function handleTestConnection() {
 }
 
 // ─── ACTION: sync (one or all dashboards) ───
+// Uses get_dashboard_summary for accurate totals (includes unattributed revenue)
 async function handleSync(supabase, query) {
   const targetType = query.dashboard || 'all'
   const dashboardsToSync = targetType === 'all'
@@ -138,35 +139,26 @@ async function handleSync(supabase, query) {
 
   await mcpInitialize(MCP_URL)
 
-  // Migrate legacy data (one-time: prefix old campaign_ids with 'testeos:')
+  // Clean legacy data without prefix (one-time)
   const { data: legacyRows } = await supabase
     .from('utmify_sync')
     .select('id, campaign_id')
     .not('campaign_id', 'like', '%:%')
     .limit(500)
-
   if (legacyRows?.length) {
-    for (const row of legacyRows) {
-      await supabase.from('utmify_sync')
-        .update({ campaign_id: `testeos:${row.campaign_id}`, level: 'testeos' })
-        .eq('id', row.id)
-    }
+    await supabase.from('utmify_sync').delete().in('id', legacyRows.map(r => r.id))
   }
 
-  // Build list of dates to sync (day by day)
+  // Build date list
   const dates = []
   const d = new Date(fromDate + 'T12:00:00Z')
   const end = new Date(toDate + 'T12:00:00Z')
-  while (d <= end) {
-    dates.push(d.toISOString().split('T')[0])
-    d.setDate(d.getDate() + 1)
-  }
+  while (d <= end) { dates.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1) }
 
   const results = []
   let totalSynced = 0
 
   for (const db of dashboardsToSync) {
-    let dbSynced = 0
     let dbError = null
 
     for (const date of dates) {
@@ -174,35 +166,66 @@ async function handleSync(supabase, query) {
         const dateFrom = formatDateISO(date, '00:00:00')
         const dateTo = formatDateISO(date, '23:59:59')
 
-        const response = await mcpCallTool(MCP_URL, 'get_meta_ad_objects', {
+        // Use get_dashboard_summary for accurate totals
+        const summary = await mcpCallTool(MCP_URL, 'get_dashboard_summary', {
           dashboardId: db.id,
-          level: 'campaign',
           dateRange: { from: dateFrom, to: dateTo },
-          orderBy: 'greater_profit',
         })
 
-        const list = response?.results || []
-        if (!list.length) continue
+        const revenueCents = Math.round(summary?.comissions?.gross || 0)
+        const spendCents = summary?.ads?.spent || 0
+        const orders = summary?.ordersCount?.approved || 0
+        const clicks = summary?.ads?.clicks || 0
+        const impressions = summary?.ads?.meta?.pageViews || 0
+        const conversations = summary?.analytics?.conversations || 0
 
-        const rows = list.map(c => campaignToRow(c, date, db.type))
-        const { error: upsertErr } = await supabase.from('utmify_sync').upsert(rows, { onConflict: 'date,campaign_id' })
+        // Store one summary row per dashboard per day
+        const row = {
+          date,
+          campaign_id: `${db.type}:daily`,
+          campaign_name: db.name,
+          ad_account_id: null,
+          ad_account_name: db.type,
+          level: db.type,
+          revenue_cents: revenueCents,
+          spend_cents: spendCents,
+          profit_cents: revenueCents - spendCents,
+          roas: spendCents > 0 ? revenueCents / spendCents : null,
+          profit_margin: revenueCents > 0 ? (revenueCents - spendCents) / revenueCents : null,
+          approved_orders: orders,
+          total_orders: summary?.ordersCount?.total || 0,
+          cpa_cents: orders > 0 ? Math.round(spendCents / orders) : null,
+          impressions,
+          clicks,
+          ctr: clicks > 0 && impressions > 0 ? clicks / impressions : null,
+          landing_page_views: summary?.ads?.meta?.pageViews || 0,
+          initiate_checkout: summary?.ads?.meta?.initiateCheckouts || 0,
+          conversations,
+          video_views: 0,
+          hook_rate: null,
+          retention_rate: null,
+          status: null,
+          daily_budget_cents: null,
+          untracked_count: 0,
+          products: '[]',
+          synced_at: new Date().toISOString(),
+        }
+
+        const { error: upsertErr } = await supabase.from('utmify_sync').upsert(row, { onConflict: 'date,campaign_id' })
         if (upsertErr) { dbError = upsertErr.message; break }
-
-        dbSynced += rows.length
       } catch (err) {
         dbError = err.message
         break
       }
     }
 
-    totalSynced += dbSynced
+    totalSynced += dates.length
     results.push({
-      dashboard: db.name, type: db.type, synced: dbSynced, days: dates.length,
+      dashboard: db.name, type: db.type, days: dates.length,
       ...(dbError ? { error: dbError } : {}),
     })
   }
 
-  // Update last_sync in old config table (backwards compat)
   await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
 
   return { synced: totalSynced, dateRange: { from: fromDate, to: toDate }, dashboards: results }
