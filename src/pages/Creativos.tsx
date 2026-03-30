@@ -225,7 +225,7 @@ export default function Creativos() {
 
             return (
               <Card key={offer.offer_id}>
-                <CardHeader className="p-3 pb-0 cursor-pointer" onClick={() => toggleExpand(offer.offer_id)}>
+                <CardHeader className={`p-3 cursor-pointer ${expanded[offer.offer_id] === false ? '' : 'pb-1'}`} onClick={() => toggleExpand(offer.offer_id)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {expanded[offer.offer_id] ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}

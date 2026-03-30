@@ -168,8 +168,9 @@ async function syncOfferFolder(supabase, token, offerFolder) {
     for (const testeoFolder of testeoFolders) {
       if (testeoFolder.mimeType !== 'application/vnd.google-apps.folder') continue
 
-      const testeoMatch = testeoFolder.name.match(/(?:testeo|tt)\s*(\d+)/i)
+      const testeoMatch = testeoFolder.name.match(/^(?:testeo|tt)\s*(\d+)/i)
       const testeoNumber = testeoMatch ? parseInt(testeoMatch[1]) : null
+      if (testeoNumber === null) continue // Skip non-testeo folders
 
       // List files inside testeo folder
       const files = await driveList(token, testeoFolder.id)
@@ -269,8 +270,20 @@ async function handleSync(supabase, token, offerId) {
     .single()
 
   if (!folder) return { error: 'No Drive folder linked to this offer' }
+
+  // Clean up old creatives from non-testeo folders (legacy data)
+  const { data: oldCreatives } = await supabase
+    .from('drive_creatives')
+    .select('id, testeo_folder_name')
+    .eq('offer_folder_id', folder.id)
+  const testeoPattern = /^(?:testeo|tt)\s*\d+/i
+  const toDelete = (oldCreatives || []).filter(c => !testeoPattern.test(c.testeo_folder_name || ''))
+  if (toDelete.length > 0) {
+    await supabase.from('drive_creatives').delete().in('id', toDelete.map(c => c.id))
+  }
+
   const result = await syncOfferFolder(supabase, token, folder)
-  return { ok: true, ...result }
+  return { ok: true, ...result, cleaned: toDelete.length }
 }
 
 // ─── SYNC ALL ───
@@ -326,6 +339,7 @@ async function handleStatus(supabase, offerId) {
     .from('drive_creatives')
     .select('*')
     .eq('offer_folder_id', folder.id)
+    .not('testeo_number', 'is', null)
     .order('testeo_number', { ascending: true })
     .order('detected_at', { ascending: false })
 
@@ -334,7 +348,7 @@ async function handleStatus(supabase, offerId) {
   const images = {}
   for (const c of (creatives || [])) {
     const target = c.creative_type === 'video' ? videos : images
-    const key = c.testeo_number || 0
+    const key = c.testeo_number
     if (!target[key]) target[key] = { testeo: c.testeo_folder_name, number: key, files: [], subido: 0, publicado: 0 }
     target[key].files.push(c)
     if (c.status === 'subido') target[key].subido++
@@ -424,6 +438,7 @@ async function handleWeeklyCreatives(supabase, query) {
       .from('drive_creatives')
       .select('*')
       .eq('offer_folder_id', folder.id)
+      .not('testeo_number', 'is', null)
       .order('testeo_number', { ascending: true })
       .order('file_name', { ascending: true })
 
