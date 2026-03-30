@@ -341,7 +341,7 @@ module.exports = async function handler(req, res) {
       case 'sync': return res.json(await handleSync(supabase, req.query || {}))
       case 'wipe': {
         // Delete all utmify_sync data
-        const { error: delErr } = await supabase.from('utmify_sync').delete().neq('id', '')
+        const { error: delErr } = await supabase.from('utmify_sync').delete().gte('date', '2000-01-01')
         return res.json({ wiped: true, error: delErr?.message || null })
       }
       case 'push':
