@@ -305,6 +305,15 @@ async function handleSyncAll(supabase, token) {
   return { synced: folders.length, total_detected: total, results }
 }
 
+// ─── DELETE creative ───
+async function handleDeleteCreative(supabase, body) {
+  const { creative_id } = body
+  if (!creative_id) return { error: 'creative_id required' }
+  const { error } = await supabase.from('drive_creatives').delete().eq('id', creative_id)
+  if (error) return { error: error.message }
+  return { ok: true }
+}
+
 // ─── PUBLISH testeo ───
 async function handlePublish(supabase, body) {
   const { offer_folder_id, testeo_number, creative_type } = body
@@ -503,6 +512,9 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'publish' && req.method === 'POST') {
       return res.json(await handlePublish(supabase, req.body))
+    }
+    if (action === 'delete-creative' && req.method === 'POST') {
+      return res.json(await handleDeleteCreative(supabase, req.body))
     }
     if (action === 'status') {
       const offerId = req.query?.offer_id

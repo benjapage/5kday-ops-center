@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Video, ImageIcon, Target, RefreshCw, CheckCircle2, Clock, ChevronDown, ChevronRight, Palette } from 'lucide-react'
+import { Video, ImageIcon, Target, RefreshCw, CheckCircle2, Clock, ChevronDown, ChevronRight, Palette, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -81,7 +81,20 @@ function useAllCreatives() {
     }
   }
 
-  return { offers, isLoading, syncing, syncAll, publishGroup, refresh: fetch_ }
+  async function deleteCreative(creativeId: string) {
+    setOffers(prev => prev.map(o => ({
+      ...o,
+      groups: o.groups.map(g => ({ ...g, files: g.files.filter(f => f.id !== creativeId) })).filter(g => g.files.length > 0),
+    })))
+    const res = await fetch('/api/drive-offer-sync?action=delete-creative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creative_id: creativeId }),
+    })
+    if (!res.ok) await fetch_()
+  }
+
+  return { offers, isLoading, syncing, syncAll, publishGroup, deleteCreative, refresh: fetch_ }
 }
 
 const UPLOADER_COLORS: Record<string, string> = {
@@ -117,7 +130,7 @@ function OfferTesteoSelector({ offerId, offerName, testeo, onChange }: {
 
 export default function Creativos() {
   const { getTesteo, setOfferTesteo } = useOfferTesteos()
-  const { offers, isLoading, syncing, syncAll, publishGroup } = useAllCreatives()
+  const { offers, isLoading, syncing, syncAll, publishGroup, deleteCreative } = useAllCreatives()
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const toggleExpand = (id: string) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }))
@@ -292,7 +305,7 @@ export default function Creativos() {
 
                           <div className="divide-y divide-slate-50 dark:divide-slate-800">
                             {group.files.map(file => (
-                              <div key={file.id} className="flex items-center gap-2 px-3 py-1.5 text-xs">
+                              <div key={file.id} className="group/file flex items-center gap-2 px-3 py-1.5 text-xs">
                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                                   file.status === 'publicado' ? 'bg-emerald-500' : 'bg-amber-400'
                                 }`} />
@@ -311,6 +324,12 @@ export default function Creativos() {
                                 }`}>
                                   {file.status}
                                 </span>
+                                <button
+                                  onClick={() => deleteCreative(file.id)}
+                                  className="opacity-0 group-hover/file:opacity-100 p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 transition-all flex-shrink-0"
+                                >
+                                  <X size={12} />
+                                </button>
                               </div>
                             ))}
                           </div>
