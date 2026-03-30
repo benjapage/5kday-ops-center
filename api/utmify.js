@@ -200,6 +200,7 @@ async function handleSync(supabase, query) {
       dashboard: db.name, type: db.type, synced: dbSynced, days: dates.length,
       ...(dbError ? { error: dbError } : {}),
     })
+  }
 
   // Update last_sync in old config table (backwards compat)
   await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
