@@ -259,8 +259,16 @@ async function handleDashboardData(supabase, query) {
   const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
   const today = todayStr()
 
-  const { data: rows, error } = await supabase.from('utmify_sync').select('*').gte('date', fromDate).order('date')
+  const [{ data: rows, error }, { data: waSalesMtdRows }, { data: waSalesTodayRows }] = await Promise.all([
+    supabase.from('utmify_sync').select('*').gte('date', fromDate).order('date'),
+    supabase.from('wa_sales').select('amount_cents, sale_date').gte('sale_date', mtdFrom),
+    supabase.from('wa_sales').select('amount_cents').eq('sale_date', today),
+  ])
   if (error) return { error: error.message }
+
+  // WA revenue from Sheets
+  const waRevenueMtdCents = (waSalesMtdRows || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
+  const waRevenueTodayCents = (waSalesTodayRows || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
 
   // Categorize rows by dashboard type
   const allRows = rows || []
@@ -278,6 +286,15 @@ async function handleDashboardData(supabase, query) {
     byDate[r.date].spend += r.spend_cents
     // Profit recalculated
     byDate[r.date].orders += r.approved_orders
+  }
+
+  // Add WA revenue from Sheets to daily chart
+  for (const r of (waSalesMtdRows || [])) {
+    if (byDate[r.sale_date]) {
+      byDate[r.sale_date].revenue += r.amount_cents
+    } else {
+      byDate[r.sale_date] = { date: r.sale_date, revenue: r.amount_cents, spend: 0, profit: 0, orders: 0 }
+    }
   }
 
   // Recalculate profit per day
@@ -327,20 +344,22 @@ async function handleDashboardData(supabase, query) {
   return {
     dailyChart,
     mtd: {
-      revenue: mtdShopifyRev / 100,
+      revenue: (mtdShopifyRev + waRevenueMtdCents) / 100,
+      shopifyRevenue: mtdShopifyRev / 100,
+      waRevenue: waRevenueMtdCents / 100,
       spend: mtdSpend / 100,
-      profit: (mtdShopifyRev - mtdSpend) / 100,
-      roas: mtdSpend > 0 ? mtdShopifyRev / mtdSpend : null,
+      profit: (mtdShopifyRev + waRevenueMtdCents - mtdSpend) / 100,
+      roas: mtdSpend > 0 ? (mtdShopifyRev + waRevenueMtdCents) / mtdSpend : null,
       orders: mtdOrders,
       waSpend: mtdWaSpend / 100,
-      // Legacy compat fields
-      waRevenue: 0, // WA revenue comes from Sheets, not UTMify
       landingRevenue: mtdShopifyRev / 100,
     },
     today: {
-      revenue: todayRev / 100,
+      revenue: (todayRev + waRevenueTodayCents) / 100,
+      shopifyRevenue: todayRev / 100,
+      waRevenue: waRevenueTodayCents / 100,
       spend: todaySpend / 100,
-      profit: (todayRev - todaySpend) / 100,
+      profit: (todayRev + waRevenueTodayCents - todaySpend) / 100,
     },
     byDashboard,
     dashboards: DASHBOARDS.map(d => ({ ...d })),
