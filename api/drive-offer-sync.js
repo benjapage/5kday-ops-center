@@ -45,7 +45,7 @@ async function driveList(token, folderId) {
   do {
     const params = new URLSearchParams({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,owners)',
+      fields: 'nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,owners/emailAddress,owners/displayName,lastModifyingUser/emailAddress,lastModifyingUser/displayName,sharingUser/emailAddress)',
       pageSize: '200',
     })
     if (pageToken) params.set('pageToken', pageToken)
@@ -83,13 +83,25 @@ async function loadEditorNames(supabase) {
 }
 
 function guessUploaderSync(file, editorNames) {
-  const owners = file.owners || []
-  for (const o of owners) {
-    const email = (o.emailAddress || '').toLowerCase()
+  // Check all possible user fields: owners, lastModifyingUser, sharingUser
+  const candidates = []
+  for (const o of (file.owners || [])) {
+    if (o.emailAddress) candidates.push(o.emailAddress.toLowerCase())
+    if (o.displayName) candidates.push(o.displayName.toLowerCase())
+  }
+  if (file.lastModifyingUser) {
+    if (file.lastModifyingUser.emailAddress) candidates.push(file.lastModifyingUser.emailAddress.toLowerCase())
+    if (file.lastModifyingUser.displayName) candidates.push(file.lastModifyingUser.displayName.toLowerCase())
+  }
+  if (file.sharingUser?.emailAddress) candidates.push(file.sharingUser.emailAddress.toLowerCase())
+
+  for (const candidate of candidates) {
     for (const name of editorNames) {
-      if (email.includes(name)) return name
+      if (candidate.includes(name)) return name
     }
   }
+
+  // Fallback: check filename
   const fileName = (file.name || '').toLowerCase()
   for (const name of editorNames) {
     if (fileName.includes(name)) return name
@@ -487,6 +499,37 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'sync-all') {
       return res.json(await handleSyncAll(supabase, token))
+    }
+    if (action === 'debug-files') {
+      // Show raw Drive file data for debugging uploader detection
+      const offerId = req.query?.offer_id
+      if (!offerId) return res.status(400).json({ error: 'offer_id required' })
+      const { data: folder } = await supabase.from('drive_offer_folders').select('*').eq('offer_id', offerId).single()
+      if (!folder) return res.json({ error: 'No folder linked' })
+      const editorNames = await loadEditorNames(supabase)
+      const topItems = await driveList(token, folder.drive_folder_id)
+      const anunciosFolder = topItems.find(f => f.mimeType === 'application/vnd.google-apps.folder' && f.name.toLowerCase().startsWith('anuncio'))
+      const targetId = anunciosFolder ? anunciosFolder.id : folder.drive_folder_id
+      const items = await driveList(token, targetId)
+      // Get first video subfolder's files for debug
+      const videoFolder = items.find(f => f.mimeType === 'application/vnd.google-apps.folder' && f.name.toLowerCase().includes('video'))
+      let sampleFiles = []
+      if (videoFolder) {
+        const testeoFolders = await driveList(token, videoFolder.id)
+        for (const tf of testeoFolders.slice(0, 2)) {
+          if (tf.mimeType !== 'application/vnd.google-apps.folder') continue
+          const files = await driveList(token, tf.id)
+          sampleFiles.push(...files.slice(0, 5).map(f => ({
+            name: f.name,
+            owners: (f.owners || []).map(o => ({ email: o.emailAddress, displayName: o.displayName })),
+            lastModifyingUser: f.lastModifyingUser ? { email: f.lastModifyingUser.emailAddress, displayName: f.lastModifyingUser.displayName } : null,
+            sharingUser: f.sharingUser ? { email: f.sharingUser.emailAddress } : null,
+            detectedUploader: guessUploaderSync(f, editorNames),
+            testeoFolder: tf.name,
+          })))
+        }
+      }
+      return res.json({ editor_names_in_db: editorNames, folder_structure: items.map(f => f.name), sample_files: sampleFiles })
     }
 
     return res.status(400).json({ error: `Unknown action: ${action}` })

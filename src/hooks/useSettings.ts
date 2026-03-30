@@ -50,62 +50,79 @@ function getCurrentMonday(): string {
   return monday.toISOString().split('T')[0]
 }
 
-export function useCurrentTesteo() {
-  const [testeo, setTesteo] = useState<number>(1)
+// Per-offer testeo tracker — stores { [offer_id]: { testeo, week_start } }
+export function useOfferTesteos() {
+  const [testeos, setTesteos] = useState<Record<string, number>>({})
+  const [raw, setRaw] = useState<Record<string, { testeo: number; week_start: string }>>({})
   const [isLoading, setIsLoading] = useState(true)
 
-  async function fetchTesteo() {
+  async function fetchTesteos() {
     try {
       const { data } = await supabase
         .from('settings')
         .select('value')
-        .eq('id', 'current_testeo')
+        .eq('id', 'offer_testeos')
         .single()
 
       if (data?.value) {
-        const saved = data.value as { testeo: number; week_start: string }
+        const saved = data.value as Record<string, { testeo: number; week_start: string }>
         const currentMonday = getCurrentMonday()
+        const updated: Record<string, { testeo: number; week_start: string }> = {}
+        const nums: Record<string, number> = {}
+        let needsWrite = false
 
-        if (saved.week_start && saved.week_start < currentMonday) {
-          // Calculate how many weeks passed and increment
-          const savedDate = new Date(saved.week_start)
-          const currentDate = new Date(currentMonday)
-          const weeksPassed = Math.round((currentDate.getTime() - savedDate.getTime()) / (7 * 86400000))
-          const newTesteo = saved.testeo + weeksPassed
+        for (const [offerId, entry] of Object.entries(saved)) {
+          if (entry.week_start && entry.week_start < currentMonday) {
+            const savedDate = new Date(entry.week_start)
+            const currentDate = new Date(currentMonday)
+            const weeksPassed = Math.round((currentDate.getTime() - savedDate.getTime()) / (7 * 86400000))
+            const newTesteo = entry.testeo + weeksPassed
+            updated[offerId] = { testeo: newTesteo, week_start: currentMonday }
+            nums[offerId] = newTesteo
+            needsWrite = true
+          } else {
+            updated[offerId] = entry
+            nums[offerId] = entry.testeo
+          }
+        }
 
+        if (needsWrite) {
           await supabase.from('settings').upsert({
-            id: 'current_testeo',
-            value: { testeo: newTesteo, week_start: currentMonday },
+            id: 'offer_testeos',
+            value: updated,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'id' })
-          setTesteo(newTesteo)
-        } else {
-          setTesteo(saved.testeo)
         }
+
+        setRaw(updated)
+        setTesteos(nums)
       }
-    } catch {
-      // table may not exist — default to 1
-    } finally {
-      setIsLoading(false)
-    }
+    } catch {}
+    setIsLoading(false)
   }
 
-  useEffect(() => { fetchTesteo() }, [])
+  useEffect(() => { fetchTesteos() }, [])
 
-  async function setCurrentTesteo(num: number): Promise<{ error: string | null }> {
+  function getTesteo(offerId: string): number {
+    return testeos[offerId] || 1
+  }
+
+  async function setOfferTesteo(offerId: string, num: number): Promise<{ error: string | null }> {
     try {
+      const newRaw = { ...raw, [offerId]: { testeo: num, week_start: getCurrentMonday() } }
       const { error } = await supabase.from('settings').upsert({
-        id: 'current_testeo',
-        value: { testeo: num, week_start: getCurrentMonday() },
+        id: 'offer_testeos',
+        value: newRaw,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' })
       if (error) return { error: error.message }
-      setTesteo(num)
+      setRaw(newRaw)
+      setTesteos(prev => ({ ...prev, [offerId]: num }))
       return { error: null }
     } catch (err: unknown) {
       return { error: err instanceof Error ? err.message : 'Error desconocido' }
     }
   }
 
-  return { testeo, isLoading, setCurrentTesteo }
+  return { testeos, isLoading, getTesteo, setOfferTesteo }
 }

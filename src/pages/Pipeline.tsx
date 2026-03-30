@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { useOffers } from '@/hooks/useOffers'
 import { useCreatives } from '@/hooks/useCreatives'
-import { useSettings, useCurrentTesteo } from '@/hooks/useSettings'
+import { useSettings, useOfferTesteos } from '@/hooks/useSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { COUNTRIES, CHANNELS, ASSET_TYPES } from '@/lib/constants'
 import { formatDate, formatROAS, formatCurrency, getDaysSince } from '@/lib/formatters'
@@ -515,7 +515,8 @@ function TesteoBlock({ group, creativeType, folderId, onPublish, canWrite }: {
 
 function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrite: boolean }) {
   const { data, isLoading, syncing, refresh, linkFolder, syncFolder, publishTesteo } = useDriveCreatives(offerId)
-  const { testeo: currentTesteo, setCurrentTesteo } = useCurrentTesteo()
+  const { getTesteo, setOfferTesteo } = useOfferTesteos()
+  const currentTesteo = getTesteo(offerId)
   const [showAll, setShowAll] = useState(false)
   const [driveUrl, setDriveUrl] = useState('')
   const [linking, setLinking] = useState(false)
@@ -591,14 +592,14 @@ function DriveCreativesSection({ offerId, canWrite }: { offerId: string; canWrit
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={() => setCurrentTesteo(Math.max(1, currentTesteo - 1))}
+            onClick={() => setOfferTesteo(offerId, Math.max(1, currentTesteo - 1))}
             className="h-5 w-5 rounded flex items-center justify-center text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-800/30 transition-colors text-xs font-bold"
           >
             -
           </button>
           <span className="text-sm num font-bold text-indigo-600 dark:text-indigo-400 min-w-[40px] text-center">TT{currentTesteo}</span>
           <button
-            onClick={() => setCurrentTesteo(currentTesteo + 1)}
+            onClick={() => setOfferTesteo(offerId, currentTesteo + 1)}
             className="h-5 w-5 rounded flex items-center justify-center text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-800/30 transition-colors text-xs font-bold"
           >
             +
