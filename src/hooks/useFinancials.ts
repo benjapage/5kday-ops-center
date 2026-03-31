@@ -168,16 +168,18 @@ export function useFinancials(dateFrom?: string, dateTo?: string) {
     return { error: null }
   }
 
-  // Resumen del mes: revenue solo de Meta, expenses de expenses table
+  // Resumen del mes: revenue solo de Meta (BEFORE cutoff — UTMify covers from cutoff onward)
+  const CUTOFF = '2026-03-27'
   const today = new Date()
   const mtdFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
 
-  const mtdMeta = metaStats.filter(m => m.stat_date >= mtdFrom)
+  const mtdMeta = metaStats.filter(m => m.stat_date >= mtdFrom && m.stat_date < CUTOFF)
   const mtdExpensesList = expenses.filter(e => e.expense_date >= mtdFrom)
+  const mtdAdSpendList = mtdExpensesList.filter(e => e.category === 'ad_spend' && e.expense_date < CUTOFF)
 
   const mtdRevenue = mtdMeta.reduce((s, m) => s + toUSD(Number(m.purchase_value ?? 0), m.currency), 0)
   const mtdExpenses = mtdExpensesList.reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
-  const mtdAdSpend = mtdExpensesList.filter(e => e.category === 'ad_spend').reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
+  const mtdAdSpend = mtdAdSpendList.reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
   const mtdProfit = mtdRevenue - mtdExpenses
   const mtdRoas = mtdAdSpend > 0 ? mtdRevenue / mtdAdSpend : null
 

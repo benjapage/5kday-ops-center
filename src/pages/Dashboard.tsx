@@ -438,7 +438,7 @@ export default function Dashboard() {
   const { metrics, isLoading } = useDashboard()
   const { offers } = useOffers()
   const { creatives } = useCreatives()
-  const { monthlyTarget } = useSettings()
+  const { dailyProfitTarget } = useSettings()
   const { profile, user } = useAuth()
 
   const greeting = () => {
@@ -452,7 +452,7 @@ export default function Dashboard() {
 
   const activeOffers = offers.filter(o => o.status === 'active')
   const activeCreatives = creatives.filter(c => c.status === 'active')
-  const targetPct = monthlyTarget > 0 ? Math.min((metrics.revenueMtd / monthlyTarget) * 100, 100) : 0
+  const targetPct = dailyProfitTarget > 0 ? Math.min((metrics.profitToday / dailyProfitTarget) * 100, 100) : 0
 
   return (
     <div className="space-y-4">
@@ -468,13 +468,13 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Meta del mes — inline, sin box */}
+        {/* Meta del dia — inline, sin box */}
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="text-right">
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Meta del mes</p>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Profit del dia</p>
             <div className="flex items-baseline gap-1.5 justify-end">
-              <Num className="text-lg" style={{ color: '#22C55E' }}>{formatCurrency(metrics.revenueMtd)}</Num>
-              <span className="text-xs text-slate-500/60">/ {formatCurrency(monthlyTarget)}</span>
+              <Num className="text-lg" style={{ color: metrics.profitToday >= 0 ? '#22C55E' : '#E8816D' }}>{formatCurrency(metrics.profitToday)}</Num>
+              <span className="text-xs text-slate-500/60">/ {formatCurrency(dailyProfitTarget)}</span>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">

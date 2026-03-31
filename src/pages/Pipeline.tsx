@@ -912,7 +912,7 @@ function OfferNoteCard({ offer, creatives, onUpdate, canWrite }: {
 export default function Pipeline() {
   const { offers, isLoading: loadingOffers, create: createOffer, update: updateOffer, archive } = useOffers()
   const { creatives, isLoading: loadingCreatives, create: createCreative, retire } = useCreatives()
-  const { monthlyTarget } = useSettings()
+  const { dailyProfitTarget } = useSettings()
   const { profile } = useAuth()
   const [addOfferOpen, setAddOfferOpen] = useState(false)
   const [addCreativeOpen, setAddCreativeOpen] = useState(false)

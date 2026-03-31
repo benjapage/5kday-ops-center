@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function useSettings() {
-  const [monthlyTarget, setMonthlyTarget] = useState<number>(5000)
+  const [dailyProfitTarget, setDailyProfitTarget] = useState<number>(200)
   const [isLoading, setIsLoading] = useState(true)
 
   async function fetchTarget() {
@@ -12,8 +12,11 @@ export function useSettings() {
         .select('value')
         .eq('id', 'monthly_targets')
         .single()
-      if (data?.value?.monthly_revenue) {
-        setMonthlyTarget(Number(data.value.monthly_revenue))
+      if (data?.value?.daily_profit) {
+        setDailyProfitTarget(Number(data.value.daily_profit))
+      } else if (data?.value?.monthly_revenue) {
+        // Migration: convert old monthly revenue to daily profit estimate
+        setDailyProfitTarget(Math.round(Number(data.value.monthly_revenue) / 30))
       }
     } catch {
       // table may not exist yet — fall back to default
@@ -24,20 +27,20 @@ export function useSettings() {
 
   useEffect(() => { fetchTarget() }, [])
 
-  async function saveMonthlyTarget(amount: number): Promise<{ error: string | null }> {
+  async function saveDailyProfitTarget(amount: number): Promise<{ error: string | null }> {
     try {
       const { error } = await supabase
         .from('settings')
-        .upsert({ id: 'monthly_targets', value: { monthly_revenue: amount }, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+        .upsert({ id: 'monthly_targets', value: { daily_profit: amount }, updated_at: new Date().toISOString() }, { onConflict: 'id' })
       if (error) return { error: error.message }
-      setMonthlyTarget(amount)
+      setDailyProfitTarget(amount)
       return { error: null }
     } catch (err: unknown) {
       return { error: err instanceof Error ? err.message : 'Error desconocido' }
     }
   }
 
-  return { monthlyTarget, isLoading, saveMonthlyTarget }
+  return { dailyProfitTarget, isLoading, saveDailyProfitTarget }
 }
 
 // Get the Monday of the current week as YYYY-MM-DD

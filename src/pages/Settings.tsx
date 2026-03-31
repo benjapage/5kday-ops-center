@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 
 export default function Settings() {
-  const { monthlyTarget, isLoading, saveMonthlyTarget } = useSettings()
+  const { dailyProfitTarget, isLoading, saveDailyProfitTarget } = useSettings()
   const { profile, user } = useAuth()
   const { theme, setTheme } = useTheme()
   const { stores } = useShopifyStores()
@@ -28,8 +28,8 @@ export default function Settings() {
   const [welcomeEnabled, setWelcomeEnabled] = useState(localStorage.getItem('5kday-welcome-disabled') !== 'true')
 
   useEffect(() => {
-    if (!isLoading) setInputValue(String(monthlyTarget))
-  }, [isLoading, monthlyTarget])
+    if (!isLoading) setInputValue(String(dailyProfitTarget))
+  }, [isLoading, dailyProfitTarget])
 
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email, role').order('created_at').then(({ data }) => {
@@ -44,7 +44,7 @@ export default function Settings() {
     const amount = Number(inputValue)
     if (!amount || amount <= 0) { toast.error('Monto invalido'); return }
     setIsSaving(true)
-    const { error } = await saveMonthlyTarget(amount)
+    const { error } = await saveDailyProfitTarget(amount)
     setIsSaving(false)
     if (error) { toast.error(error); return }
     toast.success(`Meta actualizada a ${formatCurrency(amount)}`)
@@ -198,7 +198,7 @@ export default function Settings() {
 
           <form onSubmit={handleSave} className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meta de facturacion mensual (USD)</Label>
+              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meta de profit diario (USD)</Label>
               <div className="flex gap-3">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">$</span>
@@ -225,7 +225,7 @@ export default function Settings() {
                 )}
               </div>
               <p className="text-xs text-slate-400">
-                Actualmente: <span className="font-semibold text-slate-600 font-mono">{formatCurrency(monthlyTarget)}</span> / mes
+                Actualmente: <span className="font-semibold text-slate-600 font-mono">{formatCurrency(dailyProfitTarget)}</span> / dia
               </p>
               {!isAdmin && (
                 <p className="text-xs text-amber-600">Solo los administradores pueden modificar esta configuracion.</p>
