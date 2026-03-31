@@ -387,7 +387,8 @@ async function handleWaCheck(supabase) {
   const dailyBreakdown = Object.entries(byDate).sort().map(([d, v]) => ({ date: d, sales: v.count, usd: (v.totalCents / 100).toFixed(2) }))
   // Check for duplicates on a specific date
   const checkDate = '2026-03-30'
-  const dateSales = (allSales || []).filter(r => r.sale_date === checkDate)
+  const { data: dateSalesRaw } = await supabase.from('wa_sales').select('id, sale_date, amount_cents, product_name, created_at').eq('sale_date', checkDate).order('created_at')
+  const dateSales = dateSalesRaw || []
   // Group by amount+product to find dupes
   const dupeCheck = {}
   for (const r of dateSales) {
