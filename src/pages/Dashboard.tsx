@@ -500,7 +500,7 @@ export default function Dashboard() {
         {/* Gráfico de barras */}
         <div className="lg:col-span-7 card-base p-4 sm:p-5 self-start">
           <div className="flex items-center justify-between mb-1">
-            <SectionLabel icon={BarChart3}>Facturacion y Profit — 30 dias</SectionLabel>
+            <SectionLabel icon={BarChart3}>Facturacion y Profit — mes actual</SectionLabel>
             <div className="flex items-center gap-4 text-[10px]">
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: '#6366F1' }} /> Facturacion
@@ -515,7 +515,7 @@ export default function Dashboard() {
             {[
               { label: 'Profit mes', value: metrics.profitMtd, color: metrics.profitMtd >= 0 ? '#22C55E' : '#E8816D' },
               { label: 'Facturacion', value: metrics.revenueMtd, color: '#6366F1' },
-              { label: 'ROAS 30d', value: null, roas: metrics.roas30d, color: metrics.roas30d != null && metrics.roas30d >= 3 ? '#22C55E' : metrics.roas30d != null && metrics.roas30d >= 1.5 ? '#F59E0B' : '#94A3B8' },
+              { label: 'ROAS mes', value: null, roas: metrics.roasMtd, color: metrics.roasMtd != null && metrics.roasMtd >= 3 ? '#22C55E' : metrics.roasMtd != null && metrics.roasMtd >= 1.5 ? '#F59E0B' : '#94A3B8' },
             ].map(kpi => (
               <div key={kpi.label}>
                 <Num className="text-base" style={{ color: kpi.color }}>
@@ -541,7 +541,7 @@ export default function Dashboard() {
           <div className="h-[180px]">
             {metrics.dailyChart.length === 0 ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400">
-                Sin datos de los ultimos 30 dias
+                Sin datos del mes actual
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">

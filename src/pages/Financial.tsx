@@ -1,5 +1,5 @@
-import { useState, useEffect as useEff } from 'react'
-import { DollarSign, TrendingUp, BarChart3, Plus, Trash2, RefreshCw, Pause, Play, CreditCard, ShoppingCart, MessageCircle, Megaphone } from 'lucide-react'
+import { useState, useMemo, useEffect as useEff } from 'react'
+import { DollarSign, TrendingUp, BarChart3, Plus, Trash2, RefreshCw, Pause, Play, CreditCard, ShoppingCart, MessageCircle, Megaphone, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -143,22 +143,42 @@ function ChartTooltip({ active, payload, label }: any) {
 export default function Financial() {
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [subOpen, setSubOpen] = useState(false)
-  const { dailyPnl, expenses, revenues, isLoading, addExpense, addRevenue, deleteExpense, mtd, blueRate, toUSD } = useFinancials()
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState({ year: now.getFullYear(), month: now.getMonth() })
+  const { dailyPnl, expenses, revenues, isLoading, addExpense, addRevenue, deleteExpense, blueRate, toUSD } = useFinancials()
   const { subscriptions, create: createSub, toggleActive, remove: removeSub, processSubscriptions } = useSubscriptions()
   const { data: utmifyData } = useUtmifyData()
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const utm = utmifyData && utmifyData.totalRows > 0 ? utmifyData : null
 
-  // WA Sales from Google Sheets
-  const [waSalesMtd, setWaSalesMtd] = useState(0)
+  const isCurrentMonth = selectedMonth.year === now.getFullYear() && selectedMonth.month === now.getMonth()
+  const monthFrom = new Date(selectedMonth.year, selectedMonth.month, 1).toISOString().split('T')[0]
+  const monthTo = new Date(selectedMonth.year, selectedMonth.month + 1, 0).toISOString().split('T')[0] // last day
+  const monthLabel = new Date(selectedMonth.year, selectedMonth.month).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+
+  function prevMonth() {
+    setSelectedMonth(p => {
+      const d = new Date(p.year, p.month - 1)
+      return { year: d.getFullYear(), month: d.getMonth() }
+    })
+  }
+  function nextMonth() {
+    if (isCurrentMonth) return
+    setSelectedMonth(p => {
+      const d = new Date(p.year, p.month + 1)
+      return { year: d.getFullYear(), month: d.getMonth() }
+    })
+  }
+
+  // WA Sales from Google Sheets for selected month
+  const [waSalesMonth, setWaSalesMonth] = useState(0)
   useEff(() => {
-    const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-    supabase.from('wa_sales').select('amount_cents').gte('sale_date', mtdFrom)
+    supabase.from('wa_sales').select('amount_cents').gte('sale_date', monthFrom).lte('sale_date', monthTo)
       .then(({ data }) => {
-        setWaSalesMtd((data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100)
+        setWaSalesMonth((data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100)
       })
-  }, [])
+  }, [monthFrom, monthTo])
 
   async function handleDeleteExpense(id: string) {
     if (!confirm('Eliminar esta inversion?')) return
@@ -169,40 +189,62 @@ export default function Financial() {
 
   const CUTOFF = '2026-03-27'
 
-  // Chart: historical before cutoff + UTMify from cutoff onward
-  const histChart = [...dailyPnl]
+  // Filter data by selected month
+  const monthExpenses = useMemo(() => expenses.filter(e => e.expense_date >= monthFrom && e.expense_date <= monthTo), [expenses, monthFrom, monthTo])
+  const monthRevenues = useMemo(() => revenues.filter(r => r.revenue_date >= monthFrom && r.revenue_date <= monthTo), [revenues, monthFrom, monthTo])
+  const monthPnl = useMemo(() => dailyPnl.filter(d => d.date >= monthFrom && d.date <= monthTo), [dailyPnl, monthFrom, monthTo])
+
+  // Chart: historical before cutoff + UTMify from cutoff onward, filtered by selected month
+  const histChart = [...monthPnl]
     .filter(d => d.date < CUTOFF)
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(d => ({ date: d.date.split('-').slice(1).join('/'), Ingresos: d.total_revenue, Profit: d.profit, 'Inversion Ads': d.ad_spend }))
   const utmChart = (utm?.dailyChart ?? [])
-    .filter((d: any) => d.date >= CUTOFF)
+    .filter((d: any) => d.date >= CUTOFF && d.date >= monthFrom && d.date <= monthTo)
     .map((d: any) => ({ date: d.label, Ingresos: d.revenue, Profit: d.profit, 'Inversion Ads': d.spend }))
-  const chartData = [...histChart, ...utmChart].slice(-30)
+  const chartData = [...histChart, ...utmChart]
 
-  // Compute quadrant data
+  // Compute totals for selected month
   const mtdSubs = subscriptions
     .filter(s => s.is_active)
     .reduce((s, sub) => s + (sub.currency === 'ARS' ? sub.amount / (blueRate || 1300) : sub.amount), 0)
-  // mtd from useFinancials reads from meta_ad_stats (historical, correct numbers)
-  // Add UTMify data on top for cutoff period
-  const mergedRevenue = mtd.revenue + (utm?.mtd?.revenue ?? 0) + waSalesMtd
-  const mergedAdSpend = mtd.adSpend + (utm?.mtd?.spend ?? 0)
+
+  // Historical revenue/spend from meta_ad_stats (before cutoff)
+  const histRevMonth = monthPnl.filter(d => d.date < CUTOFF).reduce((s, d) => s + d.total_revenue, 0)
+  const histAdSpendMonth = monthExpenses.filter(e => e.category === 'ad_spend' && e.expense_date < CUTOFF).reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
+
+  // UTMify only applies to current month (or months after cutoff when we have data)
+  const utmRevMonth = isCurrentMonth ? (utm?.mtd?.revenue ?? 0) : 0
+  const utmSpendMonth = isCurrentMonth ? (utm?.mtd?.spend ?? 0) : 0
+
+  const mergedRevenue = histRevMonth + utmRevMonth + waSalesMonth
+  const mergedAdSpend = histAdSpendMonth + utmSpendMonth
   const mergedProfit = mergedRevenue - mergedAdSpend - mtdSubs
   const mergedRoas = mergedAdSpend > 0 ? mergedRevenue / mergedAdSpend : null
 
   // WA vs Landing for quadrants
-  const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const histRevenues = revenues.filter(r => r.revenue_date >= mtdFrom && r.revenue_date < CUTOFF)
-  const waRevenue = histRevenues.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.waRevenue ?? 0) + waSalesMtd
-  const shopifyRevenue = histRevenues.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (utm?.mtd?.landingRevenue ?? 0)
+  const histRevList = monthRevenues.filter(r => r.revenue_date < CUTOFF)
+  const waRevenue = histRevList.filter(r => r.channel === 'whatsapp').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (isCurrentMonth ? (utm?.mtd?.waRevenue ?? 0) : 0) + waSalesMonth
+  const shopifyRevenue = histRevList.filter(r => r.channel === 'shopify').reduce((s, r) => s + toUSD(Number(r.amount), r.currency), 0) + (isCurrentMonth ? (utm?.mtd?.landingRevenue ?? 0) : 0)
 
   if (isLoading) return <LoadingSpinner />
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Modulo Financiero</h1>
-        <p className="text-sm text-slate-500 mt-0.5">P&amp;L, inversiones e ingresos del negocio</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Modulo Financiero</h1>
+          <p className="text-sm text-slate-500 mt-0.5">P&amp;L, inversiones e ingresos del negocio</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth}>
+            <ChevronLeft size={16} />
+          </Button>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 min-w-[140px] text-center capitalize">{monthLabel}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth} disabled={isCurrentMonth}>
+            <ChevronRight size={16} />
+          </Button>
+        </div>
       </div>
 
       {/* Resumen del mes */}
@@ -332,14 +374,14 @@ export default function Financial() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.length === 0 ? (
+                  {monthExpenses.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={isAdmin ? 5 : 4}>
                         <EmptyState icon={DollarSign} title="Sin inversiones registradas" />
                       </TableCell>
                     </TableRow>
                   ) : (
-                    expenses.map(expense => (
+                    monthExpenses.map(expense => (
                       <TableRow key={expense.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                         <TableCell className="text-sm">{formatDate(expense.expense_date)}</TableCell>
                         <TableCell>
@@ -375,7 +417,7 @@ export default function Financial() {
         <TabsContent value="chart">
           <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Mes actual — Ingresos, Gastos y Profit diario</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{monthLabel} — Ingresos, Gastos y Profit diario</CardTitle>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (

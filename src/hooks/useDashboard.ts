@@ -45,7 +45,6 @@ export interface DashboardMetrics {
     creative_production: number
     other: number
   }
-  roas30d: number | null
   waAccounts: {
     total: number
     active: number
@@ -83,29 +82,25 @@ export function useDashboard() {
         const now = new Date()
         const today = now.toISOString().split('T')[0]
         const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-        const since30d = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
         const readyCutoff = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
 
         const [
           utmRes,
-          // Historical revenue from Meta pixel (purchase_value) — BEFORE cutoff
-          metaMtdRes, meta30dRes,
-          // Expenses (all dates — subs, team, tools, ad_spend)
-          expTodayRes, expMtdRes, adSpend30dRes,
+          // Historical revenue from Meta pixel (purchase_value) — BEFORE cutoff, current month only
+          metaMtdRes,
+          // Expenses (current month)
+          expTodayRes, expMtdRes,
           // WA
           waRes, waPriorityRes, bannedRes, readyRes,
           blueRate,
           // WA Sales (from Google Sheets via ManyChat)
           waSalesTodayRes, waSalesMtdRes,
         ] = await Promise.all([
-          fetch('/api/utmify?action=dashboard-data&days=30').then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch('/api/utmify?action=dashboard-data&days=31').then(r => r.ok ? r.json() : null).catch(() => null),
           // Meta revenue for MTD before cutoff
-          supabase.from('meta_ad_stats').select('purchase_value, currency').gte('stat_date', mtdFrom).lt('stat_date', UTMIFY_CUTOFF),
-          // Meta revenue for 30d before cutoff
-          supabase.from('meta_ad_stats').select('purchase_value, spend, currency, stat_date').gte('stat_date', since30d).lt('stat_date', UTMIFY_CUTOFF),
+          supabase.from('meta_ad_stats').select('purchase_value, spend, currency, stat_date').gte('stat_date', mtdFrom).lt('stat_date', UTMIFY_CUTOFF),
           supabase.from('expenses').select('amount, currency, category').eq('expense_date', today),
           supabase.from('expenses').select('amount, currency, category, expense_date').gte('expense_date', mtdFrom),
-          supabase.from('expenses').select('amount, currency, expense_date').eq('category', 'ad_spend').gte('expense_date', since30d).lt('expense_date', UTMIFY_CUTOFF),
           supabase.from('wa_accounts').select('id, phone_number, status, start_date, bm_id, manychat_name, country').order('status').order('start_date', { ascending: false }),
           supabase.from('settings').select('value').eq('id', 'wa_priority_numbers').single(),
           supabase.from('wa_accounts').select('id, phone_number').eq('status', 'banned'),
@@ -132,12 +127,10 @@ export function useDashboard() {
 
         // ── Historical (before cutoff): revenue from meta_ad_stats ──
         const histRevMtd = sumMetaRevenue(metaMtdRes.data)
-        const histRev30d = sumMetaRevenue(meta30dRes.data)
 
         // Expenses
         const expMtdAll = expMtdRes.data ?? []
         const histAdSpendMtd = sumUSD(expMtdAll.filter((e: any) => e.category === 'ad_spend' && e.expense_date < UTMIFY_CUTOFF))
-        const histAdSpend30d = sumUSD(adSpend30dRes.data)
         const nonAdsExpensesMtd = sumUSD(expMtdAll.filter((e: any) => e.category !== 'ad_spend'))
         const expTodayAll = expTodayRes.data ?? []
         const nonAdsExpensesToday = sumUSD(expTodayAll.filter((e: any) => e.category !== 'ad_spend'))
@@ -145,7 +138,6 @@ export function useDashboard() {
         // ── UTMify (from cutoff onward) ──
         const utmRevMtd = utmify?.mtd?.revenue ?? 0
         const utmSpendMtd = utmify?.mtd?.spend ?? 0
-        const utmProfitMtd = utmify?.mtd?.profit ?? 0
         const utmRevToday = utmify?.today?.revenue ?? 0
         const utmSpendToday = utmify?.today?.spend ?? 0
 
@@ -153,7 +145,7 @@ export function useDashboard() {
         const waRevenueToday = (waSalesTodayRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100
         const waRevenueMtd = (waSalesMtdRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0) / 100
 
-        // ── MERGED totals (UTMify/Shopify + WA Sales) ──
+        // ── MERGED totals — current month only ──
         const revenueMtd = histRevMtd + utmRevMtd + waRevenueMtd
         const adSpendMtd = histAdSpendMtd + utmSpendMtd
         const expensesMtd = adSpendMtd + nonAdsExpensesMtd
@@ -165,15 +157,11 @@ export function useDashboard() {
         const expensesToday = adSpendToday + nonAdsExpensesToday
         const profitToday = revenueToday - expensesToday
 
-        const totalRev30d = histRev30d + utmRevMtd
-        const totalAdSpend30d = histAdSpend30d + utmSpendMtd
-        const roas30d = totalAdSpend30d > 0 ? totalRev30d / totalAdSpend30d : null
-
-        // ── Chart: merge historical (meta_ad_stats) + UTMify ──
+        // ── Chart: current month only, merge historical + UTMify ──
         const chartByDate: Record<string, { revenue: number; profit: number }> = {}
 
-        // Historical from meta_ad_stats
-        const metaRows = meta30dRes.data ?? []
+        // Historical from meta_ad_stats (current month, before cutoff)
+        const metaRows = metaMtdRes.data ?? []
         const histExpByDate: Record<string, number> = {}
         for (const e of expMtdAll) {
           const d = (e as any).expense_date
@@ -194,10 +182,10 @@ export function useDashboard() {
           v.profit = v.revenue - (histExpByDate[d] || 0)
         }
 
-        // UTMify chart data (from cutoff onward)
+        // UTMify chart data (from cutoff onward, current month)
         if (utmify?.dailyChart) {
           for (const d of utmify.dailyChart) {
-            if (d.date >= UTMIFY_CUTOFF) {
+            if (d.date >= UTMIFY_CUTOFF && d.date >= mtdFrom) {
               chartByDate[d.date] = { revenue: d.revenue, profit: d.profit }
             }
           }
@@ -206,7 +194,6 @@ export function useDashboard() {
         const dailyChart: DailyChartPoint[] = Object.entries(chartByDate)
           .map(([date, v]) => ({ date, label: date.split('-').slice(1).join('/'), revenue: v.revenue, profit: v.profit }))
           .sort((a, b) => a.date.localeCompare(b.date))
-          .slice(-30)
 
         const expBreakdown = {
           ad_spend: adSpendMtd,
@@ -244,7 +231,7 @@ export function useDashboard() {
           revenueToday, shopifyRevenueToday: utmRevToday, waRevenueToday, waRevenueMtd, expensesToday, adSpendToday, profitToday,
           revenueMtd, expensesMtd, adSpendMtd, profitMtd, roasMtd,
           expenseBreakdownMtd: expBreakdown,
-          roas30d, waAccounts, alerts, dolarBlue: blueRate, dailyChart,
+          waAccounts, alerts, dolarBlue: blueRate, dailyChart,
         })
       } catch (err) {
         setError('Error al cargar metricas')
