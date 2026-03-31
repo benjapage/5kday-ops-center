@@ -372,7 +372,7 @@ async function handleDashboardData(supabase, query) {
 async function handleWaCheck(supabase) {
   const today = todayStr()
   const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const { data: allSales, count } = await supabase.from('wa_sales').select('sale_date, amount_cents, product_name', { count: 'exact' }).order('sale_date', { ascending: false }).limit(200)
+  const { data: allSales, count } = await supabase.from('wa_sales').select('id, sale_date, amount_cents, product_name, created_at', { count: 'exact' }).order('sale_date', { ascending: false }).limit(200)
   const { data: mtdSales } = await supabase.from('wa_sales').select('amount_cents, sale_date').gte('sale_date', mtdFrom)
   const { data: todaySales } = await supabase.from('wa_sales').select('amount_cents').eq('sale_date', today)
   const mtdTotal = (mtdSales || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
@@ -385,7 +385,17 @@ async function handleWaCheck(supabase) {
     byDate[r.sale_date].totalCents += r.amount_cents || 0
   }
   const dailyBreakdown = Object.entries(byDate).sort().map(([d, v]) => ({ date: d, sales: v.count, usd: (v.totalCents / 100).toFixed(2) }))
-  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, dailyBreakdown, lastSales: (allSales || []).slice(0, 10) }
+  // Check for duplicates on a specific date
+  const checkDate = '2026-03-30'
+  const dateSales = (allSales || []).filter(r => r.sale_date === checkDate)
+  // Group by amount+product to find dupes
+  const dupeCheck = {}
+  for (const r of dateSales) {
+    const key = `${r.amount_cents}|${r.product_name}`
+    if (!dupeCheck[key]) dupeCheck[key] = 0
+    dupeCheck[key]++
+  }
+  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, dailyBreakdown, march30: { total: dateSales.length, byProduct: dupeCheck, sampleIds: dateSales.slice(0, 5).map(r => ({ id: r.id, amount: r.amount_cents, product: r.product_name })) }, lastSales: (allSales || []).slice(0, 10) }
 }
 
 // ─── ACTION: dashboards (list configured dashboards) ───
