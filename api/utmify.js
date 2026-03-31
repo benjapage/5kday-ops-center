@@ -372,7 +372,7 @@ async function handleDashboardData(supabase, query) {
 async function handleWaCheck(supabase) {
   const today = todayStr()
   const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const { data: allSales, count } = await supabase.from('wa_sales').select('id, sale_date, amount_cents, product_name, created_at', { count: 'exact' }).order('sale_date', { ascending: false }).limit(200)
+  const { data: allSales, count } = await supabase.from('wa_sales').select('*', { count: 'exact' }).order('sale_date', { ascending: false }).limit(200)
   const { data: mtdSales } = await supabase.from('wa_sales').select('amount_cents, sale_date').gte('sale_date', mtdFrom)
   const { data: todaySales } = await supabase.from('wa_sales').select('amount_cents').eq('sale_date', today)
   const mtdTotal = (mtdSales || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
