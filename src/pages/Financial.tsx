@@ -212,6 +212,7 @@ export default function Financial() {
   // Historical revenue/spend from meta_ad_stats (before cutoff)
   const histRevMonth = monthPnl.filter(d => d.date < CUTOFF).reduce((s, d) => s + d.total_revenue, 0)
   const histAdSpendMonth = monthExpenses.filter(e => e.category === 'ad_spend' && e.expense_date < CUTOFF).reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
+  const nonAdsExpensesMonth = monthExpenses.filter(e => e.category !== 'ad_spend').reduce((s, e) => s + toUSD(Number(e.amount), e.currency), 0)
 
   // UTMify only applies to current month (or months after cutoff when we have data)
   const utmRevMonth = isCurrentMonth ? (utm?.mtd?.revenue ?? 0) : 0
@@ -219,7 +220,8 @@ export default function Financial() {
 
   const mergedRevenue = histRevMonth + utmRevMonth + waSalesMonth
   const mergedAdSpend = histAdSpendMonth + utmSpendMonth
-  const mergedProfit = mergedRevenue - mergedAdSpend - mtdSubs
+  const mergedExpenses = mergedAdSpend + nonAdsExpensesMonth
+  const mergedProfit = mergedRevenue - mergedExpenses
   const mergedRoas = mergedAdSpend > 0 ? mergedRevenue / mergedAdSpend : null
 
   // WA vs Landing for quadrants
@@ -250,7 +252,7 @@ export default function Financial() {
       {/* Resumen del mes */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <MetricCard title="Ingresos del mes" value={mergedRevenue} format="currency" icon={TrendingUp} iconColor="#10B981" />
-        <MetricCard title="Inversiones del mes" value={mergedAdSpend + mtdSubs} format="currency" icon={BarChart3} iconColor="#E8816D" />
+        <MetricCard title="Gastos del mes" value={mergedExpenses} format="currency" icon={BarChart3} iconColor="#E8816D" />
         <MetricCard title="Inversion Ads del mes" value={mergedAdSpend} format="currency" icon={BarChart3} iconColor="#F59E0B" />
         <MetricCard
           title="Profit del mes"
