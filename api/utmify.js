@@ -372,12 +372,20 @@ async function handleDashboardData(supabase, query) {
 async function handleWaCheck(supabase) {
   const today = todayStr()
   const mtdFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  const { data: allSales, count } = await supabase.from('wa_sales').select('sale_date, amount_cents, product_name', { count: 'exact' }).order('sale_date', { ascending: false }).limit(10)
-  const { data: mtdSales } = await supabase.from('wa_sales').select('amount_cents').gte('sale_date', mtdFrom)
+  const { data: allSales, count } = await supabase.from('wa_sales').select('sale_date, amount_cents, product_name', { count: 'exact' }).order('sale_date', { ascending: false }).limit(200)
+  const { data: mtdSales } = await supabase.from('wa_sales').select('amount_cents, sale_date').gte('sale_date', mtdFrom)
   const { data: todaySales } = await supabase.from('wa_sales').select('amount_cents').eq('sale_date', today)
   const mtdTotal = (mtdSales || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
   const todayTotal = (todaySales || []).reduce((s, r) => s + (r.amount_cents || 0), 0)
-  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, lastSales: allSales }
+  // Group by date
+  const byDate = {}
+  for (const r of (mtdSales || [])) {
+    if (!byDate[r.sale_date]) byDate[r.sale_date] = { count: 0, totalCents: 0 }
+    byDate[r.sale_date].count++
+    byDate[r.sale_date].totalCents += r.amount_cents || 0
+  }
+  const dailyBreakdown = Object.entries(byDate).sort().map(([d, v]) => ({ date: d, sales: v.count, usd: (v.totalCents / 100).toFixed(2) }))
+  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, dailyBreakdown, lastSales: (allSales || []).slice(0, 10) }
 }
 
 // ─── ACTION: dashboards (list configured dashboards) ───
