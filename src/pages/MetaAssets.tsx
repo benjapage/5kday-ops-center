@@ -32,6 +32,7 @@ interface BusinessManager {
   bm_id: string
   status: 'active' | 'restricted' | 'banned'
   bm_function?: string | null
+  bm_usage?: 'usando' | 'sin_usar' | null
   profile_id?: string | null
   notes?: string | null
 }
@@ -120,6 +121,20 @@ function FunctionBadge({ fn }: { fn?: string | null }) {
   )
 }
 
+function UsageBadge({ usage }: { usage?: string | null }) {
+  if (!usage) return null
+  const styles: Record<string, string> = {
+    usando: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    sin_usar: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
+  }
+  const labels: Record<string, string> = { usando: 'Usando', sin_usar: 'Sin usar' }
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider ${styles[usage] ?? styles.sin_usar}`}>
+      {labels[usage] ?? usage}
+    </span>
+  )
+}
+
 // ─── Add/Edit Dialog ─────────────────────────────────────
 function AssetDialog({
   open, onOpenChange, onSubmit, title, icon: Icon, iconColor,
@@ -196,7 +211,7 @@ function AssetDialog({
 // ─── Asset Card Section ──────────────────────────────────
 function AssetSection<T extends { id: string; name: string; status: string; notes?: string | null }>({
   title, icon: Icon, iconColor, items, isLoading, idField, idLabel,
-  getId, onAdd, onUpdate, onDelete, canWrite, fields, getFn,
+  getId, onAdd, onUpdate, onDelete, canWrite, fields, getFn, getUsage,
   restrictedBmWarning, restrictedBmWarningText, getLinkedName,
 }: {
   title: string
@@ -213,6 +228,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
   canWrite: boolean
   fields: { key: string; label: string; placeholder: string; required?: boolean; type?: 'text' | 'select'; options?: { value: string; label: string }[] }[]
   getFn?: (item: T) => string | null | undefined
+  getUsage?: (item: T) => string | null | undefined
   restrictedBmWarning?: boolean
   restrictedBmWarningText?: string
   getLinkedName?: (item: T) => string | null
@@ -302,6 +318,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
                     )}
                   </div>
                 </div>
+                {getUsage && <UsageBadge usage={getUsage(item)} />}
                 {getFn && <FunctionBadge fn={getFn(item)} />}
                 <StatusBadge status={item.status} />
                 {canWrite && (
@@ -361,6 +378,7 @@ function AssetSection<T extends { id: string; name: string; status: string; note
               channel_type: (editItem as any).channel_type || '__none__',
               bm_id: (idField !== 'bm_id' && (editItem as any).bm_id) ? (editItem as any).bm_id : '__none__',
               bm_function: (editItem as any).bm_function || '__none__',
+              bm_usage: (editItem as any).bm_usage || '__none__',
               profile_id: (idField !== 'profile_id' && (editItem as any).profile_id) ? (editItem as any).profile_id : '__none__',
               profile_function: (editItem as any).profile_function || '__none__',
             }}
@@ -547,6 +565,7 @@ export default function MetaAssets() {
             getId={(item) => item.bm_id}
             canWrite={canWrite}
             getFn={(item) => item.bm_function}
+            getUsage={(item) => item.bm_usage}
             getLinkedName={(item) => item.profile_id ? (profileLookup[item.profile_id] ? `Perfil: ${profileLookup[item.profile_id]}` : null) : null}
             fields={[
               { key: 'name', label: 'Nombre', placeholder: 'Ej: BM Principal', required: true },
@@ -556,6 +575,11 @@ export default function MetaAssets() {
                 { value: 'numeros', label: 'Para numeros' },
                 { value: 'cuentas', label: 'Para cuentas publicitarias' },
                 { value: 'mixto', label: 'Mixto' },
+              ]},
+              { key: 'bm_usage', label: 'En uso', placeholder: 'En uso...', type: 'select', options: [
+                { value: '__none__', label: '— Sin definir —' },
+                { value: 'usando', label: 'Usando' },
+                { value: 'sin_usar', label: 'Sin usar' },
               ]},
               { key: 'profile_id', label: 'Perfil vinculado', placeholder: 'Seleccionar perfil...', type: 'select', options: [
                 { value: '__none__', label: '— Sin perfil —' },
@@ -568,6 +592,7 @@ export default function MetaAssets() {
                 name: data.name, bm_id: data.bm_id,
                 status: (data.status as BusinessManager['status']) || 'active',
                 bm_function: clean(data.bm_function),
+                bm_usage: clean(data.bm_usage),
                 profile_id: clean(data.profile_id),
                 notes: clean(data.notes),
               } as any)
@@ -580,6 +605,7 @@ export default function MetaAssets() {
                 name: data.name, bm_id: data.bm_id,
                 status: data.status as BusinessManager['status'],
                 bm_function: clean(data.bm_function),
+                bm_usage: clean(data.bm_usage),
                 profile_id: clean(data.profile_id),
                 notes: clean(data.notes),
               } as any)
