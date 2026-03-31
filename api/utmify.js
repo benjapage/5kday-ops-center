@@ -385,18 +385,15 @@ async function handleWaCheck(supabase) {
     byDate[r.sale_date].totalCents += r.amount_cents || 0
   }
   const dailyBreakdown = Object.entries(byDate).sort().map(([d, v]) => ({ date: d, sales: v.count, usd: (v.totalCents / 100).toFixed(2) }))
-  // Check for duplicates on a specific date
-  const checkDate = '2026-03-30'
-  const { data: dateSalesRaw } = await supabase.from('wa_sales').select('id, sale_date, amount_cents, product_name, created_at').eq('sale_date', checkDate).order('created_at')
-  const dateSales = dateSalesRaw || []
-  // Group by amount+product to find dupes
-  const dupeCheck = {}
-  for (const r of dateSales) {
-    const key = `${r.amount_cents}|${r.product_name}`
-    if (!dupeCheck[key]) dupeCheck[key] = 0
-    dupeCheck[key]++
+  // Group all MTD sales by date+product for dupe analysis
+  const byDateProduct = {}
+  for (const r of (allSales || [])) {
+    const key = `${r.sale_date}`
+    if (!byDateProduct[key]) byDateProduct[key] = { count: 0, ids: [] }
+    byDateProduct[key].count++
+    if (byDateProduct[key].ids.length < 3) byDateProduct[key].ids.push({ id: r.id, created_at: r.created_at, amount: r.amount_cents, product: r.product_name })
   }
-  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, dailyBreakdown, march30: { total: dateSales.length, byProduct: dupeCheck, sampleIds: dateSales.slice(0, 5).map(r => ({ id: r.id, amount: r.amount_cents, product: r.product_name })) }, lastSales: (allSales || []).slice(0, 10) }
+  return { totalRows: count, mtdRevenueCents: mtdTotal, mtdRevenueUSD: mtdTotal / 100, todayRevenueCents: todayTotal, todayRevenueUSD: todayTotal / 100, dailyBreakdown, salesByDate: byDateProduct, lastSales: (allSales || []).slice(0, 5) }
 }
 
 // ─── ACTION: dashboards (list configured dashboards) ───
