@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck, Loader2, Wifi, Star } from 'lucide-react'
+import { Plus, MoreHorizontal, Trash2, Edit2, RefreshCw, Smartphone, ShieldAlert, ShieldCheck, Loader2, Wifi, Star, Replace } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -23,10 +23,10 @@ import { toast } from 'sonner'
 import type { Database } from '@/types/database.types'
 
 type WaAccount = Database['public']['Tables']['wa_accounts']['Row']
-type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned'
+type Status = 'all' | 'cold' | 'warming' | 'ready' | 'banned' | 'restricted' | 'review' | 'replaced'
 
 export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string> } = {}) {
-  const { accounts, isLoading, isPriority, togglePriority, create, update, setStatus, reportBan, restoreFromBan, remove, refresh } = useWaAccounts()
+  const { accounts, isLoading, isPriority, togglePriority, create, update, setStatus, reportBan, restoreFromBan, markReplaced, remove, refresh } = useWaAccounts()
   const { isChecking, lastCheck, runCheck, flaggedNumbers } = useWaBanCheck()
   const { profile } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
@@ -49,9 +49,12 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
     ready: 'listo',
     active: 'activo',
     banned: 'baneado',
+    restricted: 'restringido',
+    review: 'en revisión',
+    replaced: 'reemplazado',
   }
 
-  async function handleStatusChange(account: WaAccount, newStatus: 'cold' | 'warming' | 'ready' | 'banned') {
+  async function handleStatusChange(account: WaAccount, newStatus: 'cold' | 'warming' | 'ready' | 'banned' | 'restricted' | 'review' | 'replaced') {
     const { error } = await setStatus(account.id, newStatus)
     if (error) toast.error(error)
     else toast.success(`Estado actualizado a "${STATUS_LABELS[newStatus] ?? newStatus}"`)
@@ -69,7 +72,10 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
     { label: 'Frías', value: 'cold' },
     { label: 'Calentando', value: 'warming' },
     { label: 'Listas', value: 'ready' },
+    { label: 'En revisión', value: 'review' },
+    { label: 'Restringidas', value: 'restricted' },
     { label: 'Baneadas', value: 'banned' },
+    { label: 'Reemplazadas', value: 'replaced' },
   ]
 
   return (
@@ -246,34 +252,50 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
                     {formatDate(account.start_date)}
                   </TableCell>
                   <TableCell>
-                    {canWrite && account.status !== 'banned' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-                        onClick={async () => {
-                          const { error } = await reportBan(account.id)
-                          if (error) toast.error(error)
-                          else toast.error(`${account.phone_number} reportado como BANEADO`)
-                        }}
-                      >
-                        <ShieldAlert size={13} /> Reportar baneo
-                      </Button>
-                    )}
-                    {canWrite && account.status === 'banned' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1 border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
-                        onClick={async () => {
-                          const { error } = await restoreFromBan(account.id)
-                          if (error) toast.error(error)
-                          else toast.success(`${account.phone_number} restaurado como ACTIVO`)
-                        }}
-                      >
-                        <ShieldCheck size={13} /> Marcar activo
-                      </Button>
-                    )}
+                    <div className="flex gap-1.5">
+                      {canWrite && !['banned', 'restricted', 'replaced'].includes(account.status) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                          onClick={async () => {
+                            const { error } = await reportBan(account.id)
+                            if (error) toast.error(error)
+                            else toast.error(`${account.phone_number} reportado como BANEADO`)
+                          }}
+                        >
+                          <ShieldAlert size={13} /> Reportar baneo
+                        </Button>
+                      )}
+                      {canWrite && (account.status === 'banned' || account.status === 'restricted') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700/20"
+                          onClick={async () => {
+                            const { error } = await markReplaced(account.id)
+                            if (error) toast.error(error)
+                            else toast.success(`${account.phone_number} marcado como REEMPLAZADO y tarea eliminada`)
+                          }}
+                        >
+                          <Replace size={13} /> Reemplazado
+                        </Button>
+                      )}
+                      {canWrite && account.status === 'banned' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 border-green-200 text-green-600 hover:bg-green-50 hover:text-green-700 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20"
+                          onClick={async () => {
+                            const { error } = await restoreFromBan(account.id)
+                            if (error) toast.error(error)
+                            else toast.success(`${account.phone_number} restaurado como ACTIVO`)
+                          }}
+                        >
+                          <ShieldCheck size={13} /> Marcar activo
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {canWrite && (
@@ -308,6 +330,20 @@ export function WaAccountTable({ bmLookup }: { bmLookup?: Record<string, string>
                             className="text-green-700"
                           >
                             <RefreshCw size={13} className="mr-2" /> Marcar listo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleStatusChange(account, 'review')}
+                            disabled={account.status === 'review'}
+                            className="text-violet-700"
+                          >
+                            <RefreshCw size={13} className="mr-2" /> Marcar en revisión
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleStatusChange(account, 'restricted')}
+                            disabled={account.status === 'restricted'}
+                            className="text-orange-700"
+                          >
+                            <RefreshCw size={13} className="mr-2" /> Marcar restringido
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleStatusChange(account, 'banned')}

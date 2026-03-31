@@ -72,7 +72,7 @@ export function useWaAccounts() {
 
   async function setStatus(
     id: string,
-    status: 'cold' | 'warming' | 'ready' | 'banned'
+    status: 'cold' | 'warming' | 'ready' | 'banned' | 'restricted' | 'review' | 'replaced'
   ): Promise<{ error: string | null }> {
     const account = accounts.find(a => a.id === id)
     if (!account) return { error: 'Cuenta no encontrada' }
@@ -163,6 +163,32 @@ export function useWaAccounts() {
     return { error: null }
   }
 
+  async function markReplaced(id: string): Promise<{ error: string | null }> {
+    const account = accounts.find(a => a.id === id)
+    if (!account) return { error: 'Cuenta no encontrada' }
+
+    // 1. Update status to replaced
+    const { error } = await supabase
+      .from('wa_accounts')
+      .update({ status: 'replaced', updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) return { error: error.message }
+
+    // 2. Delete the ban-related task for this number
+    await supabase
+      .from('app_tasks')
+      .delete()
+      .eq('related_number_id', id)
+      .eq('source', 'system_wa_ban')
+
+    await logAction('wa_account.replaced', 'wa_account', id, {
+      phone: account.phone_number,
+      previous_status: account.status,
+    })
+    await fetchAll()
+    return { error: null }
+  }
+
   async function remove(id: string): Promise<{ error: string | null }> {
     const account = accounts.find(a => a.id === id)
     const { error } = await supabase.from('wa_accounts').delete().eq('id', id)
@@ -173,5 +199,5 @@ export function useWaAccounts() {
     return { error: null }
   }
 
-  return { accounts, isLoading, priorityIds, isPriority, togglePriority, create, update, setStatus, reportBan, restoreFromBan, remove, refresh: fetchAll }
+  return { accounts, isLoading, priorityIds, isPriority, togglePriority, create, update, setStatus, reportBan, restoreFromBan, markReplaced, remove, refresh: fetchAll }
 }

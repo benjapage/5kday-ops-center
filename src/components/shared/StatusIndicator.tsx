@@ -1,6 +1,6 @@
 import { STATUS_COLORS } from '@/lib/constants'
 
-type Status = 'cold' | 'warming' | 'ready' | 'active' | 'banned'
+type Status = 'cold' | 'warming' | 'ready' | 'active' | 'banned' | 'restricted' | 'review' | 'replaced'
 
 const LABELS: Record<Status, string> = {
   cold: 'Frío',
@@ -8,6 +8,9 @@ const LABELS: Record<Status, string> = {
   ready: 'Listo',
   active: 'Activo',
   banned: 'Baneado',
+  restricted: 'Restringido',
+  review: 'En revisión',
+  replaced: 'Reemplazado',
 }
 
 interface StatusIndicatorProps {

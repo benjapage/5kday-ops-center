@@ -4,6 +4,9 @@ export const STATUS_COLORS = {
   ready: '#22C55E',
   active: '#22C55E',
   banned: '#EF4444',
+  restricted: '#F97316',
+  review: '#8B5CF6',
+  replaced: '#6B7280',
 } as const
 
 export const WA_WARMING_DAYS = 7
