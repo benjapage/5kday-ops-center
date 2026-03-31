@@ -40,7 +40,7 @@ export interface Database {
           id: string
           phone_number: string
           country: string
-          status: 'cold' | 'warming' | 'ready' | 'banned'
+          status: 'cold' | 'warming' | 'ready' | 'banned' | 'restricted' | 'review' | 'replaced'
           start_date: string
           bm_id: string | null
           bm_link_url: string | null
@@ -56,7 +56,7 @@ export interface Database {
           id?: string
           phone_number: string
           country: string
-          status?: 'cold' | 'warming' | 'ready' | 'banned'
+          status?: 'cold' | 'warming' | 'ready' | 'banned' | 'restricted' | 'review' | 'replaced'
           start_date: string
           bm_id?: string | null
           bm_link_url?: string | null
@@ -71,7 +71,7 @@ export interface Database {
         Update: {
           phone_number?: string
           country?: string
-          status?: 'cold' | 'warming' | 'ready' | 'banned'
+          status?: 'cold' | 'warming' | 'ready' | 'banned' | 'restricted' | 'review' | 'replaced'
           start_date?: string
           bm_id?: string | null
           bm_link_url?: string | null

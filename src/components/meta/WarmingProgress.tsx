@@ -4,7 +4,7 @@ import { WA_WARMING_DAYS } from '@/lib/constants'
 
 interface WarmingProgressProps {
   startDate: string
-  status: 'cold' | 'warming' | 'ready' | 'banned'
+  status: string
 }
 
 export function WarmingProgress({ startDate, status }: WarmingProgressProps) {
@@ -21,7 +21,7 @@ export function WarmingProgress({ startDate, status }: WarmingProgressProps) {
     )
   }
 
-  if (status === 'banned') {
+  if (['banned', 'restricted', 'review', 'replaced'].includes(status)) {
     return <span className="text-xs text-slate-400">—</span>
   }
 
