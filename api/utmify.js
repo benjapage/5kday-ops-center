@@ -10,13 +10,14 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 const MCP_HEADERS = { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' }
 
-// ─── 3 Dashboard configs ───
-const MCP_URL = 'https://mcp.utmify.com.br/mcp/?token=FpTxQLafNzmbDyBktMlYiCO6h3ehha6GkkGNjN7dpCbmRT5EwuuF0rjdbZeranIa'
+// ─── 4 Dashboard configs ───
+const MCP_URL = 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs'
 
 const DASHBOARDS = [
   { id: '69a78ca2501d38fceac48178', name: 'TESTEOS - CP 3-4-5', type: 'testeos', useRevenue: true, useSpend: true },
   { id: '69caa2d1fc27d69a9dd2e687', name: 'CONDI ARG CP 2', type: 'condimentos', useRevenue: true, useSpend: true },
   { id: '69caa763a4a3b9ab12036d90', name: 'Whatsapp', type: 'whatsapp', useRevenue: false, useSpend: true },
+  { id: '69ce6ad52439d544849f0f94', name: 'Libro digital testeos', type: 'libro_digital', useRevenue: true, useSpend: true },
 ]
 
 // ─── MCP Streamable HTTP client ───
@@ -278,8 +279,8 @@ async function handleDashboardData(supabase, query) {
     const type = getDashType(r.campaign_id)
     if (!byDate[r.date]) byDate[r.date] = { date: r.date, revenue: 0, spend: 0, profit: 0, orders: 0 }
 
-    // Revenue: only testeos + condimentos (NOT whatsapp — WA revenue comes from Sheets)
-    if (type === 'testeos' || type === 'condimentos') {
+    // Revenue: testeos + condimentos + libro_digital (NOT whatsapp — WA revenue comes from Sheets)
+    if (type === 'testeos' || type === 'condimentos' || type === 'libro_digital') {
       byDate[r.date].revenue += r.revenue_cents
     }
     // Spend: ALL 3 dashboards
@@ -312,7 +313,7 @@ async function handleDashboardData(supabase, query) {
   let mtdShopifyRev = 0, mtdSpend = 0, mtdOrders = 0, mtdWaSpend = 0
   for (const r of mtdRows) {
     const type = getDashType(r.campaign_id)
-    if (type === 'testeos' || type === 'condimentos') mtdShopifyRev += r.revenue_cents
+    if (type === 'testeos' || type === 'condimentos' || type === 'libro_digital') mtdShopifyRev += r.revenue_cents
     mtdSpend += r.spend_cents
     mtdOrders += r.approved_orders
     if (type === 'whatsapp') mtdWaSpend += r.spend_cents
@@ -323,7 +324,7 @@ async function handleDashboardData(supabase, query) {
   let todayRev = 0, todaySpend = 0
   for (const r of todayRows) {
     const type = getDashType(r.campaign_id)
-    if (type === 'testeos' || type === 'condimentos') todayRev += r.revenue_cents
+    if (type === 'testeos' || type === 'condimentos' || type === 'libro_digital') todayRev += r.revenue_cents
     todaySpend += r.spend_cents
   }
 

@@ -1,8 +1,26 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+export interface AppTargets {
+  daily_profit: number
+  monthly_revenue: number
+  daily_videos: number
+  daily_images: number
+  default_max_cpa: number
+  default_min_roas: number
+}
+
+const DEFAULT_TARGETS: AppTargets = {
+  daily_profit: 200,
+  monthly_revenue: 60000,
+  daily_videos: 5,
+  daily_images: 15,
+  default_max_cpa: 15,
+  default_min_roas: 1.5,
+}
+
 export function useSettings() {
-  const [dailyProfitTarget, setDailyProfitTarget] = useState<number>(200)
+  const [targets, setTargets] = useState<AppTargets>(DEFAULT_TARGETS)
   const [isLoading, setIsLoading] = useState(true)
 
   async function fetchTarget() {
@@ -12,14 +30,19 @@ export function useSettings() {
         .select('value')
         .eq('id', 'monthly_targets')
         .single()
-      if (data?.value?.daily_profit) {
-        setDailyProfitTarget(Number(data.value.daily_profit))
-      } else if (data?.value?.monthly_revenue) {
-        // Migration: convert old monthly revenue to daily profit estimate
-        setDailyProfitTarget(Math.round(Number(data.value.monthly_revenue) / 30))
+      if (data?.value) {
+        setTargets(prev => ({
+          ...prev,
+          daily_profit: Number(data.value.daily_profit) || prev.daily_profit,
+          monthly_revenue: Number(data.value.monthly_revenue) || prev.monthly_revenue,
+          daily_videos: Number(data.value.daily_videos) || prev.daily_videos,
+          daily_images: Number(data.value.daily_images) || prev.daily_images,
+          default_max_cpa: Number(data.value.default_max_cpa) || prev.default_max_cpa,
+          default_min_roas: Number(data.value.default_min_roas) || prev.default_min_roas,
+        }))
       }
     } catch {
-      // table may not exist yet — fall back to default
+      // table may not exist yet — fall back to defaults
     } finally {
       setIsLoading(false)
     }
@@ -27,20 +50,27 @@ export function useSettings() {
 
   useEffect(() => { fetchTarget() }, [])
 
+  const dailyProfitTarget = targets.daily_profit
+
   async function saveDailyProfitTarget(amount: number): Promise<{ error: string | null }> {
+    return saveTargets({ daily_profit: amount })
+  }
+
+  async function saveTargets(updates: Partial<AppTargets>): Promise<{ error: string | null }> {
     try {
+      const merged = { ...targets, ...updates }
       const { error } = await supabase
         .from('settings')
-        .upsert({ id: 'monthly_targets', value: { daily_profit: amount }, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+        .upsert({ id: 'monthly_targets', value: merged, updated_at: new Date().toISOString() }, { onConflict: 'id' })
       if (error) return { error: error.message }
-      setDailyProfitTarget(amount)
+      setTargets(merged)
       return { error: null }
     } catch (err: unknown) {
       return { error: err instanceof Error ? err.message : 'Error desconocido' }
     }
   }
 
-  return { dailyProfitTarget, isLoading, saveDailyProfitTarget }
+  return { dailyProfitTarget, targets, isLoading, saveDailyProfitTarget, saveTargets }
 }
 
 // Get the Monday of the current week as YYYY-MM-DD

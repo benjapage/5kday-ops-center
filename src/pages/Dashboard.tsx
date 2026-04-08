@@ -37,6 +37,9 @@ const STATUS_COLOR: Record<string, string> = {
   ready: '#22C55E',
   active: '#22C55E',
   banned: '#EF4444',
+  restricted: '#F97316',
+  review: '#8B5CF6',
+  replaced: '#64748B',
 }
 
 function WarmingBar({ startDate, status }: { startDate: string; status: string }) {
@@ -538,7 +541,7 @@ export default function Dashboard() {
             )}
           </div>
           {/* Chart */}
-          <div className="h-[180px]">
+          <div className="h-[140px]">
             {metrics.dailyChart.length === 0 ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400">
                 Sin datos del mes actual

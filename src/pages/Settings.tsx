@@ -15,12 +15,17 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 
 export default function Settings() {
-  const { dailyProfitTarget, isLoading, saveDailyProfitTarget } = useSettings()
+  const { dailyProfitTarget, targets, isLoading, saveDailyProfitTarget, saveTargets } = useSettings()
   const { profile, user } = useAuth()
   const { theme, setTheme } = useTheme()
   const { stores } = useShopifyStores()
   const { connection: googleConn } = useGoogleConnection()
   const [inputValue, setInputValue] = useState('')
+  const [monthlyRevInput, setMonthlyRevInput] = useState('')
+  const [dailyVideosInput, setDailyVideosInput] = useState('')
+  const [dailyImagesInput, setDailyImagesInput] = useState('')
+  const [maxCpaInput, setMaxCpaInput] = useState('')
+  const [minRoasInput, setMinRoasInput] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [members, setMembers] = useState<any[]>([])
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' })
@@ -28,8 +33,15 @@ export default function Settings() {
   const [welcomeEnabled, setWelcomeEnabled] = useState(localStorage.getItem('5kday-welcome-disabled') !== 'true')
 
   useEffect(() => {
-    if (!isLoading) setInputValue(String(dailyProfitTarget))
-  }, [isLoading, dailyProfitTarget])
+    if (!isLoading) {
+      setInputValue(String(targets.daily_profit))
+      setMonthlyRevInput(String(targets.monthly_revenue))
+      setDailyVideosInput(String(targets.daily_videos))
+      setDailyImagesInput(String(targets.daily_images))
+      setMaxCpaInput(String(targets.default_max_cpa))
+      setMinRoasInput(String(targets.default_min_roas))
+    }
+  }, [isLoading, targets])
 
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email, role').order('created_at').then(({ data }) => {
@@ -188,49 +200,99 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* METAS FINANCIERAS */}
+      {/* OBJETIVOS */}
       <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-6 space-y-5">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
             <DollarSign size={16} className="text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Metas financieras</h2>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Objetivos</h2>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meta de profit diario (USD)</Label>
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">$</span>
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
-                    className="pl-7 font-mono"
-                    value={inputValue}
-                    onChange={e => setInputValue(e.target.value)}
-                    disabled={!isAdmin || isLoading}
-                    placeholder="5000"
-                  />
+          {!isAdmin && (
+            <p className="text-xs text-amber-600">Solo los administradores pueden modificar esta configuracion.</p>
+          )}
+
+          <form onSubmit={async (e) => {
+            e.preventDefault()
+            setIsSaving(true)
+            const { error } = await saveTargets({
+              daily_profit: Number(inputValue) || targets.daily_profit,
+              monthly_revenue: Number(monthlyRevInput) || targets.monthly_revenue,
+              daily_videos: Number(dailyVideosInput) || targets.daily_videos,
+              daily_images: Number(dailyImagesInput) || targets.daily_images,
+              default_max_cpa: Number(maxCpaInput) || targets.default_max_cpa,
+              default_min_roas: Number(minRoasInput) || targets.default_min_roas,
+            })
+            setIsSaving(false)
+            if (error) { toast.error(error); return }
+            toast.success('Objetivos actualizados')
+          }} className="space-y-4">
+
+            {/* Financial targets */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Metas financieras</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meta profit diario (USD)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">$</span>
+                    <Input type="number" min="1" step="1" className="pl-7 font-mono" value={inputValue} onChange={e => setInputValue(e.target.value)} disabled={!isAdmin || isLoading} placeholder="5000" />
+                  </div>
                 </div>
-                {isAdmin && (
-                  <Button
-                    type="submit"
-                    className="text-white shrink-0"
-                    style={{ backgroundColor: '#10B981' }}
-                    disabled={isSaving || isLoading}
-                  >
-                    {isSaving ? 'Guardando...' : 'Guardar'}
-                  </Button>
-                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meta facturacion mensual (USD)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">$</span>
+                    <Input type="number" min="1" step="1" className="pl-7 font-mono" value={monthlyRevInput} onChange={e => setMonthlyRevInput(e.target.value)} disabled={!isAdmin || isLoading} placeholder="60000" />
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-slate-400">
-                Actualmente: <span className="font-semibold text-slate-600 font-mono">{formatCurrency(dailyProfitTarget)}</span> / dia
-              </p>
-              {!isAdmin && (
-                <p className="text-xs text-amber-600">Solo los administradores pueden modificar esta configuracion.</p>
-              )}
             </div>
+
+            {/* Creative targets */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Metas de creativos diarios</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Videos por dia</Label>
+                  <Input type="number" min="0" step="1" className="font-mono" value={dailyVideosInput} onChange={e => setDailyVideosInput(e.target.value)} disabled={!isAdmin || isLoading} placeholder="5" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Imagenes por dia</Label>
+                  <Input type="number" min="0" step="1" className="font-mono" value={dailyImagesInput} onChange={e => setDailyImagesInput(e.target.value)} disabled={!isAdmin || isLoading} placeholder="15" />
+                </div>
+              </div>
+            </div>
+
+            {/* Winner criteria */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Criterios de anuncio ganador (default)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">CPA maximo (USD)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">$</span>
+                    <Input type="number" min="0" step="0.5" className="pl-7 font-mono" value={maxCpaInput} onChange={e => setMaxCpaInput(e.target.value)} disabled={!isAdmin || isLoading} placeholder="15" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">ROAS minimo</Label>
+                  <Input type="number" min="0" step="0.1" className="font-mono" value={minRoasInput} onChange={e => setMinRoasInput(e.target.value)} disabled={!isAdmin || isLoading} placeholder="1.5" />
+                </div>
+              </div>
+            </div>
+
+            {isAdmin && (
+              <Button type="submit" className="text-white" style={{ backgroundColor: '#10B981' }} disabled={isSaving || isLoading}>
+                {isSaving ? 'Guardando...' : 'Guardar objetivos'}
+              </Button>
+            )}
+
+            <p className="text-[10px] text-slate-400">
+              Actualmente: profit diario <span className="font-semibold text-slate-600 dark:text-slate-300 font-mono">{formatCurrency(targets.daily_profit)}</span>/dia ·
+              facturacion <span className="font-semibold text-slate-600 dark:text-slate-300 font-mono">{formatCurrency(targets.monthly_revenue)}</span>/mes ·
+              creativos <span className="font-semibold text-slate-600 dark:text-slate-300 font-mono">{targets.daily_videos}</span>v/<span className="font-semibold text-slate-600 dark:text-slate-300 font-mono">{targets.daily_images}</span>img por dia
+            </p>
           </form>
         </CardContent>
       </Card>

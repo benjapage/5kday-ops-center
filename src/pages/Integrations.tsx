@@ -269,7 +269,7 @@ export default function Integrations() {
         <div className="flex items-center gap-2">
           <BarChart3 size={16} className="text-violet-500" />
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">UTMify</h2>
-          <Badge variant="outline" className="text-xs text-slate-400">3 dashboards</Badge>
+          <Badge variant="outline" className="text-xs text-slate-400">4 dashboards</Badge>
         </div>
 
         <Card className="shadow-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800/60">
@@ -281,7 +281,7 @@ export default function Integrations() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tracking financiero</p>
-                  <p className="text-xs text-slate-400">3 dashboards — testeos, condimentos, whatsapp</p>
+                  <p className="text-xs text-slate-400">4 dashboards — testeos, condimentos, whatsapp, libro digital</p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
@@ -294,9 +294,10 @@ export default function Integrations() {
             <div className="space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Dashboards</p>
               {[
-                { name: 'TESTEOS - CP 3-4-5', type: 'testeos', desc: 'CP1, CP3, CP4, CP5 — facturacion + gasto', color: 'violet' },
+                { name: 'TESTEOS - CP 3-4-5', type: 'testeos', desc: 'CP5 BPF LLC LANDING, CP4 BPF LLC — facturacion + gasto', color: 'violet' },
                 { name: 'CONDI ARG CP 2', type: 'condimentos', desc: 'CP2 BPF LLC — facturacion + gasto', color: 'emerald' },
-                { name: 'Whatsapp', type: 'whatsapp', desc: 'CP1/CP2 BM Romina — solo gasto (facturacion via Sheets)', color: 'blue' },
+                { name: 'Whatsapp', type: 'whatsapp', desc: 'Solo gasto (facturacion WA via Google Sheets)', color: 'blue' },
+                { name: 'Libro digital testeos', type: 'libro_digital', desc: 'CP1 BPF LLC, CP3 BPF LLC — facturacion + gasto', color: 'amber' },
               ].map(db => (
                 <div key={db.type} className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-slate-700/50 px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -363,7 +364,7 @@ export default function Integrations() {
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
                 <div>
                   <p className="text-xs font-medium text-slate-700 dark:text-slate-200">Auto-sync</p>
-                  <p className="text-[10px] text-slate-400">Sincronizar los 3 dashboards cada {utmifyConfig.sync_interval_minutes} min</p>
+                  <p className="text-[10px] text-slate-400">Sincronizar los 4 dashboards cada {utmifyConfig.sync_interval_minutes} min</p>
                 </div>
                 <button
                   onClick={async () => { const { error } = await saveUtmifyConfig({ auto_sync: !utmifyConfig.auto_sync } as any); if (error) toast.error(error) }}

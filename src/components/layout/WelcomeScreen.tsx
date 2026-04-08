@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 function getGreeting() {
   const h = new Date().getHours()
-  if (h >= 6 && h < 12) return 'Buenos días'
+  if (h >= 6 && h < 12) return 'Buenos dias'
   if (h >= 12 && h < 20) return 'Buenas tardes'
   return 'Buenas noches'
 }
@@ -28,7 +28,7 @@ export function WelcomeScreen({ name, onComplete }: WelcomeScreenProps) {
 
   if (phase === 'done') return null
 
-  const motto = 'Felicidades por los $5K de hoy rey \u{1F451}'
+  const motto = 'Vamos por los $5K \u{1F680}'
 
   return (
     <div

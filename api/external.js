@@ -503,58 +503,120 @@ async function handleChat(req, res) {
   const today = now.toISOString().split('T')[0]
   const mtdFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
 
-  const [offersRes, waRes, utmTodayRes, utmMtdRes, tasksRes, editorsRes] = await Promise.all([
-    sb.from('offers').select('name, country, channel, status, current_roas').eq('status', 'active'),
-    sb.from('wa_accounts').select('phone_number, status, start_date, manychat_name, country'),
-    sb.from('utmify_sync').select('campaign_name, revenue_cents, spend_cents, profit_cents, roas, approved_orders, impressions, clicks, hook_rate').eq('date', today),
-    sb.from('utmify_sync').select('revenue_cents, spend_cents, profit_cents, approved_orders').gte('date', mtdFrom),
+  const [offersRes, waRes, utmTodayRes, utmMtdRes, tasksRes, editorsRes, waSalesTodayRes, waSalesMtdRes, settingsRes, creativesRes] = await Promise.all([
+    sb.from('offers').select('name, country, channel, status, current_roas, target_roas, start_date'),
+    sb.from('wa_accounts').select('phone_number, status, start_date, manychat_name, country, bm_id'),
+    sb.from('utmify_sync').select('campaign_name, campaign_id, revenue_cents, spend_cents, profit_cents, roas, approved_orders, impressions, clicks, hook_rate').eq('date', today),
+    sb.from('utmify_sync').select('campaign_id, revenue_cents, spend_cents, profit_cents, approved_orders').gte('date', mtdFrom),
     sb.from('app_tasks').select('title, completed, is_urgent').eq('scheduled_date', today),
     sb.from('editors').select('name, active'),
+    sb.from('wa_sales').select('amount_cents').eq('sale_date', today),
+    sb.from('wa_sales').select('amount_cents').gte('sale_date', mtdFrom),
+    sb.from('settings').select('value').eq('id', 'monthly_targets').single(),
+    sb.from('drive_creatives').select('creative_type, status').order('detected_at', { ascending: false }).limit(100),
   ])
 
   const utmToday = utmTodayRes.data || []
   const utmMtd = utmMtdRes.data || []
-  const revToday = utmToday.reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
+
+  // Helper: get dashboard type from campaign_id prefix
+  function getDashType(campaignId) {
+    const colon = (campaignId || '').indexOf(':')
+    return colon > 0 ? campaignId.slice(0, colon) : 'testeos'
+  }
+
+  // Revenue: testeos + condimentos + libro_digital (NOT whatsapp)
+  const revTodayShopify = utmToday.filter(r => { const t = getDashType(r.campaign_id); return t === 'testeos' || t === 'condimentos' || t === 'libro_digital' }).reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
   const spendToday = utmToday.reduce((s, r) => s + (r.spend_cents || 0), 0) / 100
-  const revMtd = utmMtd.reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
+  const waRevToday = (waSalesTodayRes.data || []).reduce((s, r) => s + (r.amount_cents || 0), 0) / 100
+  const revToday = revTodayShopify + waRevToday
+
+  const revMtdShopify = utmMtd.filter(r => { const t = getDashType(r.campaign_id); return t === 'testeos' || t === 'condimentos' || t === 'libro_digital' }).reduce((s, r) => s + (r.revenue_cents || 0), 0) / 100
   const spendMtd = utmMtd.reduce((s, r) => s + (r.spend_cents || 0), 0) / 100
+  const waRevMtd = (waSalesMtdRes.data || []).reduce((s, r) => s + (r.amount_cents || 0), 0) / 100
+  const revMtd = revMtdShopify + waRevMtd
+
+  // Per-dashboard breakdown MTD
+  const dbTypes = { testeos: { rev: 0, spend: 0 }, condimentos: { rev: 0, spend: 0 }, whatsapp: { rev: 0, spend: 0 }, libro_digital: { rev: 0, spend: 0 } }
+  for (const r of utmMtd) {
+    const t = getDashType(r.campaign_id)
+    if (dbTypes[t]) {
+      if (t !== 'whatsapp') dbTypes[t].rev += (r.revenue_cents || 0) / 100
+      dbTypes[t].spend += (r.spend_cents || 0) / 100
+    }
+  }
+
+  const targets = settingsRes.data?.value || {}
+  const creatives = creativesRes.data || []
+  const creativeSummary = {
+    totalVideos: creatives.filter(c => c.creative_type === 'video').length,
+    totalImages: creatives.filter(c => c.creative_type === 'imagen').length,
+    pendientes: creatives.filter(c => c.status === 'subido').length,
+    publicados: creatives.filter(c => c.status === 'publicado').length,
+  }
 
   const systemPrompt = `Sos el asistente de analisis de Benjamin en el 5KDay Ops Center.
-Tenes acceso a los datos en tiempo real del negocio.
-Negocio de infoproductos low ticket ($14.99 USD) via Shopify y WhatsApp.
-Meta Ads como plataforma principal. Objetivo: $5,000 USD/dia.
-ROAS objetivo: >1.5x, CPA objetivo: <$15, Hook rate objetivo: >40%, Margen objetivo: >30%
+Tenes acceso a los datos en tiempo real del negocio. Podes ayudar con analisis, recomendaciones y acciones.
+Negocio de infoproductos low ticket ($14.99 USD) via Shopify (landing pages) y WhatsApp.
+Meta Ads como plataforma principal. 4 dashboards en UTMify: testeos, condimentos, whatsapp, libro digital.
+Objetivo: $${targets.daily_profit || 5000} USD profit/dia, $${targets.monthly_revenue || 60000} USD facturacion/mes.
+ROAS objetivo: >${targets.default_min_roas || 1.5}x, CPA objetivo: <$${targets.default_max_cpa || 15}
+Hook rate objetivo: >40%, Margen objetivo: >30%
 Anuncio GANADOR: spend > $100 con ROAS > 1.0x
 Anuncio para MATAR: spend > $50 con 0 ventas
-Responde siempre en espanol. Se directo y practico.
+Metas de creativos: ${targets.daily_videos || 5} videos/dia + ${targets.daily_images || 15} imagenes/dia
+Responde siempre en espanol. Se directo y practico. Usa numeros y datos concretos.
 
 DATOS ACTUALES DEL NEGOCIO:
 
-OFERTAS ACTIVAS:
-${(offersRes.data || []).map(o => `- ${o.name} (${o.country}, ${o.channel}, ROAS: ${o.current_roas ?? 'N/A'})`).join('\n') || 'Sin ofertas activas'}
+OFERTAS (${(offersRes.data || []).length} total):
+${(offersRes.data || []).map(o => `- ${o.name} [${o.status}] (${o.country}, ${o.channel}) ROAS actual: ${o.current_roas ?? 'N/A'} | target: ${o.target_roas ?? 'N/A'} | desde: ${o.start_date}`).join('\n') || 'Sin ofertas'}
 
 NUMEROS WHATSAPP:
-${(waRes.data || []).map(w => `- ${w.phone_number} [${w.status}] ${w.manychat_name || ''} (${w.country || ''})`).join('\n') || 'Sin numeros'}
+${(waRes.data || []).map(w => `- ${w.phone_number} [${w.status}] ${w.manychat_name || ''} (${w.country || ''}) BM: ${w.bm_id || 'N/A'}`).join('\n') || 'Sin numeros'}
 
 METRICAS HOY (${today}):
-- Revenue: $${revToday.toFixed(2)}
-- Spend: $${spendToday.toFixed(2)}
+- Facturacion Shopify/Landing: $${revTodayShopify.toFixed(2)}
+- Facturacion WhatsApp: $${waRevToday.toFixed(2)}
+- Facturacion Total: $${revToday.toFixed(2)}
+- Inversion Ads: $${spendToday.toFixed(2)}
 - Profit: $${(revToday - spendToday).toFixed(2)}
 - ROAS: ${spendToday > 0 ? (revToday / spendToday).toFixed(2) + 'x' : 'N/A'}
 
-METRICAS MES:
-- Revenue MTD: $${revMtd.toFixed(2)}
-- Spend MTD: $${spendMtd.toFixed(2)}
-- Profit MTD: $${(revMtd - spendMtd).toFixed(2)}
-- ROAS MTD: ${spendMtd > 0 ? (revMtd / spendMtd).toFixed(2) + 'x' : 'N/A'}
+METRICAS MES (MTD):
+- Facturacion Shopify/Landing: $${revMtdShopify.toFixed(2)}
+- Facturacion WhatsApp: $${waRevMtd.toFixed(2)}
+- Facturacion Total: $${revMtd.toFixed(2)}
+- Inversion Ads: $${spendMtd.toFixed(2)}
+- Profit: $${(revMtd - spendMtd).toFixed(2)}
+- ROAS: ${spendMtd > 0 ? (revMtd / spendMtd).toFixed(2) + 'x' : 'N/A'}
+
+POR DASHBOARD (MTD):
+- Testeos: Rev $${dbTypes.testeos.rev.toFixed(2)}, Spend $${dbTypes.testeos.spend.toFixed(2)}
+- Condimentos: Rev $${dbTypes.condimentos.rev.toFixed(2)}, Spend $${dbTypes.condimentos.spend.toFixed(2)}
+- WhatsApp (solo spend): Spend $${dbTypes.whatsapp.spend.toFixed(2)}
+- Libro digital: Rev $${dbTypes.libro_digital.rev.toFixed(2)}, Spend $${dbTypes.libro_digital.spend.toFixed(2)}
 
 CAMPANAS HOY:
 ${utmToday.map(c => `- ${c.campaign_name}: Rev $${((c.revenue_cents||0)/100).toFixed(2)}, Spend $${((c.spend_cents||0)/100).toFixed(2)}, ROAS ${c.roas || 'N/A'}, Orders ${c.approved_orders || 0}, Hook ${c.hook_rate ? (c.hook_rate * 100).toFixed(1) + '%' : 'N/A'}`).join('\n') || 'Sin datos de campanas hoy'}
 
+CREATIVOS:
+- Videos: ${creativeSummary.totalVideos} | Imagenes: ${creativeSummary.totalImages}
+- Pendientes: ${creativeSummary.pendientes} | Publicados: ${creativeSummary.publicados}
+
 TAREAS HOY:
 ${(tasksRes.data || []).map(t => `- [${t.completed ? 'DONE' : t.is_urgent ? 'URGENTE' : 'TODO'}] ${t.title}`).join('\n') || 'Sin tareas'}
 
-EDITORES: ${(editorsRes.data || []).filter(e => e.active).map(e => e.name).join(', ') || 'N/A'}`
+EDITORES: ${(editorsRes.data || []).filter(e => e.active).map(e => e.name).join(', ') || 'N/A'}
+
+ACCIONES DISPONIBLES:
+Cuando el usuario pida crear una oferta, modificar un numero WA, o cualquier cambio en datos, indica los pasos exactos o genera los datos necesarios. Podes recomendar acciones como:
+- Crear ofertas nuevas
+- Cambiar estado de numeros WA
+- Analizar performance por dashboard
+- Recomendar escalado o pausa de campanas
+- Sugerir nuevos creativos
+Se proactivo con recomendaciones basadas en los datos.`
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {

@@ -21,6 +21,14 @@
     {
       "path": "/api/utmify?action=sync&days=1",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/external?_path=sheets/sync",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/external?_path=sheets/ban-check",
+      "schedule": "30 */2 * * *"
     }
   ]
 }
