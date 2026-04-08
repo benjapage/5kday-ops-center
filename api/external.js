@@ -651,6 +651,54 @@ Se proactivo con recomendaciones basadas en los datos.`
   }
 }
 
+async function handleMigrate(req, res) {
+  const sb = getSupabase()
+  const results = []
+
+  // 1. Clear old utmify_config and insert 4 dashboards
+  const { error: delErr } = await sb.from('utmify_config').delete().neq('id', '')
+  results.push({ step: 'delete_old_config', error: delErr?.message || null })
+
+  const dashboards = [
+    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69a78ca2501d38fceac48178', dashboard_name: 'TESTEOS - CP 3-4-5', dashboard_type: 'testeos' },
+    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69caa2d1fc27d69a9dd2e687', dashboard_name: 'CONDI ARG CP 2', dashboard_type: 'condimentos' },
+    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69caa763a4a3b9ab12036d90', dashboard_name: 'Whatsapp', dashboard_type: 'whatsapp' },
+    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69ce6ad52439d544849f0f94', dashboard_name: 'Libro digital testeos', dashboard_type: 'libro_digital' },
+  ]
+
+  for (const db of dashboards) {
+    const { error } = await sb.from('utmify_config').insert(db)
+    results.push({ step: `insert_${db.dashboard_type}`, error: error?.message || null })
+  }
+
+  // 2. Update settings with new targets
+  const { error: settErr } = await sb.from('settings').upsert({
+    id: 'monthly_targets',
+    value: { daily_profit: 5000, monthly_revenue: 60000, daily_videos: 5, daily_images: 15, default_max_cpa: 15, default_min_roas: 1.5 },
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'id' })
+  results.push({ step: 'settings_targets', error: settErr?.message || null })
+
+  // 3. Insert banned number if not exists
+  const { data: existingBanned } = await sb.from('wa_accounts').select('id').eq('phone_number', '+12543483697').limit(1)
+  if (!existingBanned?.length) {
+    const { error: banErr } = await sb.from('wa_accounts').insert({
+      phone_number: '+12543483697', country: 'US', status: 'banned',
+      start_date: '2026-03-29', notes: 'BM Panaderia de la infancia — baneado 29/3/2026',
+    })
+    results.push({ step: 'insert_banned_number', error: banErr?.message || null })
+  } else {
+    results.push({ step: 'insert_banned_number', skipped: 'already exists' })
+  }
+
+  // 4. Verify utmify_config
+  const { data: configs } = await sb.from('utmify_config').select('dashboard_id, dashboard_name, dashboard_type')
+  results.push({ step: 'verify', dashboards: configs?.length || 0, data: configs })
+
+  const hasErrors = results.some(r => r.error)
+  return ok(res, { migrated: !hasErrors, results })
+}
+
 function handleDocs(req, res) {
   return ok(res, {
     name: '5KDay Ops Center API',
@@ -694,6 +742,8 @@ module.exports = async function handler(req, res) {
     if (route === 'internal' && sub === 'dolar-blue') return dolarBlueHandler(req, res)
     // Sheets sync — called from frontend (no API key needed)
     if (route === 'sheets') return handleSheets(req, res, sub, req.query)
+    // Migration — called once to set up DB (no API key needed, idempotent)
+    if (route === 'migrate') return handleMigrate(req, res)
 
     // External routes — require API key
     if (!checkAuth(req)) return err(res, 401, 'Invalid or missing API key. Use: Authorization: Bearer <OPS_API_KEY>')
