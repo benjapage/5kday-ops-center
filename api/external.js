@@ -655,20 +655,29 @@ async function handleMigrate(req, res) {
   const sb = getSupabase()
   const results = []
 
-  // 1. Clear old utmify_config and insert 4 dashboards
-  const { error: delErr } = await sb.from('utmify_config').delete().neq('id', '')
-  results.push({ step: 'delete_old_config', error: delErr?.message || null })
+  // 1. Clear old utmify_config
+  const { data: oldConfigs } = await sb.from('utmify_config').select('id')
+  if (oldConfigs?.length) {
+    for (const old of oldConfigs) {
+      await sb.from('utmify_config').delete().eq('id', old.id)
+    }
+    results.push({ step: 'delete_old_config', deleted: oldConfigs.length })
+  } else {
+    results.push({ step: 'delete_old_config', deleted: 0 })
+  }
 
+  // 2. Insert 4 dashboards (using only columns guaranteed to exist: mcp_url, dashboard_id)
+  const MCP_URL = 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs'
   const dashboards = [
-    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69a78ca2501d38fceac48178', dashboard_name: 'TESTEOS - CP 3-4-5', dashboard_type: 'testeos' },
-    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69caa2d1fc27d69a9dd2e687', dashboard_name: 'CONDI ARG CP 2', dashboard_type: 'condimentos' },
-    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69caa763a4a3b9ab12036d90', dashboard_name: 'Whatsapp', dashboard_type: 'whatsapp' },
-    { mcp_url: 'https://mcp.utmify.com.br/mcp/?token=9Jti4mOMa0ocfxDtEG7FmwG4ujN3U0hK&resources=gs,gm,gu,gwe,ga,gp,gwa,gr,gcs', dashboard_id: '69ce6ad52439d544849f0f94', dashboard_name: 'Libro digital testeos', dashboard_type: 'libro_digital' },
+    { mcp_url: MCP_URL, dashboard_id: '69a78ca2501d38fceac48178' },
+    { mcp_url: MCP_URL, dashboard_id: '69caa2d1fc27d69a9dd2e687' },
+    { mcp_url: MCP_URL, dashboard_id: '69caa763a4a3b9ab12036d90' },
+    { mcp_url: MCP_URL, dashboard_id: '69ce6ad52439d544849f0f94' },
   ]
 
   for (const db of dashboards) {
     const { error } = await sb.from('utmify_config').insert(db)
-    results.push({ step: `insert_${db.dashboard_type}`, error: error?.message || null })
+    results.push({ step: `insert_${db.dashboard_id.slice(-6)}`, error: error?.message || null })
   }
 
   // 2. Update settings with new targets
