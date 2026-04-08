@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings2, User, Users, Plug, Bell, Shield, CheckCircle2, XCircle, DollarSign, Key, Mail, Moon, Sun, Monitor } from 'lucide-react'
+import { Settings2, User, Users, Plug, Bell, Shield, CheckCircle2, XCircle, DollarSign, Key, Mail, Moon, Sun, Monitor, FolderOpen } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,6 +31,8 @@ export default function Settings() {
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' })
   const [changingPassword, setChangingPassword] = useState(false)
   const [welcomeEnabled, setWelcomeEnabled] = useState(localStorage.getItem('5kday-welcome-disabled') !== 'true')
+  const [driveParentFolder, setDriveParentFolder] = useState('')
+  const [savingDriveFolder, setSavingDriveFolder] = useState(false)
 
   useEffect(() => {
     if (!isLoading) {
@@ -46,6 +48,9 @@ export default function Settings() {
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email, role').order('created_at').then(({ data }) => {
       if (data) setMembers(data)
+    })
+    supabase.from('settings').select('value').eq('id', 'drive_parent_folder').single().then(({ data }) => {
+      if (data?.value?.url) setDriveParentFolder(data.value.url)
     })
   }, [])
 
@@ -196,6 +201,48 @@ export default function Settings() {
                 )}
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* DRIVE */}
+      <Card className="shadow-sm border-slate-200/80 dark:border-slate-700/80 dark:bg-slate-800/60">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <FolderOpen size={16} className="text-slate-500" />
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Google Drive - Creativos</h2>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Carpeta padre de ofertas</Label>
+            <p className="text-[10px] text-slate-400 mb-1">Al crear una oferta, se creara automaticamente la estructura de carpetas dentro de esta carpeta.</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://drive.google.com/drive/folders/..."
+                value={driveParentFolder}
+                onChange={e => setDriveParentFolder(e.target.value)}
+                disabled={!isAdmin}
+                className="font-mono text-xs"
+              />
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={savingDriveFolder}
+                  onClick={async () => {
+                    setSavingDriveFolder(true)
+                    await supabase.from('settings').upsert({
+                      id: 'drive_parent_folder',
+                      value: { url: driveParentFolder },
+                      updated_at: new Date().toISOString(),
+                    }, { onConflict: 'id' })
+                    setSavingDriveFolder(false)
+                    toast.success('Carpeta padre guardada')
+                  }}
+                >
+                  {savingDriveFolder ? '...' : 'Guardar'}
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

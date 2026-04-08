@@ -41,6 +41,19 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [autoCreateDrive, setAutoCreateDrive] = useState(true)
+  const [parentFolderUrl, setParentFolderUrl] = useState<string | null>(null)
+
+  // Load parent folder setting
+  useEffect(() => {
+    if (open) {
+      import('@/lib/supabase').then(({ supabase }) => {
+        supabase.from('settings').select('value').eq('id', 'drive_parent_folder').single().then(({ data }) => {
+          setParentFolderUrl(data?.value?.url || null)
+        })
+      })
+    }
+  }, [open])
 
   function set(k: string, v: any) {
     setForm(p => ({ ...p, [k]: v }))
@@ -66,6 +79,8 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
     if (Object.keys(errs).length) { setErrors(errs); return }
 
     setIsLoading(true)
+
+    // Create the offer first
     const { error } = await onCreate({
       name: form.name,
       country: form.countries.join(','),
@@ -77,8 +92,38 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
       current_cpl: form.current_cpl ? Number(form.current_cpl) : null,
       drive_folder_url: form.drive_folder_url || null,
     } as any)
+
+    if (error) { setIsLoading(false); toast.error(error); return }
+
+    // Auto-create Drive folder if enabled and parent folder configured
+    if (autoCreateDrive && parentFolderUrl && !form.drive_folder_url) {
+      try {
+        const { supabase } = await import('@/lib/supabase')
+        // Get the just-created offer ID
+        const { data: newOffer } = await supabase.from('offers').select('id').eq('name', form.name).order('created_at', { ascending: false }).limit(1).single()
+        if (newOffer) {
+          const parentMatch = parentFolderUrl.match(/folders\/([a-zA-Z0-9_-]+)/)
+          const parentFolderId = parentMatch?.[1]
+          if (parentFolderId) {
+            const res = await fetch(`/api/drive-offer-sync?action=create-folder`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ offer_id: newOffer.id, parent_folder_id: parentFolderId, offer_name: form.name }),
+            })
+            const result = await res.json()
+            if (result.ok) {
+              toast.success('Carpeta de Drive creada automaticamente')
+            } else {
+              toast.error(`Oferta creada, pero Drive fallo: ${result.error}`)
+            }
+          }
+        }
+      } catch (err) {
+        toast.error('Oferta creada, pero no se pudo crear carpeta de Drive')
+      }
+    }
+
     setIsLoading(false)
-    if (error) { toast.error(error); return }
     toast.success('Oferta creada')
     setForm({ name: '', countries: [], channel: '', start_date: today, target_roas: '', target_cpl: '', current_roas: '', current_cpl: '', drive_folder_url: '' })
     onOpenChange(false)
@@ -167,11 +212,37 @@ function AddOfferDialog({ open, onOpenChange, onCreate }: {
 
           <div className="form-section">
             <p className="form-section-title">Google Drive</p>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Carpeta de creativos</Label>
-              <Input placeholder="https://drive.google.com/drive/folders/..." value={form.drive_folder_url} onChange={e => set('drive_folder_url', e.target.value)} />
-              <p className="text-[10px] text-slate-400">URL de la carpeta de Drive con los creativos de esta oferta</p>
-            </div>
+            {parentFolderUrl ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAutoCreateDrive(!autoCreateDrive)}
+                    className={`relative w-9 h-5 rounded-full transition-colors ${autoCreateDrive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${autoCreateDrive ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                  <Label className="text-xs font-medium cursor-pointer" onClick={() => setAutoCreateDrive(!autoCreateDrive)}>
+                    Crear carpeta automaticamente
+                  </Label>
+                </div>
+                {autoCreateDrive ? (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                    Se creara: {form.name || '[nombre]'} / Anuncios / Video + Imagen / Testeo 1
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Input placeholder="https://drive.google.com/drive/folders/..." value={form.drive_folder_url} onChange={e => set('drive_folder_url', e.target.value)} />
+                    <p className="text-[10px] text-slate-400">URL de la carpeta de Drive existente</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Input placeholder="https://drive.google.com/drive/folders/..." value={form.drive_folder_url} onChange={e => set('drive_folder_url', e.target.value)} />
+                <p className="text-[10px] text-slate-400">URL de la carpeta de Drive. Configura la carpeta padre en Settings para auto-crear.</p>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="pt-2">

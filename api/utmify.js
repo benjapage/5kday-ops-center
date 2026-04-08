@@ -232,6 +232,185 @@ async function handleSync(supabase, query) {
   return { synced: totalSynced, dateRange: { from: fromDate, to: toDate }, dashboards: results }
 }
 
+// ─── ACTION: backfill (chunk-safe, 1 dashboard at a time) ───
+// GET /api/utmify?action=backfill&days=30&dashboard=testeos
+// Syncs one dashboard at a time (max 10 days per request to avoid Vercel timeout)
+async function handleBackfill(supabase, query) {
+  const totalDays = parseInt(query.days || '30')
+  const chunkSize = parseInt(query.chunk || '10')
+  const offset = parseInt(query.offset || '0')
+  const targetType = query.dashboard
+
+  if (!targetType || targetType === 'all') {
+    return { error: 'Backfill requires a specific dashboard param (testeos, condimentos, whatsapp, libro_digital). Run one at a time.' }
+  }
+
+  const db = DASHBOARDS.find(d => d.type === targetType)
+  if (!db) return { error: `Unknown dashboard: ${targetType}` }
+
+  const now = new Date()
+  const totalFrom = new Date(now); totalFrom.setDate(totalFrom.getDate() - (totalDays - 1))
+
+  // Calculate chunk window
+  const chunkFrom = new Date(totalFrom); chunkFrom.setDate(chunkFrom.getDate() + offset)
+  const chunkTo = new Date(chunkFrom); chunkTo.setDate(chunkTo.getDate() + chunkSize - 1)
+  const maxTo = new Date(now)
+  if (chunkTo > maxTo) chunkTo.setTime(maxTo.getTime())
+
+  if (chunkFrom > maxTo) {
+    return { done: true, message: `Backfill complete for ${targetType}`, totalDays }
+  }
+
+  const fromDate = chunkFrom.toISOString().split('T')[0]
+  const toDate = chunkTo.toISOString().split('T')[0]
+
+  // Build date list for this chunk
+  const dates = []
+  const d = new Date(fromDate + 'T12:00:00Z')
+  const end = new Date(toDate + 'T12:00:00Z')
+  while (d <= end) { dates.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1) }
+
+  await mcpInitialize(MCP_URL)
+
+  let synced = 0
+  let errors = []
+  for (const date of dates) {
+    try {
+      const dateFrom = formatDateISO(date, '00:00:00')
+      const dateTo = formatDateISO(date, '23:59:59')
+      const summary = await mcpCallTool(MCP_URL, 'get_dashboard_summary', {
+        dashboardId: db.id,
+        dateRange: { from: dateFrom, to: dateTo },
+      })
+
+      const revenueCents = Math.round(summary?.comissions?.gross || 0)
+      const spendCents = summary?.ads?.spent || 0
+      const orders = summary?.ordersCount?.approved || 0
+      const clicks = summary?.ads?.clicks || 0
+      const impressions = summary?.ads?.meta?.pageViews || 0
+      const conversations = summary?.analytics?.conversations || 0
+
+      const row = {
+        date,
+        campaign_id: `${db.type}:daily`,
+        campaign_name: db.name,
+        ad_account_id: null,
+        ad_account_name: db.type,
+        level: db.type,
+        revenue_cents: revenueCents,
+        spend_cents: spendCents,
+        profit_cents: revenueCents - spendCents,
+        roas: spendCents > 0 ? revenueCents / spendCents : null,
+        profit_margin: revenueCents > 0 ? (revenueCents - spendCents) / revenueCents : null,
+        approved_orders: orders,
+        total_orders: summary?.ordersCount?.total || 0,
+        cpa_cents: orders > 0 ? Math.round(spendCents / orders) : null,
+        impressions,
+        clicks,
+        ctr: clicks > 0 && impressions > 0 ? clicks / impressions : null,
+        landing_page_views: summary?.ads?.meta?.pageViews || 0,
+        initiate_checkout: summary?.ads?.meta?.initiateCheckouts || 0,
+        conversations,
+        video_views: 0,
+        hook_rate: null,
+        retention_rate: null,
+        status: null,
+        daily_budget_cents: null,
+        untracked_count: 0,
+        products: '[]',
+        synced_at: new Date().toISOString(),
+      }
+
+      const { error: upsertErr } = await supabase.from('utmify_sync').upsert(row, { onConflict: 'date,campaign_id' })
+      if (upsertErr) { errors.push({ date, error: upsertErr.message }); continue }
+      synced++
+    } catch (err) {
+      errors.push({ date, error: err.message })
+    }
+  }
+
+  await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
+
+  const nextOffset = offset + chunkSize
+  const done = nextOffset >= totalDays
+
+  return {
+    dashboard: db.type,
+    chunk: { from: fromDate, to: toDate, synced, errors: errors.length ? errors : undefined },
+    progress: { offset, nextOffset: done ? null : nextOffset, totalDays, done },
+    ...(done ? {} : { nextUrl: `/api/utmify?action=backfill&days=${totalDays}&dashboard=${targetType}&offset=${nextOffset}&chunk=${chunkSize}` }),
+  }
+}
+
+// ─── ACTION: backfill-all (runs all dashboards sequentially, small chunks) ───
+// GET /api/utmify?action=backfill-all&days=30
+async function handleBackfillAll(supabase, query) {
+  const totalDays = parseInt(query.days || '30')
+  const results = []
+
+  await mcpInitialize(MCP_URL)
+
+  const now = new Date()
+  const fromD = new Date(now); fromD.setDate(fromD.getDate() - (totalDays - 1))
+
+  const dates = []
+  const d = new Date(fromD.toISOString().split('T')[0] + 'T12:00:00Z')
+  const end = new Date(todayStr() + 'T12:00:00Z')
+  while (d <= end) { dates.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1) }
+
+  for (const db of DASHBOARDS) {
+    let synced = 0, errors = []
+    for (const date of dates) {
+      try {
+        const dateFrom = formatDateISO(date, '00:00:00')
+        const dateTo = formatDateISO(date, '23:59:59')
+        const summary = await mcpCallTool(MCP_URL, 'get_dashboard_summary', {
+          dashboardId: db.id,
+          dateRange: { from: dateFrom, to: dateTo },
+        })
+
+        const revenueCents = Math.round(summary?.comissions?.gross || 0)
+        const spendCents = summary?.ads?.spent || 0
+        const orders = summary?.ordersCount?.approved || 0
+        const clicks = summary?.ads?.clicks || 0
+        const impressions = summary?.ads?.meta?.pageViews || 0
+        const conversations = summary?.analytics?.conversations || 0
+
+        const row = {
+          date,
+          campaign_id: `${db.type}:daily`,
+          campaign_name: db.name,
+          ad_account_id: null, ad_account_name: db.type, level: db.type,
+          revenue_cents: revenueCents, spend_cents: spendCents,
+          profit_cents: revenueCents - spendCents,
+          roas: spendCents > 0 ? revenueCents / spendCents : null,
+          profit_margin: revenueCents > 0 ? (revenueCents - spendCents) / revenueCents : null,
+          approved_orders: orders, total_orders: summary?.ordersCount?.total || 0,
+          cpa_cents: orders > 0 ? Math.round(spendCents / orders) : null,
+          impressions, clicks,
+          ctr: clicks > 0 && impressions > 0 ? clicks / impressions : null,
+          landing_page_views: summary?.ads?.meta?.pageViews || 0,
+          initiate_checkout: summary?.ads?.meta?.initiateCheckouts || 0,
+          conversations, video_views: 0, hook_rate: null, retention_rate: null,
+          status: null, daily_budget_cents: null, untracked_count: 0,
+          products: '[]', synced_at: new Date().toISOString(),
+        }
+
+        const { error: upsertErr } = await supabase.from('utmify_sync').upsert(row, { onConflict: 'date,campaign_id' })
+        if (upsertErr) { errors.push({ date, error: upsertErr.message }); continue }
+        synced++
+      } catch (err) {
+        errors.push({ date, error: err.message })
+      }
+    }
+    results.push({ dashboard: db.type, synced, errors: errors.length ? errors : undefined })
+  }
+
+  await supabase.from('utmify_config').update({ last_sync_at: new Date().toISOString() }).neq('id', '')
+
+  return { totalDays: dates.length, dashboards: results, dateRange: { from: dates[0], to: dates[dates.length - 1] } }
+}
+
 // ─── ACTION: push ───
 async function handlePush(supabase, body) {
   if (!body?.campaigns && !body?.results) {
@@ -403,6 +582,8 @@ module.exports = async function handler(req, res) {
     switch (action) {
       case 'test-connection': return res.json(await handleTestConnection())
       case 'sync': return res.json(await handleSync(supabase, req.query || {}))
+      case 'backfill': return res.json(await handleBackfill(supabase, req.query || {}))
+      case 'backfill-all': return res.json(await handleBackfillAll(supabase, req.query || {}))
       case 'wipe': {
         // Delete all utmify_sync data
         const { error: delErr } = await supabase.from('utmify_sync').delete().gte('date', '2000-01-01')

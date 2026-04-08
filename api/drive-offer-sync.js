@@ -238,6 +238,61 @@ async function scanAnunciosFolder(supabase, token, offerFolderId, folderId, edit
   }
 }
 
+// ─── CREATE FOLDER in Drive ───
+async function driveCreateFolder(token, name, parentId) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      mimeType: 'application/vnd.google-apps.folder',
+      ...(parentId ? { parents: [parentId] } : {}),
+    }),
+  })
+  if (!res.ok) throw new Error(`Drive create folder ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  return res.json()
+}
+
+// ─── CREATE-FOLDER: auto-create offer folder structure in Drive ───
+// POST /api/drive-offer-sync?action=create-folder  { offer_id, parent_folder_id, offer_name }
+// Creates: OfferName/ → Anuncios/ → Anuncios Video/ + Anuncios Imagen/ → Testeo 1/
+async function handleCreateFolder(supabase, token, body) {
+  const { offer_id, parent_folder_id, offer_name } = body
+  if (!offer_id || !parent_folder_id || !offer_name) {
+    return { error: 'offer_id, parent_folder_id, and offer_name required' }
+  }
+
+  // Check if already linked
+  const { data: existing } = await supabase.from('drive_offer_folders').select('id').eq('offer_id', offer_id).single()
+  if (existing) return { error: 'Offer already has a linked Drive folder' }
+
+  // Create structure
+  const offerFolder = await driveCreateFolder(token, offer_name, parent_folder_id)
+  const anunciosFolder = await driveCreateFolder(token, 'Anuncios', offerFolder.id)
+  const videoFolder = await driveCreateFolder(token, 'Anuncios Video', anunciosFolder.id)
+  const imagenFolder = await driveCreateFolder(token, 'Anuncios Imagen', anunciosFolder.id)
+  await driveCreateFolder(token, 'Testeo 1', videoFolder.id)
+  await driveCreateFolder(token, 'Testeo 1', imagenFolder.id)
+
+  const driveUrl = `https://drive.google.com/drive/folders/${offerFolder.id}`
+
+  // Link to offer
+  await supabase.from('drive_offer_folders').upsert({
+    offer_id,
+    drive_folder_id: offerFolder.id,
+    drive_folder_name: offer_name,
+  }, { onConflict: 'offer_id' })
+
+  await supabase.from('offers').update({ drive_folder_url: driveUrl }).eq('id', offer_id)
+
+  return {
+    ok: true,
+    folder_id: offerFolder.id,
+    drive_url: driveUrl,
+    structure: { offerFolder: offerFolder.id, anuncios: anunciosFolder.id, video: videoFolder.id, imagen: imagenFolder.id },
+  }
+}
+
 // ─── LINK: connect a Drive folder to an offer ───
 async function handleLink(supabase, body) {
   const { offer_id, drive_url } = body
@@ -612,6 +667,9 @@ module.exports = async function handler(req, res) {
     const token = await getValidToken(supabase)
     if (!token) return res.status(401).json({ error: 'No Google account connected' })
 
+    if (action === 'create-folder' && req.method === 'POST') {
+      return res.json(await handleCreateFolder(supabase, token, req.body))
+    }
     if (action === 'sync') {
       const offerId = req.query?.offer_id
       if (!offerId) return res.status(400).json({ error: 'offer_id required' })
