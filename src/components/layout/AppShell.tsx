@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { WelcomeScreen } from './WelcomeScreen'
-import { ChatPanel } from '@/components/chat/ChatPanel'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
@@ -17,7 +16,6 @@ export function AppShell() {
   const alreadyShown = sessionStorage.getItem(WELCOME_KEY) === 'true'
 
   const [showWelcome, setShowWelcome] = useState(!welcomeDisabled && !alreadyShown)
-  const [chatOpen, setChatOpen] = useState(false)
   const banCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const handleWelcomeComplete = useCallback(() => {
@@ -63,7 +61,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0a0f1a]">
       {showWelcome && <WelcomeScreen name={firstName} onComplete={handleWelcomeComplete} />}
-      <Sidebar onChatToggle={() => setChatOpen(prev => !prev)} />
+      <Sidebar />
       <main
         className="min-h-screen transition-all duration-300 pt-14 md:pt-0 md:ml-[68px]"
         role="main"
@@ -73,7 +71,6 @@ export function AppShell() {
           <Outlet />
         </div>
       </main>
-      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} userName={firstName} />
       <Toaster richColors position="top-right" />
     </div>
   )
