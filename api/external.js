@@ -637,7 +637,7 @@ Se proactivo con recomendaciones basadas en los datos.`
     if (!response.ok) {
       const text = await response.text()
       console.error('[chat] Anthropic error:', text)
-      return err(res, 502, `Anthropic API error: ${response.status}`)
+      return err(res, 502, `Anthropic API error ${response.status}: ${text.slice(0, 200)}`)
     }
 
     const result = await response.json()
